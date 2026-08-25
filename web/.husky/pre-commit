@@ -1,0 +1,4 @@
+# Frontend gate: ESLint, Prettier and tsc on the staged files (see web/lint-staged.config.js).
+# Runs from web/ so lint-staged only picks up frontend changes; the api module has its own
+# verification through Maven.
+cd web && npx lint-staged

@@ -1,0 +1,30 @@
+# Automated tests.
+#
+# The datasource is supplied at runtime by Testcontainers (see AbstractIntegrationTest), so the
+# placeholders in application.yml are given inert defaults here — a test that reaches the database
+# without a container should fail on connect, not on placeholder resolution.
+#
+# CoreConfig swaps in a fixed Clock and a deterministic IdGenerator under this profile: no test
+# depends on when it runs or on the order ids happen to come out (doc 09 §4.6).
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/giaky_test_unconfigured}
+    username: ${DB_USERNAME:test}
+    password: ${DB_PASSWORD:test}
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  media:
+    local-directory: ${java.io.tmpdir}/giaky-test-media
+
+logging:
+  level:
+    app.giaky: DEBUG
+    org.testcontainers: INFO
+    com.github.dockerjava: WARN

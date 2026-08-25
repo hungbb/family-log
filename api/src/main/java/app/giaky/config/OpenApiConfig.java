@@ -1,0 +1,50 @@
+package app.giaky.config;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * The OpenAPI document behind {@code /swagger-ui.html}.
+ *
+ * <p>The bearer scheme is declared now even though nothing enforces it yet (see
+ * {@code SecurityConfig}) so the exported spec — which the frontend generates its types from — is
+ * already the shape Phase 1 will fill in.
+ */
+@Configuration
+public class OpenApiConfig {
+
+    private static final String BEARER_SCHEME = "bearerAuth";
+
+    @Bean
+    public OpenAPI giaKyOpenApi(@Value("${app.api.base-url:http://localhost:8080}") String baseUrl) {
+        return new OpenAPI()
+                .info(
+                        new Info()
+                                .title("Gia Ký API")
+                                .version("v1")
+                                .description(
+                                        "REST API for Gia Ký, a gia phả (family lineage) platform. "
+                                                + "Design source of truth: .docs/05-api-specification.md.")
+                                .contact(new Contact().name("Gia Ký").url("https://giaky.app"))
+                                .license(new License().name("Proprietary")))
+                .servers(List.of(new Server().url(baseUrl).description("Base URL")))
+                .components(
+                        new Components()
+                                .addSecuritySchemes(
+                                        BEARER_SCHEME,
+                                        new SecurityScheme()
+                                                .type(SecurityScheme.Type.HTTP)
+                                                .scheme("bearer")
+                                                .bearerFormat("JWT")
+                                                .description("TODO(Phase 1): issued by /api/v1/auth/login.")));
+    }
+}

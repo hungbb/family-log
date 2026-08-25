@@ -1,0 +1,38 @@
+# Deployment.
+#
+# No defaults anywhere: every value below either comes from the environment or is a hard-coded
+# safety setting. A missing secret must stop the application at startup.
+spring:
+  jpa:
+    show-sql: false
+
+  flyway:
+    clean-disabled: true # Non-negotiable (doc 09 §2.3).
+    validate-on-migrate: true
+    out-of-order: false
+
+app:
+  cors:
+    # Explicit origins only — no wildcard, no default.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+management:
+  endpoint:
+    health:
+      show-details: never # Do not describe the infrastructure to the internet.
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:false}
+
+server:
+  forward-headers-strategy: framework # Behind a reverse proxy.
+
+logging:
+  level:
+    root: INFO
+    app.giaky: INFO

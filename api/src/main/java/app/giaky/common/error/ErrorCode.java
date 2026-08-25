@@ -1,0 +1,75 @@
+package app.giaky.common.error;
+
+import org.springframework.http.HttpStatus;
+
+/**
+ * The error catalogue from {@code .docs/05-api-specification.md} §2.
+ *
+ * <p>The {@code code} a client sees is the constant's own name, so this enum <i>is</i> the contract:
+ * renaming a constant is a breaking API change.
+ */
+public enum ErrorCode {
+
+    // 400
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "Malformed request"),
+    INVALID_CLAN_CODE(HttpStatus.BAD_REQUEST, "Invalid clan code"),
+
+    // 401
+    AUTH_REQUIRED(HttpStatus.UNAUTHORIZED, "Authentication required"),
+    TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Token expired"),
+    TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Token invalid"),
+
+    // 403
+    PERMISSION_DENIED(HttpStatus.FORBIDDEN, "Permission denied"),
+    OUT_OF_SCOPE(HttpStatus.FORBIDDEN, "Out of scope"),
+    PERMISSION_ESCALATION_BLOCKED(HttpStatus.FORBIDDEN, "Permission escalation blocked"),
+    LAST_ADMIN_PROTECTED(HttpStatus.FORBIDDEN, "Last administrator protected"),
+
+    // 404
+    CLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "Clan not found"),
+    PERSON_NOT_FOUND(HttpStatus.NOT_FOUND, "Person not found"),
+    BRANCH_NOT_FOUND(HttpStatus.NOT_FOUND, "Branch not found"),
+    REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "Request not found"),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
+
+    // 409
+    VERSION_CONFLICT(HttpStatus.CONFLICT, "Version conflict"),
+    DUPLICATE_PENDING_REQUEST(HttpStatus.CONFLICT, "Duplicate pending request"),
+    NODE_ALREADY_LINKED(HttpStatus.CONFLICT, "Node already linked"),
+    USER_ALREADY_LINKED_IN_CLAN(HttpStatus.CONFLICT, "User already linked in clan"),
+    MEMBERSHIP_EXISTS(HttpStatus.CONFLICT, "Membership exists"),
+
+    // 422
+    VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "Validation failed"),
+    CYCLE_DETECTED(HttpStatus.UNPROCESSABLE_ENTITY, "Cycle detected"),
+    INVALID_RELATIONSHIP(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid relationship"),
+    DATE_RANGE_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "Date range invalid"),
+
+    // 429
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
+
+    // 500
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error");
+
+    private final HttpStatus status;
+    private final String title;
+
+    ErrorCode(HttpStatus status, String title) {
+        this.status = status;
+        this.title = title;
+    }
+
+    public HttpStatus status() {
+        return status;
+    }
+
+    /** Human-readable summary of the error class; the RFC 7807 {@code title}. */
+    public String title() {
+        return title;
+    }
+
+    /** The RFC 7807 {@code type} URI, e.g. {@code https://giaky.app/errors/permission-denied}. */
+    public String typeUri() {
+        return "https://giaky.app/errors/" + name().toLowerCase().replace('_', '-');
+    }
+}

@@ -1,0 +1,28 @@
+# Normalise line endings so a Windows checkout and a macOS checkout produce the same diffs.
+* text=auto eol=lf
+
+# Shell scripts must stay LF even on Windows: a CRLF `mvnw` fails with "bad interpreter" the moment
+# anyone runs it on Linux or macOS.
+*.sh text eol=lf
+mvnw text eol=lf
+**/.husky/* text eol=lf
+
+# Windows-only scripts want CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary: never touch, never diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.jar binary
+
+# Generated; collapse it in review.
+package-lock.json linguist-generated=true -diff
