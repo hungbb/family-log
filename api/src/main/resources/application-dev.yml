@@ -1,0 +1,36 @@
+# Local development against a natively installed PostgreSQL 16 (see the root README).
+#
+# This is the one profile that carries defaults for the datasource: they point at a database only
+# ever created on a developer's own machine, so a fresh clone runs without a .env file. Override any
+# of them through the environment (or api/.env) if your local setup differs.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/giaky}
+    username: ${DB_USERNAME:giaky}
+    password: ${DB_PASSWORD:giaky}
+
+  jpa:
+    show-sql: false # Use the logging levels below; show-sql bypasses the formatter.
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    clean-disabled: false # Convenient locally; hard-disabled in prod.
+
+app:
+  cors:
+    # The Vite dev server.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    app.giaky: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.flywaydb: INFO

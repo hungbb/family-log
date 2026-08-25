@@ -1,0 +1,100 @@
+# Base configuration — shared by every profile.
+#
+# Anything secret is read from the environment with NO default, so a misconfigured deployment
+# fails at startup with "Could not resolve placeholder" rather than silently connecting somewhere
+# unexpected. The `dev` profile supplies local-only defaults; `prod` deliberately does not.
+spring:
+  application:
+    name: gia-ky-api
+
+  autoconfigure:
+    exclude:
+      # Without this, Spring Boot invents an in-memory "user" account and prints a generated
+      # password on every start — for an application that will authenticate against its own tables.
+      # TODO(Phase 1): delete this exclusion when identity ships a real UserDetailsService.
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+  threads:
+    virtual:
+      enabled: true # Blocking JDBC on virtual threads (doc 06 §1).
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      pool-name: giaky-pool
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+
+  jpa:
+    open-in-view: false # A lazy load outside a transaction is a bug, not a convenience.
+    hibernate:
+      ddl-auto: none # Flyway owns the schema. Always.
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never # Error bodies come from GlobalExceptionHandler, not the servlet container.
+    include-stacktrace: never
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    db:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  api:
+    base-url: ${API_BASE_URL:http://localhost:8080}
+  cors:
+    # Comma-separated. Empty by default: a profile must opt in.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  media:
+    # Where LocalFsMediaStorage writes uploads (Phase 7). Local directory in v1 — object storage
+    # is a post-v1 adapter swap behind the same MediaStorage port.
+    local-directory: ${MEDIA_LOCAL_DIR:./var/media}
+
+logging:
+  level:
+    app.giaky: INFO

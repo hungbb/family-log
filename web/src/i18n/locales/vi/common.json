@@ -1,0 +1,44 @@
+{
+  "app": {
+    "name": "Gia Ký",
+    "tagline": "Gia phả của dòng họ, gìn giữ cùng nhau"
+  },
+  "nav": {
+    "tree": "Cây gia phả",
+    "members": "Thành viên",
+    "branches": "Chi nhánh",
+    "permissions": "Phân quyền",
+    "claims": "Yêu cầu nhận nút",
+    "settings": "Cài đặt"
+  },
+  "shell": {
+    "collapseSidebar": "Thu gọn thanh bên",
+    "expandSidebar": "Mở rộng thanh bên",
+    "clanSwitcherPlaceholder": "Chọn gia tộc",
+    "accountPlaceholder": "Tài khoản"
+  },
+  "health": {
+    "title": "Tình trạng hệ thống",
+    "subtitle": "Trang này gọi thẳng tới máy chủ, đi qua đúng lớp mạng mà toàn ứng dụng sẽ dùng.",
+    "checking": "Đang kiểm tra…",
+    "up": "API hoạt động bình thường",
+    "down": "Không kết nối được API",
+    "retry": "Thử lại",
+    "endpoint": "Điểm cuối",
+    "status": "Trạng thái",
+    "components": "Thành phần",
+    "correlationId": "Mã truy vết",
+    "errorCode": "Mã lỗi",
+    "hint": "Hãy chắc chắn máy chủ đang chạy với hồ sơ dev và PostgreSQL đã khởi động."
+  },
+  "error": {
+    "unexpectedTitle": "Đã xảy ra lỗi",
+    "unexpectedBody": "Không thể hiển thị phần này. Hãy tải lại trang.",
+    "reload": "Tải lại"
+  },
+  "language": {
+    "label": "Ngôn ngữ",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  }
+}

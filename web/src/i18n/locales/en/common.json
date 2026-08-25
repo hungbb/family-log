@@ -1,0 +1,44 @@
+{
+  "app": {
+    "name": "Gia Ký",
+    "tagline": "Your family lineage, kept together"
+  },
+  "nav": {
+    "tree": "Family tree",
+    "members": "Members",
+    "branches": "Branches",
+    "permissions": "Permissions",
+    "claims": "Node claims",
+    "settings": "Settings"
+  },
+  "shell": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "clanSwitcherPlaceholder": "Select a clan",
+    "accountPlaceholder": "Account"
+  },
+  "health": {
+    "title": "System health",
+    "subtitle": "This page calls the server directly, through the same network layer the whole application uses.",
+    "checking": "Checking…",
+    "up": "API healthy",
+    "down": "Cannot reach the API",
+    "retry": "Try again",
+    "endpoint": "Endpoint",
+    "status": "Status",
+    "components": "Components",
+    "correlationId": "Correlation id",
+    "errorCode": "Error code",
+    "hint": "Check that the API is running with the dev profile and that PostgreSQL is up."
+  },
+  "error": {
+    "unexpectedTitle": "Something went wrong",
+    "unexpectedBody": "This section could not be displayed. Reload the page.",
+    "reload": "Reload"
+  },
+  "language": {
+    "label": "Language",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  }
+}
