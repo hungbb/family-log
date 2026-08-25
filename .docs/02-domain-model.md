@@ -32,14 +32,16 @@ Gia Ký is one deployable service split into five modules with explicit boundari
               └──────────────────────────────────────────┘
 ```
 
-| Context | Responsibility | Owns |
-|---------|----------------|------|
-| **Identity** | Authentication, account lifecycle, sessions. | `User`, `RefreshToken`, `VerificationToken` |
-| **ClanOrg** | Clan and branch structure, membership, join requests. | `Clan` (aggregate root), `Branch`, `ClanMembership`, `ClanJoinRequest` |
-| **Lineage** | The family tree itself: nodes and relationships. | `Person` (aggregate root), `Union`, `Parentage` |
-| **Authorization** | Grants and the permission-resolution engine. | `PermissionGrant`, `PermissionScope`, `AccessDecision` |
-| **Linking** | Mapping user accounts onto person nodes. | `NodeClaimRequest`, and the `linkedUserId` invariant on `Person` |
-| **Supporting** | Audit log, notifications, media storage. | `AuditEntry`, `Notification`, `MediaObject` |
+
+| Context           | Responsibility                                        | Owns                                                                   |
+| ----------------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Identity**      | Authentication, account lifecycle, sessions.          | `User`, `RefreshToken`, `VerificationToken`                            |
+| **ClanOrg**       | Clan and branch structure, membership, join requests. | `Clan` (aggregate root), `Branch`, `ClanMembership`, `ClanJoinRequest` |
+| **Lineage**       | The family tree itself: nodes and relationships.      | `Person` (aggregate root), `Union`, `Parentage`                        |
+| **Authorization** | Grants and the permission-resolution engine.          | `PermissionGrant`, `PermissionScope`, `AccessDecision`                 |
+| **Linking**       | Mapping user accounts onto person nodes.              | `NodeClaimRequest`, and the `linkedUserId` invariant on `Person`       |
+| **Supporting**    | Audit log, notifications, media storage.              | `AuditEntry`, `Notification`, `MediaObject`                            |
+
 
 ### 1.1 Context relationships
 
@@ -48,7 +50,7 @@ Gia Ký is one deployable service split into five modules with explicit boundari
 - **Authorization → ClanOrg + Lineage**: conformist consumer. Scope resolution needs branch paths and person ancestry, exposed via two read ports: `BranchHierarchyPort` and `LineageAncestryPort`.
 - **Linking → Lineage**: Linking issues commands to Lineage (`linkUser`, `unlinkUser`) and never mutates `Person` rows directly.
 
-## 2. Aggregates & Invariants
+## 2. Aggregates &amp; Invariants
 
 ### 2.1 `User` (Identity)
 
@@ -58,13 +60,14 @@ User
  ├─ email: EmailAddress (unique, normalized)
  ├─ passwordHash: PasswordHash
  ├─ displayName: String
- ├─ avatarUrl: MediaRef?
+ ├─ avatarUrl: String
  ├─ locale: Locale (default vi-VN)
  ├─ status: ACTIVE | PENDING_VERIFICATION | SUSPENDED | DEACTIVATED
  └─ audit: createdAt, updatedAt, lastLoginAt
 ```
 
 **Invariants**
+
 - I-U1 `email` is unique across active users, stored normalized.
 - I-U2 A `SUSPENDED` or `DEACTIVATED` user can neither authenticate nor hold effective grants.
 - I-U3 `passwordHash` never leaves the aggregate; no DTO may expose it.
@@ -92,6 +95,7 @@ Branch  (entity)
 ```
 
 **Invariants**
+
 - I-C1 `clanCode` is generated once and never changes.
 - I-C2 Exactly one branch per clan has `parentBranchId == null` — the root branch.
 - I-C3 The branch graph is a tree: no cycles, one parent per branch, all nodes reachable from the root branch.
@@ -112,6 +116,7 @@ ClanMembership
 ```
 
 **Invariants**
+
 - I-M1 At most one `ACTIVE` membership per (clan, user).
 - I-M2 Membership is a prerequisite for holding any grant in that clan; revoking membership deactivates the user's grants in that clan.
 - I-M3 A clan always retains at least one active `CLAN_ADMIN` (enforced when removing members or revoking grants).
@@ -128,6 +133,7 @@ ClanJoinRequest
 ```
 
 **Invariants**
+
 - I-J1 At most one `PENDING` request per (requester, clan, targetBranch).
 - I-J2 A request cannot be created by a user with an `ACTIVE` membership in that clan.
 - I-J3 Only a decider holding `MEMBER_APPROVE` covering the target scope may decide the request.
@@ -157,6 +163,7 @@ Person
 ```
 
 **Invariants**
+
 - I-P1 `fullName` is non-blank after trimming.
 - I-P2 If both `birth` and `death` are known and comparable, `birth ≤ death`.
 - I-P3 `lifeStatus == DECEASED` implies a death date may exist but is not required; `ALIVE` forbids a death date.
@@ -178,6 +185,7 @@ Parentage
 ```
 
 **Invariants**
+
 - I-R1 `parentPersonId != childPersonId`.
 - I-R2 Both persons belong to the same clan.
 - I-R3 At most one edge per (child, parentRole) — one father and one mother.
@@ -197,6 +205,7 @@ Union
 ```
 
 **Invariants**
+
 - I-N1 `partnerAId != partnerBId`, both in the same clan.
 - I-N2 At most one non-deleted union per unordered partner pair.
 - I-N3 At most one `PRIMARY` union per person at a time (`ACTIVE` status).
@@ -217,6 +226,7 @@ PermissionGrant
 ```
 
 **Invariants**
+
 - I-G1 `scopeType == CLAN` ⇒ `scopeRefId == null`; otherwise `scopeRefId` is required and resolves within the same clan.
 - I-G2 `CLAN_ADMIN` may only be granted at `CLAN` scope.
 - I-G3 The grantee holds an `ACTIVE` membership in the clan.
@@ -237,6 +247,7 @@ NodeClaimRequest
 ```
 
 **Invariants**
+
 - I-K1 The target person is non-deleted and has `linkedUserId == null` at both submission and approval time (re-checked on approval).
 - I-K2 The requester has an `ACTIVE` membership in the person's clan.
 - I-K3 At most one `PENDING` claim per (requester, person), and per (requester, clan) only one claim may be approved.
@@ -244,49 +255,55 @@ NodeClaimRequest
 
 ## 3. Value Objects
 
-| VO | Shape | Notes |
-|----|-------|-------|
-| `PartialDate` | `{ year?, month?, day?, precision: EXACT\|MONTH\|YEAR\|RANGE\|UNKNOWN, circa: bool, rangeEnd?, lunarText? }` | Immutable; comparison returns a three-valued result (`BEFORE`, `AFTER`, `INDETERMINATE`). |
-| `PersonName` | `{ fullName, familyName?, givenName?, alias?, posthumousName? }` | `fullName` is the display source of truth; parts are optional and search-indexed. |
-| `ClanCode` / `BranchCode` | `SURNAME-XXXX` uppercase, Crockford base32 suffix | Collision-checked at generation; never reissued. |
-| `MaterializedPath` | `/seg/seg/seg`, segments are branch UUID short-forms | Used for `LIKE 'path%'` descendant queries. |
-| `PermissionScope` | `{ type, refId }` | Comparable: `CLAN ⊃ BRANCH ⊃ SUBTREE` where applicable. |
-| `RichText` | sanitized HTML + plain-text projection | Sanitization happens on write, never on read. |
-| `MediaRef` | `{ storageKey, contentType, width, height, variants }` | Resolved to URLs by the media service. |
+
+| VO                        | Shape                                                                                                    | Notes                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `PartialDate`             | `{ year?, month?, day?, precision: EXACT|MONTH|YEAR|RANGE|UNKNOWN, circa: bool, rangeEnd?, lunarText? }` | Immutable; comparison returns a three-valued result (`BEFORE`, `AFTER`, `INDETERMINATE`). |
+| `PersonName`              | `{ fullName, familyName?, givenName?, alias?, posthumousName? }`                                         | `fullName` is the display source of truth; parts are optional and search-indexed.         |
+| `ClanCode` / `BranchCode` | `SURNAME-XXXX` uppercase, Crockford base32 suffix                                                        | Collision-checked at generation; never reissued.                                          |
+| `MaterializedPath`        | `/seg/seg/seg`, segments are branch UUID short-forms                                                     | Used for `LIKE 'path%'` descendant queries.                                               |
+| `PermissionScope`         | `{ type, refId }`                                                                                        | Comparable: `CLAN ⊃ BRANCH ⊃ SUBTREE` where applicable.                                   |
+| `RichText`                | sanitized HTML + plain-text projection                                                                   | Sanitization happens on write, never on read.                                             |
+| `MediaRef`                | `{ storageKey, contentType, width, height, variants }`                                                   | Resolved to URLs by the media service.                                                    |
+
 
 ## 4. Domain Events
 
 Events are published in-process (Spring `ApplicationEventPublisher`) after transaction commit, and consumed by Audit, Notification, and read-model projectors. Names are past-tense facts.
 
-| Event | Published by | Consumers |
-|-------|--------------|-----------|
-| `UserRegistered`, `UserVerified` | Identity | Notification, Audit |
-| `ClanCreated` | ClanOrg | Authorization (bootstrap `CLAN_ADMIN`), Audit |
-| `BranchCreated`, `BranchMoved`, `BranchArchived` | ClanOrg | Authorization (scope cache invalidation), Audit |
-| `JoinRequestSubmitted`, `JoinRequestDecided` | ClanOrg | Notification, Audit |
-| `MembershipGranted`, `MembershipRevoked` | ClanOrg | Authorization (deactivate grants), Notification, Audit |
-| `PersonCreated`, `PersonUpdated`, `PersonSoftDeleted` | Lineage | Ancestry projection, Audit, Search index |
-| `ParentageAdded`, `ParentageRemoved` | Lineage | Ancestry (closure) projection, generation recompute, Audit |
-| `UnionCreated`, `UnionUpdated`, `UnionRemoved` | Lineage | Audit |
-| `PermissionGranted`, `PermissionRevoked` | Authorization | Notification, Audit |
-| `NodeClaimSubmitted`, `NodeClaimDecided` | Linking | Notification, Audit |
-| `PersonLinkedToUser`, `PersonUnlinkedFromUser` | Linking | Notification, Audit |
 
-## 5. Domain Services & Ports
+| Event                                                 | Published by  | Consumers                                                  |
+| ----------------------------------------------------- | ------------- | ---------------------------------------------------------- |
+| `UserRegistered`, `UserVerified`                      | Identity      | Notification, Audit                                        |
+| `ClanCreated`                                         | ClanOrg       | Authorization (bootstrap `CLAN_ADMIN`), Audit              |
+| `BranchCreated`, `BranchMoved`, `BranchArchived`      | ClanOrg       | Authorization (scope cache invalidation), Audit            |
+| `JoinRequestSubmitted`, `JoinRequestDecided`          | ClanOrg       | Notification, Audit                                        |
+| `MembershipGranted`, `MembershipRevoked`              | ClanOrg       | Authorization (deactivate grants), Notification, Audit     |
+| `PersonCreated`, `PersonUpdated`, `PersonSoftDeleted` | Lineage       | Ancestry projection, Audit, Search index                   |
+| `ParentageAdded`, `ParentageRemoved`                  | Lineage       | Ancestry (closure) projection, generation recompute, Audit |
+| `UnionCreated`, `UnionUpdated`, `UnionRemoved`        | Lineage       | Audit                                                      |
+| `PermissionGranted`, `PermissionRevoked`              | Authorization | Notification, Audit                                        |
+| `NodeClaimSubmitted`, `NodeClaimDecided`              | Linking       | Notification, Audit                                        |
+| `PersonLinkedToUser`, `PersonUnlinkedFromUser`        | Linking       | Notification, Audit                                        |
 
-| Service | Context | Responsibility |
-|---------|---------|----------------|
-| `PermissionResolver` | Authorization | Answers `can(user, permission, target)`; the single decision point (see doc 04). |
-| `ScopeExpander` | Authorization | Expands a grant scope into a matcher over branch paths and person ancestry. |
-| `LineageGraphService` | Lineage | Cycle detection, generation recomputation, ancestry/descendant queries. |
-| `AncestryProjection` | Lineage | Maintains the `person_ancestry` closure table on parentage changes. |
-| `BranchPathService` | ClanOrg | Path generation and subtree path rewrites on re-parenting. |
-| `CodeGenerator` | ClanOrg | Collision-free `ClanCode` / `BranchCode` generation. |
-| `PersonUserLinker` | Linking | The only writer of `Person.linkedUserId`; enforces I-P4, I-P5, I-K1. |
+
+## 5. Domain Services &amp; Ports
+
+
+| Service               | Context       | Responsibility                                                                   |
+| --------------------- | ------------- | -------------------------------------------------------------------------------- |
+| `PermissionResolver`  | Authorization | Answers `can(user, permission, target)`; the single decision point (see doc 04). |
+| `ScopeExpander`       | Authorization | Expands a grant scope into a matcher over branch paths and person ancestry.      |
+| `LineageGraphService` | Lineage       | Cycle detection, generation recomputation, ancestry/descendant queries.          |
+| `AncestryProjection`  | Lineage       | Maintains the `person_ancestry` closure table on parentage changes.              |
+| `BranchPathService`   | ClanOrg       | Path generation and subtree path rewrites on re-parenting.                       |
+| `CodeGenerator`       | ClanOrg       | Collision-free `ClanCode` / `BranchCode` generation.                             |
+| `PersonUserLinker`    | Linking       | The only writer of `Person.linkedUserId`; enforces I-P4, I-P5, I-K1.             |
+
 
 **Ports (outbound)**: `MediaStorage`, `NotificationSender`, `AuditWriter`, `Clock`, `IdGenerator`. All are interfaces in the domain layer with adapters in infrastructure, so the domain stays framework-free and unit-testable.
 
-## 6. Consistency & Transactions
+## 6. Consistency &amp; Transactions
 
 - One transaction per aggregate mutation; cross-aggregate work (e.g. approve join → create membership → bootstrap grants) is orchestrated in an application service inside a single transaction because all data is in one database.
 - **Optimistic locking** on `Person`, `Clan`, and `Branch` via `@Version`.
@@ -299,3 +316,4 @@ Events are published in-process (Spring `ApplicationEventPublisher`) after trans
 2. Controllers never touch repositories; the call chain is `Controller → ApplicationService → DomainService/Repository`.
 3. The domain layer has no Spring, Jakarta Persistence, or Jackson annotations — those live in the infrastructure mapping layer. (See [06-backend-architecture.md](06-backend-architecture.md) for the pragmatic exception policy.)
 4. Every repository method that reads tenant data takes a `ClanId` argument; a repository method without one must be justified in review.
+

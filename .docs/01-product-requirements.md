@@ -15,7 +15,7 @@ Vietnamese clans (*gia tộc*) maintain lineage records (*gia phả*) that are t
 
 Gia Ký solves these by making the tree collaborative, with **branch-scoped permissions** and a **claim workflow** that maps living user accounts onto historical tree nodes.
 
-## 2. Goals & Non-Goals
+## 2. Goals &amp; Non-Goals
 
 ### 2.1 Goals (v1)
 
@@ -39,43 +39,47 @@ Gia Ký solves these by making the tree collaborative, with **branch-scoped perm
 
 ## 3. Personas
 
-| # | Persona | Vietnamese | Needs |
-|---|---------|-----------|-------|
-| P1 | **Clan Administrator** | Trưởng tộc / quản trị | Create the clan, define branches, grant permissions, approve joins. |
-| P2 | **Branch Editor** | Trưởng chi / nhánh | Build and maintain the subtree under their branch root; approve claims in scope. |
-| P3 | **Clan Member** | Thành viên | Join by `clanCode`, browse the tree, claim their own node, keep their profile current. |
-| P4 | **Guest / Viewer** | Khách được mời | Read-only access to a clan tree they were granted `CLAN_VIEW` on. |
-| P5 | **Platform Operator** | Vận hành hệ thống | Health, backups, abuse handling, audit trail. (Minimal tooling in v1.) |
+
+| #   | Persona                | Vietnamese            | Needs                                                                                  |
+| --- | ---------------------- | --------------------- | -------------------------------------------------------------------------------------- |
+| P1  | **Clan Administrator** | Trưởng tộc / quản trị | Create the clan, define branches, grant permissions, approve joins.                    |
+| P2  | **Branch Editor**      | Trưởng chi / nhánh    | Build and maintain the subtree under their branch root; approve claims in scope.       |
+| P3  | **Clan Member**        | Thành viên            | Join by `clanCode`, browse the tree, claim their own node, keep their profile current. |
+| P4  | **Guest / Viewer**     | Khách được mời        | Read-only access to a clan tree they were granted `CLAN_VIEW` on.                      |
+| P5  | **Platform Operator**  | Vận hành hệ thống     | Health, backups, abuse handling, audit trail. (Minimal tooling in v1.)                 |
+
 
 ## 4. Ubiquitous Language (Glossary)
 
-| Term | Vietnamese | Definition |
-|------|-----------|------------|
-| **Clan** | Gia tộc | Top-level lineage group; the security and tenancy boundary. Has an immutable public `clanCode`. |
-| **Branch** | Chi / Nhánh | A named sub-group inside a clan, anchored at a `branchRootPerson`. Branches nest. |
-| **Person** | Nhân vật trong phả | A node in the tree: living or deceased, with or without a linked user account. |
-| **Union** | Hôn phối | A partnership between two persons (primary, secondary, or sequential marriage). |
-| **Parentage** | Quan hệ cha/mẹ – con | A directed edge from a parent Person to a child Person, tagged with role and nature. |
-| **Generation** | Đời | Integer depth of a Person relative to the clan's founding ancestor (đời 1). |
-| **Membership** | Tư cách thành viên | A user's accepted association with a clan (and optionally a home branch). |
-| **Claim** | Nhận vị trí trong phả | A user's request to be mapped onto an unlinked Person node. |
-| **Grant** | Cấp quyền | A (user, permission, scope) tuple stored in the authorization model. |
-| **Scope** | Phạm vi | Where a grant applies: the whole `CLAN`, one `BRANCH` (and its descendant branches), or one `SUBTREE` (a person and their descendants). |
+
+| Term           | Vietnamese            | Definition                                                                                                                              |
+| -------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Clan**       | Gia tộc               | Top-level lineage group; the security and tenancy boundary. Has an immutable public `clanCode`.                                         |
+| **Branch**     | Chi / Nhánh           | A named sub-group inside a clan, anchored at a `branchRootPerson`. Branches nest.                                                       |
+| **Person**     | Nhân vật trong phả    | A node in the tree: living or deceased, with or without a linked user account.                                                          |
+| **Union**      | Hôn phối              | A partnership between two persons (primary, secondary, or sequential marriage).                                                         |
+| **Parentage**  | Quan hệ cha/mẹ – con  | A directed edge from a parent Person to a child Person, tagged with role and nature.                                                    |
+| **Generation** | Đời                   | Integer depth of a Person relative to the clan's founding ancestor (đời 1).                                                             |
+| **Membership** | Tư cách thành viên    | A user's accepted association with a clan (and optionally a home branch).                                                               |
+| **Claim**      | Nhận vị trí trong phả | A user's request to be mapped onto an unlinked Person node.                                                                             |
+| **Grant**      | Cấp quyền             | A (user, permission, scope) tuple stored in the authorization model.                                                                    |
+| **Scope**      | Phạm vi               | Where a grant applies: the whole `CLAN`, one `BRANCH` (and its descendant branches), or one `SUBTREE` (a person and their descendants). |
+
 
 ## 5. Functional Requirements
 
 Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.md](08-implementation-roadmap.md).
 
-### 5.1 Identity & Account (FR-A)
+### 5.1 Identity &amp; Account (FR-A)
 
 - **FR-A1** A visitor can register with email + password; email is unique and normalized (trimmed, lowercased).
-- **FR-A2** Passwords are stored with BCrypt (cost ≥ 12), minimum 10 characters, checked against a common-password deny list.
+- **FR-A2** Passwords are stored with BCrypt (cost ≥ 12), minimum 8 characters, checked against a common-password deny list.
 - **FR-A3** Login returns a short-lived JWT access token and a long-lived, revocable refresh token.
 - **FR-A4** A user can view and edit their own account profile (display name, avatar, locale, contact).
 - **FR-A5** A user can log out (revoking the presented refresh token) and revoke all active sessions.
 - **FR-A6** Email verification and password reset are token-based with expiry (24 h / 1 h respectively).
 
-### 5.2 Clan & Branch (FR-C)
+### 5.2 Clan &amp; Branch (FR-C)
 
 - **FR-C1** Any authenticated user can create a clan; the creator receives `CLAN_ADMIN` scoped to that clan.
 - **FR-C2** A clan has: name, `clanCode` (immutable, shareable, e.g. `NGUYEN-7XQK`), description, origin place, founding-ancestor note, visibility (`PRIVATE` in v1), cover image.
@@ -94,7 +98,7 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 - **FR-J4** Duplicate pending requests from one user to one scope are rejected at the API level.
 - **FR-J5** A member can leave a clan; a `CLAN_ADMIN` can remove a member. The last `CLAN_ADMIN` can neither be removed nor demoted.
 
-### 5.4 Person Nodes & Relationships (FR-P)
+### 5.4 Person Nodes &amp; Relationships (FR-P)
 
 - **FR-P1** A Person node can be created with **no** user account attached (decoupled tree building).
 - **FR-P2** Person attributes: `fullName` (required), `familyName`, `givenName`, `alias` (tên thường gọi), `posthumousName` (tên húy), `gender` (`MALE|FEMALE|OTHER|UNKNOWN`), `status` (`ALIVE|DECEASED|UNKNOWN`), birth/death dates, `avatarUrl`, rich-text `notes`, `burialPlace`, `generation`, `isFoundingAncestor`.
@@ -108,7 +112,7 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 - **FR-P10** Every mutation records `createdBy` / `updatedBy` and appends to the audit log.
 - **FR-P11** Concurrent edits are guarded by a `version` column (optimistic locking); a conflicting write returns `409`.
 
-### 5.5 Tree Query & Visualization (FR-T)
+### 5.5 Tree Query &amp; Visualization (FR-T)
 
 - **FR-T1** Fetch a clan's whole tree, or a subtree rooted at any person, bounded by a `depth` parameter.
 - **FR-T2** The **master view** aggregates all branch subtrees into one seamless tree — branches are a permission/organizational overlay, never a data partition.
@@ -137,13 +141,13 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 - **FR-N5** A link may be revoked by an authorized editor or by the linked user; revocation is audited.
 - **FR-N6** Once linked, profile changes may optionally propagate to the Person node (opt-in per field, default off).
 
-### 5.8 Media & Content (FR-M)
+### 5.8 Media &amp; Content (FR-M)
 
 - **FR-M1** Avatar and clan-cover uploads: JPEG/PNG/WebP, ≤ 5 MB, server-side re-encode, EXIF stripped, thumbnails generated.
 - **FR-M2** Notes are rich text stored as sanitized HTML (server-side allow-list sanitization; no scripts, no remote iframes).
 - **FR-M3** Storage sits behind a `MediaStorage` port — local filesystem in dev, S3-compatible object storage in production.
 
-### 5.9 Auditing & Notifications (FR-X)
+### 5.9 Auditing &amp; Notifications (FR-X)
 
 - **FR-X1** An append-only audit log records actor, action, target, clan, before/after snapshot, timestamp, IP, and the authorizing grant.
 - **FR-X2** In-app notifications for: join request received/decided, claim received/decided, permission granted/revoked, node linked.
@@ -151,29 +155,33 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 
 ## 6. Non-Functional Requirements
 
-| ID | Area | Requirement |
-|----|------|-------------|
-| NFR-1 | Performance | Tree read for a 2,000-node clan < 500 ms p95; person mutation < 300 ms p95. |
-| NFR-2 | Scale target | 10k clans, 200k persons, 50k users on a single Postgres primary. Largest single clan ≤ 20k persons. |
-| NFR-3 | Security | JWT-secured API, BCrypt passwords, OWASP Top-10 review before release, rate limiting on auth endpoints. |
-| NFR-4 | Isolation | Every query is clan-scoped; a cross-clan read/write is a defect class with mandatory regression tests. |
-| NFR-5 | Availability | Single-region deployment, daily backups, documented and tested restore procedure, RTO ≤ 4 h. |
-| NFR-6 | Observability | Structured JSON logs with correlation IDs, Spring Actuator health/metrics, Prometheus scrape endpoint. |
-| NFR-7 | Accessibility | WCAG 2.1 AA for forms and navigation; the tree canvas offers an accessible list/table alternative. |
-| NFR-8 | i18n | Vietnamese is the default locale, English a full second locale. No hard-coded user-facing strings. |
-| NFR-9 | Data protection | Living persons' birth dates and contact fields are visible only to clan members; soft-deleted data is recoverable for 30 days. |
-| NFR-10 | Compatibility | Latest two versions of Chrome, Edge, Firefox, Safari. Responsive from 360 px. |
+
+| ID     | Area            | Requirement                                                                                                                    |
+| ------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| NFR-1  | Performance     | Tree read for a 2,000-node clan &lt; 500 ms p95; person mutation &lt; 300 ms p95.                                              |
+| NFR-2  | Scale target    | 10k clans, 200k persons, 50k users on a single Postgres primary. Largest single clan ≤ 20k persons.                            |
+| NFR-3  | Security        | JWT-secured API, BCrypt passwords, OWASP Top-10 review before release, rate limiting on auth endpoints.                        |
+| NFR-4  | Isolation       | Every query is clan-scoped; a cross-clan read/write is a defect class with mandatory regression tests.                         |
+| NFR-5  | Availability    | Single-region deployment, daily backups, documented and tested restore procedure, RTO ≤ 4 h.                                   |
+| NFR-6  | Observability   | Structured JSON logs with correlation IDs, Spring Actuator health/metrics, Prometheus scrape endpoint.                         |
+| NFR-7  | Accessibility   | WCAG 2.1 AA for forms and navigation; the tree canvas offers an accessible list/table alternative.                             |
+| NFR-8  | i18n            | Vietnamese is the default locale, English a full second locale. No hard-coded user-facing strings.                             |
+| NFR-9  | Data protection | Living persons' birth dates and contact fields are visible only to clan members; soft-deleted data is recoverable for 30 days. |
+| NFR-10 | Compatibility   | Latest two versions of Chrome, Edge, Firefox, Safari. Responsive from 360 px.                                                  |
+
 
 ## 7. Key Product Decisions
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | Branches are an **overlay**, not a data partition. | Satisfies FR-T2 (seamless master view) while still enabling FR-Z4 isolation through scoped grants. |
-| D2 | No `role` enum on membership; **permissions only**. | The draft explicitly rejects a single-patriarch model. Named roles can return later as grant bundles. |
-| D3 | Person is decoupled from User by default. | Historical ancestors have no accounts; linking is an optional, approved mapping. |
-| D4 | Grants are additive, with no deny rules. | Keeps resolution total, cheap, and explainable in the UI. |
-| D5 | Soft delete throughout the tree. | Lineage data is heritage data; accidental loss is unacceptable. |
-| D6 | Clan is the tenancy boundary for every query. | Makes cross-tenant leakage a single, testable invariant. |
+
+| #   | Decision                                            | Rationale                                                                                             |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| D1  | Branches are an **overlay**, not a data partition.  | Satisfies FR-T2 (seamless master view) while still enabling FR-Z4 isolation through scoped grants.    |
+| D2  | No `role` enum on membership; **permissions only**. | The draft explicitly rejects a single-patriarch model. Named roles can return later as grant bundles. |
+| D3  | Person is decoupled from User by default.           | Historical ancestors have no accounts; linking is an optional, approved mapping.                      |
+| D4  | Grants are additive, with no deny rules.            | Keeps resolution total, cheap, and explainable in the UI.                                             |
+| D5  | Soft delete throughout the tree.                    | Lineage data is heritage data; accidental loss is unacceptable.                                       |
+| D6  | Clan is the tenancy boundary for every query.       | Makes cross-tenant leakage a single, testable invariant.                                              |
+
 
 ## 8. Acceptance Scenarios (end-to-end)
 
@@ -186,10 +194,13 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 
 ## 9. Open Questions
 
-| # | Question | Owner | Default if unanswered |
-|---|----------|-------|----------------------|
-| Q1 | Should clan trees ever be publicly shareable via a read-only link? | Product | No — private-only in v1. |
-| Q2 | Are lunar-calendar dates required at launch or in Phase 8? | Product | Field captured from Phase 4; converters deferred. |
-| Q3 | Is email delivery in scope for v1 (verification, notifications)? | Product | In-app notifications in v1; email in Phase 8. |
-| Q4 | Do we need GEDCOM import to migrate existing digital records? | Product | Deferred to post-v1. |
-| Q5 | Can one Person appear in two clans (e.g. a bride recorded by both families)? | Product | No — one Person row per clan; cross-clan linking deferred. |
+
+| #   | Question                                                                     | Owner   | Default if unanswered                                      |
+| --- | ---------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
+| Q1  | Should clan trees ever be publicly shareable via a read-only link?           | Product | No — private-only in v1.                                   |
+| Q2  | Are lunar-calendar dates required at launch or in Phase 8?                   | Product | Field captured from Phase 4; converters deferred.          |
+| Q3  | Is email delivery in scope for v1 (verification, notifications)?             | Product | In-app notifications in v1; email in Phase 8.              |
+| Q4  | Do we need GEDCOM import to migrate existing digital records?                | Product | Deferred to post-v1.                                       |
+| Q5  | Can one Person appear in two clans (e.g. a bride recorded by both families)? | Product | No — one Person row per clan; cross-clan linking deferred. |
+
+
