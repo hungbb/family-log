@@ -63,9 +63,9 @@
 
 **Security cases** — JWT with an altered payload rejected; `alg: none` rejected; a token for a deactivated user rejected; `password_hash` never appears in any response body (asserted by serializing every DTO in a test).
 
-**Frontend** — login form validation; the client retries once after a `401` and succeeds; concurrent 401s trigger exactly one refresh call (MSW request counting); guard redirects preserve the return path.
+**Frontend (manual)** — login form validation; the client retries once after a `401` and succeeds; concurrent 401s trigger exactly one refresh call; guard redirects preserve the return path.
 
-**E2E** — register → log in → land on the dashboard → reload (session survives) → log out → protected route redirects to login.
+**Manual walkthrough** — register → log in → land on the dashboard → reload (session survives) → log out → protected route redirects to login.
 
 ## 6. Demo Script
 
@@ -83,7 +83,7 @@
 - [ ] Rate limits enforced on all three sensitive endpoints.
 - [ ] No endpoint leaks whether an email address exists.
 - [ ] Coverage ≥ 80 % on `identity.application` and `identity.domain`.
-- [ ] M1 milestone demo runs on staging.
+- [ ] M1 milestone demo runs locally from seed data.
 
 ## 8. Decisions to Confirm in This Phase
 

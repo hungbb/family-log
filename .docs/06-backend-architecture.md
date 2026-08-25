@@ -16,7 +16,7 @@
 | Security | **Spring Security 6** + custom JWT filter | Standard filter chain, method security for the declarative pre-check. |
 | Mapping | **MapStruct** | Compile-time DTO↔domain mapping; no reflection cost, no hand-rolled boilerplate. |
 | Validation | **Jakarta Bean Validation (Hibernate Validator)** | Declarative request validation at the edge. |
-| API docs | **springdoc-openapi** | `/swagger-ui.html`, spec exported in CI. |
+| API docs | **springdoc-openapi** | `/swagger-ui.html`, spec exported from the build. |
 | Testing | **JUnit 5, AssertJ, Mockito, Testcontainers, RestAssured/MockMvc, ArchUnit** | See [09-engineering-conventions.md](09-engineering-conventions.md). |
 | Logging | **SLF4J + Logback**, JSON encoder in non-dev | Structured logs with correlation ids. |
 | Metrics | **Micrometer + Actuator** | Prometheus scrape. |
@@ -64,7 +64,7 @@ api/
       application/
       infrastructure/
       api/
-    media/                         # MediaStorage port, local + S3 adapters, upload controller
+    media/                         # MediaStorage port, local filesystem adapter, upload controller
     notification/                  # Notification entity, in-app sender, event listeners
   src/main/resources/
     application.yml, application-dev.yml, application-prod.yml
@@ -149,17 +149,17 @@ public interface MediaStorage {
     void delete(String storageKey);
 }
 ```
-`LocalFsMediaStorage` (dev) and `S3MediaStorage` (prod), selected by profile. Images are re-encoded and thumbnailed on write.
+In v1 the only adapter is `LocalFsMediaStorage`, which stores re-encoded, thumbnailed images under a configured directory on the backend server (the same behaviour in dev and prod). No third-party object storage yet; an S3-compatible adapter is a post-v1 swap behind this same port, requiring no call-site changes.
 
 ## 5. Configuration & Profiles
 
 | Profile | Purpose | Notes |
 |---------|---------|-------|
-| `dev` | Local development | Docker Compose Postgres, seed data, verbose SQL logging, permissive CORS, 24 h access tokens for convenience. |
+| `dev` | Local development | Locally installed Postgres, seed data, verbose SQL logging, permissive CORS, 24 h access tokens for convenience, media written to a local directory. |
 | `test` | Automated tests | Testcontainers Postgres, fixed clock, in-memory media storage, deterministic id generator. |
-| `prod` | Deployment | Secrets from environment, JSON logs, strict CORS, HSTS, S3 storage, Flyway validate-on-start with `clean` disabled. |
+| `prod` | Deployment | Secrets from environment, JSON logs, strict CORS, HSTS, local filesystem media storage, Flyway validate-on-start with `clean` disabled. |
 
-All secrets (`JWT_SECRET`, DB credentials, S3 keys) come from environment variables. `application.yml` holds no secret values, and the app fails fast at startup if a required secret is missing.
+All secrets (`JWT_SECRET`, DB credentials) come from environment variables. `application.yml` holds no secret values, and the app fails fast at startup if a required secret is missing.
 
 ## 6. Error Handling
 
@@ -181,12 +181,10 @@ All secrets (`JWT_SECRET`, DB credentials, S3 keys) come from environment variab
 
 ## 8. Local Development
 
-```bash
-docker compose up -d db
-```
+Run a local PostgreSQL 16 instance (a native install — no Docker in v1) and point `application-dev.yml` at it; the README documents the exact connection settings and how to create the database.
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-`docker-compose.yml` provides Postgres 16 (port 5432) and MinIO (S3-compatible, for exercising the prod storage adapter locally). Flyway runs on startup; the `dev` seed runner populates sample clans. Swagger UI is served at `http://localhost:8080/swagger-ui.html`.
+Flyway runs on startup; the `dev` seed runner populates sample clans. Uploaded images are written to a local media directory (configurable), so no object-storage service is needed. Swagger UI is served at `http://localhost:8080/swagger-ui.html`.

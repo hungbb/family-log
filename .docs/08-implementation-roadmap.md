@@ -8,7 +8,7 @@
 
 | # | Phase | Focus | Est. | Depends on | Detail |
 |---|-------|-------|------|-----------|--------|
-| 0 | **Foundation** | Repo layout, build, Docker, CI, skeletons | 1 wk | — | [phase-0](phases/phase-0-foundation.md) |
+| 0 | **Foundation** | Repo layout, build, skeletons, guardrails | 1 wk | — | [phase-0](phases/phase-0-foundation.md) |
 | 1 | **Identity & Auth** | Register, login, JWT, sessions, profile | 1.5 wk | 0 | [phase-1](phases/phase-1-identity-auth.md) |
 | 2 | **Clan & Branch** | Clans, branch tree, membership, join requests | 2 wk | 1 | [phase-2](phases/phase-2-clan-branch.md) |
 | 3 | **Authorization** | Grants, scoped resolution, enforcement, grant UI | 2 wk | 2 | [phase-3](phases/phase-3-authorization.md) |
@@ -67,12 +67,12 @@ Every functional requirement from [01-product-requirements.md](01-product-requir
 A phase is done only when **all** of the following hold:
 
 1. **Functionality** — every listed requirement is implemented end to end (API + UI), not just the API.
-2. **Tests** — unit + integration for new backend code, component tests for new UI, and the phase's named E2E scenario passes.
-3. **Coverage gates** — ≥ 80 % line coverage on `application` and `domain` packages; **100 % branch coverage on `PermissionResolver`**.
+2. **Tests** — unit + integration for new backend code; new UI is verified manually against the phase's demo script (no automated frontend suite in v1, see doc 09 §4).
+3. **Coverage gates** — ≥ 80 % line coverage on backend `application` and `domain` packages; **100 % branch coverage on `PermissionResolver`**.
 4. **Migrations** — Flyway migrations applied cleanly on a fresh database *and* on the previous phase's database.
 5. **Docs** — OpenAPI regenerated, frontend API types regenerated with no diff, and any design deviation recorded in `.docs/adr/`.
-6. **Quality gates** — ESLint/Prettier/`tsc --noEmit` clean, ArchUnit rules green, no new critical/high issues from dependency and SAST scans.
-7. **Demo** — the phase's demo script (in its phase doc) runs against a fresh environment from seed data.
+6. **Quality gates** — ESLint/Prettier/`tsc --noEmit` clean and ArchUnit rules green. (Dependency/SAST scanning arrives with the deferred CI/CD workstream.)
+7. **Demo** — the phase's demo script (in its phase doc) runs against a fresh local environment from seed data.
 
 ## 5. Cross-Cutting Work Threads
 
@@ -90,7 +90,7 @@ These run continuously rather than living in a single phase:
 
 | Milestone | After | Demonstrates |
 |-----------|-------|--------------|
-| **M1 — Walking skeleton** | Phase 1 | Register, log in, see an empty dashboard; CI deploys to staging. |
+| **M1 — Walking skeleton** | Phase 1 | Register, log in, see an empty dashboard; runs locally end to end. |
 | **M2 — Clans exist** | Phase 2 | Create a clan, define branches, invite by code, approve a join. |
 | **M3 — Safe delegation** | Phase 3 | Grant a branch-scoped permission and watch out-of-scope actions get refused. |
 | **M4 — The tree lives** | Phase 5 | A real 4-generation *gia phả* rendered, edited by two users with different scopes. |
@@ -108,7 +108,7 @@ These run continuously rather than living in a single phase:
 | R5 | Branch re-parenting corrupts paths | Medium | Low | Single recursive SQL update, depth cap, integration tests on deep trees |
 | R6 | Scope creep from "just one more field" on Person | Medium | High | PRD field list is the contract; additions need an ADR |
 | R7 | Diacritic-insensitive search proves inadequate | Medium | Low | `unaccent` + `pg_trgm` prototyped in Phase 4 with real Vietnamese names |
-| R8 | AntD default look makes the product feel generic | Low | Medium | Token system and heritage visual direction fixed in Phase 0/5 (doc 07 §3.3) |
+| R8 | AntD default look makes the product feel generic | Low | Medium | Token system and modern minimalist visual direction fixed in Phase 0/5 (doc 07 §3.3) |
 
 ## 8. Working Agreements
 

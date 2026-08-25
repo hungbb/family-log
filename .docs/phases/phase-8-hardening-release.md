@@ -20,7 +20,7 @@
 |---|------|--------|
 | S8.1 | OWASP Top-10 review with a written checklist per item | Findings tracked as issues, all high/critical fixed before release |
 | S8.2 | Authorization re-audit | Re-run the isolation matrix; grep every mutating endpoint for its `require(...)`; confirm the ArchUnit rule still covers every service |
-| S8.3 | Dependency and container scanning in CI | Build fails on high/critical CVEs |
+| S8.3 | Dependency scanning (and container scanning once images exist) | Delivered with the CI/CD workstream that lands in this phase; build fails on high/critical CVEs |
 | S8.4 | SAST (CodeQL or equivalent) on both applications | |
 | S8.5 | Security headers | HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, strict CSP on the web app (no `unsafe-inline` — styled-components uses a nonce or hash) |
 | S8.6 | Rate limiting extended beyond auth | Per-user global budget, plus stricter limits on search and tree endpoints |
@@ -50,7 +50,7 @@
 | O8.4 | Audit-log partitioning | `V15__partition_audit_entries.sql`, monthly partitions with a retention policy |
 | O8.5 | Observability | Prometheus metrics, Grafana dashboards (latency, error rate, DB pool, tree cache), alerts on error rate, p95 latency, and DB saturation |
 | O8.6 | Structured-log review | Correlation ids present end to end; no PII in logs |
-| O8.7 | Production deployment pipeline | Docker images, migrations run before the app starts, health-gated rollout, documented rollback |
+| O8.7 | CI/CD + production deployment pipeline (the deferred workstream lands here) | Build artifact/image, containerization, migrations run before the app starts, health-gated rollout, documented rollback |
 | O8.8 | **Runbook** | Deploy, rollback, restore, rotate secrets, investigate an authorization complaint, repair the closure table, handle a suspended account |
 
 ## 5. Remaining Features

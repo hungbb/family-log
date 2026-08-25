@@ -244,4 +244,4 @@ Responses are `ETag`-tagged; clients send `If-None-Match` and get `304` when the
 - The path carries the major version (`/api/v1`). Breaking changes require `/v2`; both run in parallel for at least one release.
 - Additive changes (new optional fields, new endpoints) ship inside `v1`; clients must ignore unknown fields.
 - Enum values may be **added** within a major version; clients must handle unknown enum values gracefully (render as "unknown", never crash).
-- The OpenAPI document is exported in CI and diffed against the previous release; a breaking diff fails the build.
+- The OpenAPI document is exported from the build and diffed against the previous release; a breaking diff is treated as a breaking change (wired to fail the build once the CI/CD workstream lands).

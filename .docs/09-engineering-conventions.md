@@ -12,9 +12,9 @@ family-log/
   .docs/            planning docs (this folder) + .docs/adr/
   api/              Spring Boot application
   web/              React application
-  docker/           local infrastructure
-  .github/workflows/
 ```
+
+> No `docker/` or `.github/workflows/` yet — containerization and CI/CD are a deferred workstream, added later. Postgres runs as a local install in dev.
 
 **Branching** — trunk-based. Short-lived branches off `main`: `feat/<phase>-<slug>`, `fix/<slug>`, `chore/<slug>`. Squash merge. `main` is always deployable.
 
@@ -25,7 +25,7 @@ family-log/
 - Description states *what* changed and *why*, and names the requirement id (e.g. FR-Z4).
 - One migration per PR, never edited after merge.
 - **Two reviewers required for anything touching `authorization/`**; one otherwise.
-- CI green is a merge precondition, not a suggestion.
+- Local checks (build, backend tests, lint/format, `tsc --noEmit`) pass before merge. Enforcing them automatically is deferred to the CI/CD workstream.
 
 **Definition of done** — the seven-point list in [08-implementation-roadmap.md](08-implementation-roadmap.md) §4.
 
@@ -61,7 +61,7 @@ family-log/
 ### 2.3 SQL & migrations
 
 - Native SQL for tree, closure, and authorization reads; JPA for aggregate CRUD.
-- Every migration is tested against a fresh database **and** against the previous release's database in CI.
+- Every migration is tested against a fresh database **and** against the previous release's database (locally now, in CI once it lands).
 - Destructive changes ship in two releases: add-and-backfill, then drop.
 - No `Flyway.clean` outside `dev`; disabled by configuration in `prod`.
 
@@ -76,7 +76,6 @@ family-log/
 | Endpoint module | `camelCase.ts` under `api/endpoints/` | `permissions.ts` |
 | Styled component | `Styled`-free noun, exported from `styles.ts` | `NodeCard`, `RailLabel` |
 | Store | `use<Domain>Store.ts` | `useActiveClanStore.ts` |
-| Test | `<file>.test.tsx` colocated | `PersonNode.test.tsx` |
 
 ### 3.2 Code rules
 
@@ -92,17 +91,18 @@ family-log/
 
 ### 3.3 Enforced by tooling
 
-ESLint carries the constraint rules from doc 07 §9 (no Axios, no Tailwind, no stray `.css`, no raw `fetch`, no `style` prop, i18n literals). CI runs `eslint --max-warnings=0`, `prettier --check`, and `tsc --noEmit`. A pre-commit hook runs all three on staged files.
+ESLint carries the constraint rules from doc 07 §9 (no Axios, no Tailwind, no stray `.css`, no raw `fetch`, no `style` prop, i18n literals). A pre-commit hook runs `eslint --max-warnings=0`, `prettier --check`, and `tsc --noEmit` on staged files. There is **no automated frontend test suite in v1** (no Vitest/Testing Library/MSW/Playwright); frontend correctness rests on these static checks plus manual verification against each phase's demo script.
 
 ## 4. Testing Strategy
 
 ### 4.1 Shape of the suite
 
+Automated testing in v1 is **backend-only**. The frontend has no automated test suite (see §3.3); its behaviour is verified manually against each phase's demo script.
+
 ```
-        ╱ E2E (Playwright) ╲          ~15 specs — the PRD acceptance scenarios
       ╱  Integration (IT)   ╲         ~120 tests — real Postgres via Testcontainers
-    ╱   Component (RTL)      ╲        ~80 tests — UI behaviour with MSW
-  ╱     Unit (JUnit/Vitest)   ╲       ~400 tests — domain logic, pure functions
+    ╱   Architecture (ArchUnit) ╲     layering, tenancy, require(...) coverage
+  ╱     Unit (JUnit)             ╲     ~400 tests — domain logic, pure functions
 ```
 
 ### 4.2 Backend layers
@@ -113,17 +113,20 @@ ESLint carries the constraint rules from doc 07 §9 (no Axios, no Tailwind, no s
 | Application | JUnit + Mockito | Orchestration, transaction boundaries | Ports stubbed |
 | Integration (`*IT`) | Testcontainers Postgres | Controller → DB, real HTTP via MockMvc/RestAssured | Fresh schema per class, rollback per test |
 | Architecture | ArchUnit | Layering, tenancy, `require(...)` coverage | Runs in the normal test task |
-| Performance | JMH / custom harness | Tree read, closure maintenance | Budgets asserted in CI against the 5,000-node fixture |
+| Performance | JMH / custom harness | Tree read, closure maintenance | Budgets asserted locally against the 5,000-node fixture (moves into CI when it lands) |
 
-### 4.3 Frontend layers
+### 4.3 Frontend verification (no automated suite in v1)
 
-| Layer | Tool | Scope |
-|-------|------|-------|
-| Unit | Vitest | Pure functions: `buildGraph`, date formatting, name formatting |
-| Component | Testing Library + MSW | Forms, guards, permission gates, tree interactions |
-| E2E | Playwright | Full user journeys against a running stack with seeded data |
-| Accessibility | axe + Playwright | Tree page, list view, all forms |
-| Visual (optional) | Playwright screenshots | Tree layout regressions on fixture trees |
+There is no frontend test framework in v1 — no Vitest, Testing Library, MSW, or Playwright. Frontend quality is held up by:
+
+| Layer | Approach |
+|-------|----------|
+| Types | TypeScript `strict` (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) — the primary safety net |
+| Static rules | ESLint constraint rules + Prettier + `tsc --noEmit`, warnings as errors |
+| Behaviour | Manual verification against each phase's demo script |
+| Accessibility | Manual keyboard + screen-reader checks and a browser axe extension on the tree page, list view, and forms |
+
+Pure, framework-agnostic logic (`buildGraph`, date/name formatting) is written to be easily testable so an automated frontend suite can be added later without restructuring.
 
 ### 4.4 Coverage gates
 
@@ -132,8 +135,9 @@ ESLint carries the constraint rules from doc 07 §9 (no Axios, no Tailwind, no s
 | `*.domain`, `*.application` (backend) | ≥ 80 % line coverage |
 | `PermissionResolver` | **100 % branch coverage** |
 | `AncestryProjection` | ≥ 95 % line coverage + the property test |
-| Frontend `features/*/model`, `lib/` | ≥ 75 % |
-| Everything else | No gate; reviewed by judgement |
+| Everything else (backend) | No gate; reviewed by judgement |
+
+Frontend has no coverage gate in v1 (no automated suite).
 
 Coverage is a floor, not a goal. A PR that raises coverage while testing nothing meaningful gets rejected.
 
@@ -163,10 +167,10 @@ Every bug gets a failing test at the layer where it escaped, **before** the fix.
 
 - `.docs/` is the design source of truth and is updated in the PR that changes the design — not afterwards.
 - Deviations from these documents are recorded as ADRs in `.docs/adr/NNNN-short-title.md` using the template in that folder.
-- OpenAPI is generated from code, exported in CI, and diffed; breaking changes fail the build.
+- OpenAPI is generated from code, exported from the build, and diffed; breaking changes are treated as breaking (wired to fail the build when CI/CD lands).
 - Each phase ends with a short report appended to its phase doc: what shipped, what deviated, measured numbers.
 - `README.md` at the repo root stays current on how to run everything — verified by a new-developer walkthrough at each milestone.
 
 ## 6. Definition of "Deployable"
 
-`main` is deployable when: CI is green; migrations apply cleanly forward from the previous release; no feature is half-enabled without a flag; and the health endpoint reports `UP` against a real database. Anything that cannot meet this bar goes behind a feature flag rather than a long-lived branch.
+`main` is deployable when: local checks pass (build, backend tests, lint/format, `tsc --noEmit`); migrations apply cleanly forward from the previous release; no feature is half-enabled without a flag; and the health endpoint reports `UP` against a real database. Anything that cannot meet this bar goes behind a feature flag rather than a long-lived branch. (A green CI pipeline becomes part of this bar once the CI/CD workstream lands.)

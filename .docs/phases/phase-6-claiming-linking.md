@@ -69,9 +69,9 @@
 - Two approvers approving concurrently: exactly one succeeds.
 - Self-service edit succeeds for whitelisted fields and returns `403` for `fullName` or relationships.
 
-**Frontend** — the unlinked browser excludes linked nodes; the claim dialog blocks submission when the user already has a linked node in the clan, with an explanatory message; approvers see only in-scope claims.
+**Frontend (manual)** — the unlinked browser excludes linked nodes; the claim dialog blocks submission when the user already has a linked node in the clan, with an explanatory message; approvers see only in-scope claims.
 
-**E2E** — user joins → browses unlinked nodes → claims → editor approves → user sees "This is you" on the tree and edits their own avatar placeholder without holding `TREE_EDIT`.
+**Manual walkthrough** — user joins → browses unlinked nodes → claims → editor approves → user sees "This is you" on the tree and edits their own avatar placeholder without holding `TREE_EDIT`.
 
 ## 6. Demo Script
 

@@ -72,7 +72,7 @@ This phase carries the strictest test bar in the project: **100 % branch coverag
 
 **Structural** — the ArchUnit rule fails when a new mutating service method omits `require(...)` (verified with a deliberately broken fixture).
 
-**Frontend** — the grant dialog offers no option the caller cannot grant; `PermissionGate` hides controls; a 403 renders the explanatory message.
+**Frontend (manual)** — the grant dialog offers no option the caller cannot grant; `PermissionGate` hides controls; a 403 renders the explanatory message.
 
 ## 6. Demo Script
 
@@ -90,7 +90,7 @@ This phase carries the strictest test bar in the project: **100 % branch coverag
 - [ ] `InterimClanAccessCheck` deleted; no ad-hoc checks remain (grep-verified in review).
 - [ ] Escalation and last-admin protections proven by test.
 - [ ] Every mutation writes an audit entry carrying its authorizing grant.
-- [ ] M3 milestone demo runs on staging.
+- [ ] M3 milestone demo runs locally from seed data.
 
 ## 8. Notes & Risks
 

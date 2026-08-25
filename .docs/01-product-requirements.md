@@ -145,7 +145,7 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 
 - **FR-M1** Avatar and clan-cover uploads: JPEG/PNG/WebP, ≤ 5 MB, server-side re-encode, EXIF stripped, thumbnails generated.
 - **FR-M2** Notes are rich text stored as sanitized HTML (server-side allow-list sanitization; no scripts, no remote iframes).
-- **FR-M3** Storage sits behind a `MediaStorage` port — local filesystem in dev, S3-compatible object storage in production.
+- **FR-M3** Uploaded images are stored on the backend server's local filesystem, behind a `MediaStorage` port. No third-party object storage in v1; an S3-compatible adapter is deferred post-v1, and the port keeps that a one-adapter swap.
 
 ### 5.9 Auditing &amp; Notifications (FR-X)
 

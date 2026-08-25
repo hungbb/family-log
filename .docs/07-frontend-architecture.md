@@ -24,8 +24,9 @@
 | Tree layout | **d3-hierarchy** (layout maths only) | Rendering is our own SVG components; no chart library, no styling from d3. |
 | i18n | **react-i18next** | `vi` default, `en` second (NFR-8). |
 | Dates | **dayjs** | Already an AntD peer dependency. |
-| Testing | **Vitest**, **Testing Library**, **MSW**, **Playwright** | Unit/component/integration/E2E. |
 | Quality | **ESLint** (flat config) + **Prettier** + **typescript-eslint** | Custom rules enforce the constraints (§9). |
+
+> **No automated frontend test suite in v1.** No Vitest, Testing Library, MSW, or Playwright. Frontend correctness rests on TypeScript `strict`, the ESLint constraint rules, and manual verification against each phase's demo script. Backend keeps its full test suite (doc 09 §4). Automated frontend testing can be added later.
 
 ## 2. Project Structure
 
@@ -77,8 +78,6 @@ web/
     i18n/
       index.ts
       locales/{vi,en}/*.json
-  tests/
-    e2e/                          # Playwright specs
 ```
 
 **Rules.** `features/*` may import from `components/`, `hooks/`, `lib/`, `api/`, `theme/` — never from another feature's internals (a feature exports through its own `index.ts`). `components/` never imports from `features/`.
@@ -92,20 +91,21 @@ web/
 ```ts
 export const tokens = {
   color: {
-    primary: '#8B1E1E',        // lacquer red — heritage palette, not the AntD default blue
-    primaryHover: '#A63232',
-    ink: '#1F1B18',
-    inkMuted: '#6B625C',
-    surface: '#FFFDF9',
-    surfaceAlt: '#F5EFE6',
-    border: '#E3D9CB',
-    success: '#2E7D4F', warning: '#B7791F', danger: '#B3261E',
-    male: '#2E5C8A', female: '#8A3B62', deceased: '#8A8178',
+    primary: '#111827',        // near-black ink — quiet, modern primary, not the AntD default blue
+    primaryHover: '#000000',
+    accent: '#C0392B',         // one restrained accent, used sparingly for emphasis
+    ink: '#111827',
+    inkMuted: '#6B7280',
+    surface: '#FFFFFF',
+    surfaceAlt: '#F7F8FA',
+    border: '#ECEEF1',
+    success: '#1F8A54', warning: '#B7791F', danger: '#D14343',
+    male: '#3A6FB0', female: '#B0567F', deceased: '#9CA3AF',
   },
   space: (n: number) => `${n * 4}px`,
-  radius: { sm: '4px', md: '8px', lg: '14px' },
-  font: { body: "'Be Vietnam Pro', system-ui, sans-serif", serif: "'Noto Serif', Georgia, serif" },
-  shadow: { card: '0 1px 3px rgba(31,27,24,.08)', float: '0 8px 24px rgba(31,27,24,.14)' },
+  radius: { sm: '6px', md: '10px', lg: '16px' },
+  font: { body: "'Be Vietnam Pro', system-ui, sans-serif" },
+  shadow: { card: '0 1px 2px rgba(17,24,39,.05)', float: '0 8px 24px rgba(17,24,39,.10)' },
   z: { canvas: 1, drawer: 100, modal: 1000 },
 } as const;
 ```
@@ -122,7 +122,7 @@ export const tokens = {
 
 ### 3.3 Visual direction
 
-The product carries heritage weight, so the UI deliberately avoids a generic SaaS look: warm paper-toned surfaces, lacquer-red accent, a serif face for names and generation labels, sans-serif for the interface. Tree nodes are cards with a subtle border, gender-tinted rail, and a muted treatment for deceased persons.
+The UI is **modern and minimalist**: a clean white canvas, generous whitespace, hairline borders, and minimal elevation. A single clean sans-serif (Be Vietnam Pro, strong Vietnamese diacritic support) carries the whole interface — hierarchy comes from weight and size, not ornament. Colour is used sparingly: near-black ink for primary actions and a single restrained accent for emphasis and highlights. Tree nodes are flat cards with a hairline border, a slim gender-tinted rail, and a muted treatment for deceased persons. The result should feel calm, contemporary, and uncluttered rather than decorative.
 
 ## 4. HTTP Layer (native `fetch`)
 
@@ -168,7 +168,7 @@ A single-flight refresh interceptor inside the wrapper: on `401 TOKEN_EXPIRED`, 
 
 ### 4.4 Types from OpenAPI
 
-`openapi-typescript` generates `api/types.ts` from the backend spec via `npm run gen:api`. Generated types are committed, and CI fails if regenerating produces a diff — the API contract can never silently drift from the client.
+`openapi-typescript` generates `api/types.ts` from the backend spec via `npm run gen:api`. Generated types are committed; regenerating must produce no diff (enforced in CI once the CI/CD workstream lands) — the API contract can never silently drift from the client.
 
 ## 5. Server State (TanStack Query)
 
@@ -258,7 +258,7 @@ The canvas is `role="tree"` with keyboard navigation (arrows move between siblin
 | `i18next/no-literal-string` (warn) | Catches hard-coded user-facing strings (NFR-8). |
 | `import/no-cycle`, feature-boundary `no-restricted-imports` zones | Keeps the feature slices independent. |
 
-Prettier config: 100 print width, single quotes, trailing commas, 2-space indent. A pre-commit hook (husky + lint-staged) runs ESLint, Prettier, and `tsc --noEmit` on staged files. CI re-runs all three plus tests; warnings are errors in CI (`--max-warnings=0`).
+Prettier config: 100 print width, single quotes, trailing commas, 2-space indent. A pre-commit hook (husky + lint-staged) runs ESLint, Prettier, and `tsc --noEmit` on staged files, with warnings treated as errors (`--max-warnings=0`). Running these in CI is deferred with the rest of the CI/CD workstream (see the roadmap).
 
 ## 10. Performance Budget
 
@@ -270,4 +270,4 @@ Prettier config: 100 print width, single quotes, trailing commas, 2-space indent
 | Pan/zoom | 60 fps at 2,000 nodes (virtualized) |
 | Lighthouse (Performance / A11y) | ≥ 90 / ≥ 95 |
 
-Budgets are checked in CI with `vite-bundle-visualizer` output and a Lighthouse CI run on the main routes.
+Budgets are checked locally with `vite-bundle-visualizer` output and a Lighthouse run on the main routes; automating this in CI is deferred with the CI/CD workstream.

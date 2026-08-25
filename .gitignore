@@ -1,47 +1,74 @@
-# --- Secrets ------------------------------------------------------------------------------------
-# `.env.example` files are committed and documented; anything with real values is not.
+# ---------------------------------------------------------------------------
+# Gia Ký — root .gitignore
+# Monorepo: api/ (Java 21 · Spring Boot · Maven) + web/ (Vite · React · TS)
+# ---------------------------------------------------------------------------
+
+# === OS ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# === IDE / editors ===
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+
+# === Secrets & environment ===
 .env
 .env.*
 !.env.example
+*.local
 
-# --- Java / Maven -------------------------------------------------------------------------------
+# === Local media storage (uploaded avatars/images live outside git) ===
+/media/
+api/media/
+uploads/
+
+# ---------------------------------------------------------------------------
+# Backend — api/ (Maven / Spring Boot)
+# ---------------------------------------------------------------------------
 target/
 *.class
 *.jar
-# The wrapper is the script-only distribution, so there is no jar to commit and any that appears
-# is a stray download.
-**/.mvn/wrapper/maven-wrapper.jar
-.mvn/timing.properties
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.log
+hs_err_pid*
+replay_pid*
 
-# --- Node ---------------------------------------------------------------------------------------
+# Spring Boot local overrides
+application-local.yml
+application-local.properties
+
+# ---------------------------------------------------------------------------
+# Frontend — web/ (Node / Vite)
+# ---------------------------------------------------------------------------
 node_modules/
+web/dist/
 dist/
 dist-ssr/
-coverage/
+build/
 .vite/
-*.local
+*.tsbuildinfo
+
+# npm / yarn / pnpm
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.eslintcache
+pnpm-debug.log*
+.pnpm-store/
 
-# --- Local runtime data -------------------------------------------------------------------------
-# Uploaded media in dev; see MEDIA_LOCAL_DIR.
-var/
-api/var/
-*.log
-logs/
+# Lighthouse / bundle analysis output
+.lighthouseci/
+stats.html
 
-# --- Editors ------------------------------------------------------------------------------------
-.idea/
-*.iml
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-*.swp
-*~
-
-# --- OS -----------------------------------------------------------------------------------------
-.DS_Store
-Thumbs.db
-desktop.ini
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+*.tmp
+*.bak
+coverage/
