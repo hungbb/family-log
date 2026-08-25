@@ -1,6 +1,6 @@
 # Phase 0 — Foundation
 
-**Goal:** a repository where both applications build, run, test, and deploy — with the guardrails that later phases depend on already in place.
+**Goal:** a repository where both applications build, run, and test locally — with the guardrails that later phases depend on already in place.
 
 **Estimate:** ~1 week · **Depends on:** nothing · **Next:** [Phase 1](phase-1-identity-auth.md)
 
@@ -9,19 +9,18 @@
 ## 1. Scope
 
 **In scope**
-- Monorepo layout (`api/`, `web/`, `.docs/`, `docker/`).
-- Spring Boot skeleton that starts, connects to Postgres, and serves `/actuator/health`.
+- Monorepo layout (`api/`, `web/`, `.docs/`).
+- Spring Boot skeleton that starts, connects to a locally installed Postgres, and serves `/actuator/health`.
 - Vite + React + TypeScript skeleton that renders an app shell with the theme applied.
-- Docker Compose for Postgres 16 and MinIO.
 - Flyway wired with the first migration.
-- CI pipeline: build, test, lint for both apps.
 - Lint/format/pre-commit tooling and the constraint-enforcing ESLint rules.
 - ArchUnit rules for the backend layering.
 
 **Out of scope**
 - Any business entity, endpoint, or screen beyond a health page.
 - Authentication (Phase 1) — the security chain permits everything for now, behind a clearly marked TODO.
-- Production deployment (Phase 8); staging deploy is enough here.
+- Containerization (Docker) and CI/CD — a deferred workstream, added later.
+- Production deployment (Phase 8).
 
 ## 2. Repository Layout
 
@@ -30,13 +29,10 @@ family-log/
   .docs/                     # these planning documents
   api/                       # Spring Boot application
   web/                       # React application
-  docker/
-    docker-compose.yml       # postgres, minio
-    postgres/init.sql
-  .github/workflows/
-    api.yml  web.yml
   .editorconfig  .gitignore  README.md
 ```
+
+> No `docker/` or `.github/workflows/` in v1 — containerization and CI/CD land later. Postgres is a local install; media is written to a local directory.
 
 ## 3. Backend Tasks
 
@@ -61,27 +57,24 @@ family-log/
 |---|------|-------|
 | F0.1 | Vite + React 19 + TypeScript strict scaffold | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
 | F0.2 | Install AntD 5, styled-components 6, React Router 7, TanStack Query 5, Zustand, i18next, dayjs, zod | **No Axios. No Tailwind.** |
-| F0.3 | `theme/tokens.ts`, `antdTheme.ts`, `styled.d.ts`, `GlobalStyle.ts` | The heritage palette from doc 07 §3 |
+| F0.3 | `theme/tokens.ts`, `antdTheme.ts`, `styled.d.ts`, `GlobalStyle.ts` | The modern minimalist palette from doc 07 §3 |
 | F0.4 | `App.tsx` providers: QueryClient → ConfigProvider → ThemeProvider → I18n → Router | |
 | F0.5 | `components/layout/AppShell` with sidebar/topbar placeholders | Pure styled-components over AntD `Layout` |
 | F0.6 | `api/client.ts` fetch wrapper skeleton | Base URL, JSON handling, `ApiError` parsing; no auth yet |
 | F0.7 | ESLint flat config with the constraint rules (doc 07 §9) | Restricted imports: axios, ky, tailwindcss; no raw `fetch` outside the client; no `.css` imports |
-| F0.8 | Prettier, husky, lint-staged | Pre-commit: eslint + prettier + `tsc --noEmit` |
-| F0.9 | Vitest + Testing Library + MSW setup, one smoke test | |
-| F0.10 | Playwright config + one smoke E2E (`app renders`) | |
-| F0.11 | i18n scaffold with `vi` default and an `en` stub | |
-| F0.12 | Health page hitting `/actuator/health` through the client | Proves the whole wire path |
+| F0.8 | Prettier, husky, lint-staged | Pre-commit: eslint + prettier + `tsc --noEmit`. No test runner in v1 (no Vitest/Testing Library/MSW/Playwright) |
+| F0.9 | i18n scaffold with `vi` default and an `en` stub | |
+| F0.10 | Health page hitting `/actuator/health` through the client | Proves the whole wire path |
 
-## 5. Infrastructure Tasks
+## 5. Local Setup Tasks
 
 | # | Task | Notes |
 |---|------|-------|
-| I0.1 | `docker/docker-compose.yml` — Postgres 16 + MinIO with volumes | |
-| I0.2 | `.env.example` for both apps | Documented, secret-free |
-| I0.3 | GitHub Actions `api.yml`: Maven build, unit + Testcontainers tests, ArchUnit, OpenAPI export artifact | Cached `~/.m2` |
-| I0.4 | GitHub Actions `web.yml`: install, lint (`--max-warnings=0`), `tsc`, Vitest, build | Cached npm |
-| I0.5 | Dependency scanning (Dependabot) + SAST baseline | |
-| I0.6 | Root `README.md`: how to run both apps in under five minutes | |
+| I0.1 | Document local **PostgreSQL 16** setup (native install): create the database and role, connection settings | In the README + `.env.example`; no Docker in v1 |
+| I0.2 | `.env.example` for both apps | Documented, secret-free; includes the local media directory path |
+| I0.3 | Root `README.md`: how to run both apps in under five minutes | |
+
+> **CI/CD and containerization are deferred.** No GitHub Actions, Docker images, dependency/SAST scanning, or MinIO yet. Keep build/run/test commands simple and documented so wiring a pipeline later is mechanical.
 
 ## 6. Migrations
 
@@ -92,14 +85,11 @@ family-log/
 ## 7. Tests
 
 - **Backend**: context loads; `/actuator/health` returns `UP` against a Testcontainers Postgres; Flyway migrates a fresh DB; all ArchUnit rules pass.
-- **Frontend**: app renders the shell; the fetch wrapper maps a Problem Details response to `ApiError` (MSW); the ESLint config rejects a fixture file importing `axios` and one importing `tailwindcss`.
-- **E2E**: Playwright loads the app and sees the health indicator.
+- **Frontend (manual + lint)**: the app renders the shell and shows a healthy API badge; ESLint blocks a fixture file importing `axios` and one importing `tailwindcss` (a lint run — there is no test runner in v1).
 
 ## 8. Demo Script
 
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
+Start your locally installed PostgreSQL 16 (see the README), then:
 
 ```bash
 cd api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
@@ -109,20 +99,21 @@ cd api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 cd web && npm run dev
 ```
 
-Open the web app: the shell renders with the heritage theme and a green "API healthy" badge fed by a real request through the fetch client.
+Open the web app: the shell renders with the modern minimalist theme and a green "API healthy" badge fed by a real request through the fetch client.
 
 ## 9. Exit Criteria
 
-- [ ] `docker compose up` + two commands gives a working local environment.
-- [ ] CI green on both applications, running on every PR.
+- [ ] With a local Postgres running, two commands give a working local environment.
+- [ ] Both apps build and lint locally; the backend test suite runs with a single command.
 - [ ] Flyway runs from an empty database with no errors.
 - [ ] ArchUnit layering rules active and passing.
 - [ ] ESLint provably blocks Axios, Tailwind, stray `.css` imports, and raw `fetch`.
-- [ ] The theme is applied — the app does not look like stock Ant Design.
+- [ ] The theme is applied — the app has a modern, minimalist look, not stock Ant Design.
 - [ ] `README.md` gets a new developer running in under five minutes.
 
 ## 10. Notes & Risks
 
 - **Get the guardrails in now.** The ESLint constraint rules and ArchUnit layering are cheap on day one and expensive to retrofit; they are the mechanism that keeps the draft's hard constraints true.
 - **Don't over-build the skeleton.** No premature abstraction of controllers or services — later phases define those shapes.
-- **MinIO is included early** purely so the S3 adapter written in Phase 7 has a local target from the start.
+- **Media is local in v1.** Uploaded images are written to a local directory behind the `MediaStorage` port; an object-storage (S3-compatible) adapter is a post-v1 swap.
+- **CI/CD and containerization are deferred.** Keep build/run/test commands simple and documented so wiring them into a pipeline later is mechanical.

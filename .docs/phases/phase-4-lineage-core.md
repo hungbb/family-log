@@ -70,9 +70,9 @@
 
 **Performance (NFR-1)** — full tree read of the 5,000-person fixture under the budget; closure maintenance on a deep-subtree re-parent measured and recorded.
 
-**Frontend** — partial-date input round-trips every precision; version conflict dialog appears; read-only rendering for `canEdit === false`.
+**Frontend (manual)** — partial-date input round-trips every precision; version conflict dialog appears; read-only rendering for `canEdit === false`.
 
-**E2E** — build a small lineage through the UI, add a second wife with a `SECONDARY` union and children, verify the list view and search find them.
+**Manual walkthrough** — build a small lineage through the UI, add a second wife with a `SECONDARY` union and children, verify the list view and search find them.
 
 ## 6. Demo Script
 

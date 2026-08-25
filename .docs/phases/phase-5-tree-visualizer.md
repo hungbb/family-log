@@ -25,7 +25,7 @@
 | B5.5 | `GET /tree/stats` | Counts by generation, living/deceased, per branch, unlinked nodes |
 | B5.6 | Batch `EditableSet` performance pass | O(number of grants) queries, independent of tree size — benchmarked |
 | B5.7 | Depth-bounded partial loads for very large clans | `?rootPersonId=&depth=` with a documented client strategy for > 3,000 nodes |
-| B5.8 | Benchmark suite against the 5,000-person fixture in CI | Fails the build if the tree endpoint regresses beyond budget |
+| B5.8 | Benchmark harness against the 5,000-person fixture, run locally | Flags a regression when the tree endpoint exceeds budget; wired into CI later |
 
 ## 3. Frontend Tasks
 
@@ -35,7 +35,7 @@
 | F5.2 | `useTreeLayout()` — d3-hierarchy layout maths only | Couples occupy one layout slot; children hang from the union midpoint |
 | F5.3 | `<TreeCanvas>` SVG with a single transformed `<g>` | The one sanctioned inline style (doc 07 §7.3), with its ESLint disable and rationale |
 | F5.4 | Viewport virtualization | Only nodes intersecting the viewport (plus margin) render |
-| F5.5 | `<PersonNode>` card | Name (serif), years, gender rail, deceased treatment, branch badge, initials avatar, `canEdit` state |
+| F5.5 | `<PersonNode>` card | Name (display weight), years, gender rail, deceased treatment, branch badge, initials avatar, `canEdit` state |
 | F5.6 | `<UnionLink>` and `<ParentEdge>` | Orthogonal connectors, union type indicated (secondary/sequential rendered distinctly) |
 | F5.7 | Generation rails labelled *Đời N* | |
 | F5.8 | Interactions: wheel/pinch zoom, drag pan, click select, double-click focus, collapse/expand subtree, keyboard navigation | `useTreeViewStore` holds viewport and collapsed-node state |
@@ -53,17 +53,15 @@ None. This phase is read-path and UI work; any index tuning discovered during be
 
 ## 5. Tests
 
-**Unit (frontend)** — `buildGraph` for: a person with two unions and children from each; adopted children; a person with one known parent; a detached fragment; sibling ordering fallbacks. Layout produces no overlapping nodes for these fixtures.
+**Backend integration** — `304` returned when `If-None-Match` matches; a lineage mutation bumps `treeVersion` and busts the ETag; `canEdit` flags match the resolver's decisions for a branch-scoped user (cross-checked against per-node `can()` calls in the test).
 
-**Component** — `TreeCanvas` renders the expected node count for a fixture; collapse hides descendants; `canEdit === false` renders no hover actions; keyboard arrows move focus between siblings and generations.
+**Performance (NFR-1)** — 2,000-node tree renders within 1 s from data to painted frame; pan/zoom holds 60 fps; the 5,000-node fixture stays usable with virtualization on (measured by hand in the browser profiler, recorded in the phase report).
 
-**Integration** — `304` returned when `If-None-Match` matches; a lineage mutation bumps `treeVersion` and busts the ETag; `canEdit` flags match the resolver's decisions for a branch-scoped user (cross-checked against per-node `can()` calls in the test).
+**Frontend (manual)** — spot-check `buildGraph` output for a person with two unions and children from each, adopted children, one known parent, a detached fragment, and sibling ordering fallbacks; the layout has no overlapping nodes; `TreeCanvas` shows the expected node count; collapse hides descendants; `canEdit === false` renders no hover actions; keyboard arrows move focus between siblings and generations. (`buildGraph` is a pure function, written to stay easy to cover once an automated frontend suite is added.)
 
-**Performance (NFR-1)** — 2,000-node tree renders within 1 s from data to painted frame; pan/zoom holds 60 fps; the 5,000-node fixture stays usable with virtualization on (measured, recorded in the phase report).
+**Accessibility (manual)** — a browser axe extension is clean on the tree page; the list view is fully navigable by keyboard and announces generation groupings.
 
-**Accessibility** — axe scan clean on the tree page; the list view is fully navigable by keyboard and announces generation groupings.
-
-**E2E** — a branch-scoped editor opens the master view, sees the whole clan including other branches, adds a child under their own node, and finds the add action absent on a node in another branch.
+**Manual walkthrough** — a branch-scoped editor opens the master view, sees the whole clan including other branches, adds a child under their own node, and finds the add action absent on a node in another branch.
 
 ## 6. Demo Script
 
@@ -79,8 +77,8 @@ None. This phase is read-path and UI work; any index tuning discovered during be
 - [ ] FR-T2, T3, T4 complete; the master view aggregates all branches seamlessly.
 - [ ] Performance budgets met and recorded (2,000-node render, 60 fps pan/zoom).
 - [ ] Branch isolation is visible and correct in the UI, and still enforced server-side.
-- [ ] The list view is a complete, accessible alternative — axe clean.
-- [ ] M4 milestone demo runs on staging with real (or realistic) clan data.
+- [ ] The list view is a complete, accessible alternative — clean under a browser axe extension.
+- [ ] M4 milestone demo runs locally with real (or realistic) clan data.
 
 ## 8. Notes & Risks
 

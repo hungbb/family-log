@@ -10,7 +10,7 @@
 
 ## 1. Scope
 
-**In scope** — image upload for person avatars, user avatars, and clan covers; server-side re-encoding, EXIF stripping, and thumbnailing; the `MediaStorage` port with local and S3 adapters; a rich-text editor for biographies with server-side sanitization; the in-app notification centre; complete `vi`/`en` translation and locale-aware formatting.
+**In scope** — image upload for person avatars, user avatars, and clan covers; server-side re-encoding, EXIF stripping, and thumbnailing; the `MediaStorage` port with a local filesystem adapter storing files on the backend server (no third-party object storage yet); a rich-text editor for biographies with server-side sanitization; the in-app notification centre; complete `vi`/`en` translation and locale-aware formatting.
 
 **Out of scope** — photo galleries per person (post-v1; the schema allows it, the UI ships one avatar), document/scan attachments (post-v1), video, email delivery (Phase 8), OCR of scanned family books.
 
@@ -18,10 +18,10 @@
 
 | # | Task | Detail |
 |---|------|--------|
-| B7.1 | `MediaStorage` port + `LocalFsMediaStorage` (dev) and `S3MediaStorage` (prod, MinIO locally) | Selected by profile |
+| B7.1 | `MediaStorage` port + `LocalFsMediaStorage` storing files under a configured server directory (dev and prod) | Object-storage (S3-compatible) adapter deferred post-v1, behind the same port |
 | B7.2 | `MediaService`: validate → re-encode → strip EXIF → generate variants (thumb 96px, card 256px, full ≤ 1600px) → persist `media_objects` | JPEG/PNG/WebP, ≤ 5 MB, content type sniffed server-side, never trusted from the client |
 | B7.3 | Upload endpoints: `/me/avatar`, `/persons/{id}/avatar`, `/clans/{id}/cover` | Permission: `TREE_EDIT` on the node, or the linked user via the self-service exception |
-| B7.4 | Media serving | Signed, time-limited URLs in prod; a streaming endpoint in dev. Access requires clan membership |
+| B7.4 | Media serving | A streaming endpoint serves image files from local storage; access requires clan membership. (Signed, time-limited URLs arrive with the post-v1 object-storage adapter) |
 | B7.5 | Orphan cleanup job | Media unreferenced for > 7 days is deleted from storage |
 | B7.6 | Rich-text sanitization hardening | OWASP Java HTML Sanitizer allow-list: headings, bold/italic, lists, links (`http(s)` only, `rel="noopener noreferrer"`), blockquote. No scripts, styles, iframes, or remote images |
 | B7.7 | Plain-text projection of notes for search and for the list view | |
@@ -57,11 +57,11 @@
 
 **Integration** — upload → variants generated → EXIF absent from the stored file (asserted by reading metadata back); an unreferenced media object is cleaned up after the retention window; a non-member requesting a media URL is refused; notifications are created for each event type and only for the correct recipients.
 
-**Frontend** — the editor's toolbar cannot produce markup the sanitizer would strip (round-trip test against a fixture of the allow-list); upload errors are surfaced legibly; the notification badge updates on poll.
+**Frontend (manual)** — the editor's toolbar can only produce markup the sanitizer keeps (checked by hand against the allow-list); upload errors are surfaced legibly; the notification badge updates on poll.
 
-**i18n** — a test asserts no missing keys in either locale and no untranslated fallbacks in `vi`; a snapshot check on a long Vietnamese string catches layout breakage.
+**i18n** — a lightweight locale-completeness script (run via `npm run`, not a test framework) asserts no missing keys in either locale and no untranslated fallbacks in `vi`; a long Vietnamese string is eyeballed for layout breakage.
 
-**E2E** — upload an ancestor's photo, write a biography with formatting, see both on the tree and in the drawer; switch to English and back with no missing strings.
+**Manual walkthrough** — upload an ancestor's photo, write a biography with formatting, see both on the tree and in the drawer; switch to English and back with no missing strings.
 
 ## 6. Demo Script
 

@@ -31,7 +31,7 @@ A clan's family tree is built from `Person` nodes that need **no user account** 
 
 | Phase | Focus | Est. | Milestone |
 |-------|-------|------|-----------|
-| [0 — Foundation](phases/phase-0-foundation.md) | Repo, build, Docker, CI, skeletons, guardrails | 1 wk | |
+| [0 — Foundation](phases/phase-0-foundation.md) | Repo, build, skeletons, guardrails | 1 wk | |
 | [1 — Identity & Auth](phases/phase-1-identity-auth.md) | Accounts, JWT, sessions, profile | 1.5 wk | **M1** walking skeleton |
 | [2 — Clan & Branch](phases/phase-2-clan-branch.md) | Clans, branch tree, membership, join requests | 2 wk | **M2** clans exist |
 | [3 — Authorization](phases/phase-3-authorization.md) | Grants, scoped resolution, enforcement | 2 wk | **M3** safe delegation |

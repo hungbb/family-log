@@ -301,7 +301,7 @@ Indexes: `ux_claim_pending (requester_user_id, person_id) WHERE status='PENDING'
 
 `**notifications**` — `id`, `recipient_user_id`, `clan_id?`, `type`, `payload JSONB`, `read_at`, `created_at`. Index `ix_notif_unread (recipient_user_id, created_at DESC) WHERE read_at IS NULL`.
 
-`**media_objects**` — `id`, `storage_key`, `content_type`, `byte_size`, `width`, `height`, `variants JSONB`, `owner_user_id`, `clan_id?`, `created_at`. The single indirection point between DB rows and object storage.
+`**media_objects**` — `id`, `storage_key`, `content_type`, `byte_size`, `width`, `height`, `variants JSONB`, `owner_user_id`, `clan_id?`, `created_at`. The single indirection point between DB rows and the image files stored on the server's local filesystem.
 
 ## 4. Reference Queries
 
@@ -368,7 +368,7 @@ Forward-only, one concern per migration, aligned with the phases in [08-implemen
 | `V15__partition_audit_entries.sql`             | monthly partitioning                                                  | 8                                       |
 
 
-**Rules.** Repeatable migrations (`R__`) only for views and functions. Every migration is tested against a Testcontainers Postgres in CI. Destructive changes ship in two steps (add-and-backfill, then drop in a later release).
+**Rules.** Repeatable migrations (`R__`) only for views and functions. Every migration is tested against a Testcontainers Postgres. Destructive changes ship in two steps (add-and-backfill, then drop in a later release).
 
 ## 6. Vietnamese Text Search
 

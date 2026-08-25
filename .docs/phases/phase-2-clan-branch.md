@@ -64,9 +64,9 @@
 
 **Tenancy (NFR-4)** — a user in clan A requesting a branch id belonging to clan B receives `404`; parameterized across every endpoint that takes a nested id.
 
-**Frontend** — clan switcher persists across reloads; join-code preview handles an unknown code; branch tree renders nesting and disables illegal drops.
+**Frontend (manual)** — clan switcher persists across reloads; join-code preview handles an unknown code; branch tree renders nesting and disables illegal drops.
 
-**E2E** — user A creates a clan and two branches; user B joins by code; A approves with a home branch; B sees the clan in their switcher and the branch tree.
+**Manual walkthrough** — user A creates a clan and two branches; user B joins by code; A approves with a home branch; B sees the clan in their switcher and the branch tree.
 
 ## 6. Demo Script
 
@@ -82,7 +82,7 @@
 - [ ] Branch paths are provably consistent after arbitrary move sequences (property test).
 - [ ] All interim authorization is confined to `InterimClanAccessCheck`.
 - [ ] Tenancy tests pass for every clan-scoped endpoint.
-- [ ] M2 milestone demo runs on staging.
+- [ ] M2 milestone demo runs locally from seed data.
 
 ## 8. Notes & Risks
 
