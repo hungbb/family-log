@@ -86,7 +86,7 @@ const FORBIDDEN_PACKAGES = [
 const SHARED_LAYER_BOUNDARY = {
   group: ['**/features/**', '@/features/**'],
   message:
-    'components/, lib/ and theme/ are app-agnostic; the dependency runs from features/ to them, never back.',
+    'components/, hooks/, lib/, stores/ and theme/ are app-agnostic; the dependency runs from features/ to them, never back.',
 };
 
 export default tseslint.config(
@@ -272,8 +272,12 @@ export default tseslint.config(
   },
 
   // The shared layers, which may not import a feature.
+  //
+  // `stores/` joins them in Phase 1: the session has to be readable by the app shell, and
+  // `components/` may not import from `features/` — so a session store inside a feature would
+  // force the boundary to be broken the first time the top bar needed to know who is signed in.
   {
-    files: ['src/components/**', 'src/lib/**', 'src/theme/**'],
+    files: ['src/components/**', 'src/hooks/**', 'src/lib/**', 'src/stores/**', 'src/theme/**'],
     rules: {
       'no-restricted-imports': [
         'error',

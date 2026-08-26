@@ -1,4 +1,4 @@
-import { Layout } from 'antd';
+import { Button, Layout } from 'antd';
 import styled from 'styled-components';
 
 /**
@@ -92,4 +92,48 @@ export const Content = styled(Layout.Content)`
   max-width: ${({ theme }) => theme.layout.contentMaxWidth};
   margin-inline: auto;
   padding: ${({ theme }) => `${theme.space(7)} ${theme.space(5)} ${theme.space(10)}`};
+`;
+
+/**
+ * The account menu's trigger.
+ *
+ * A `Button` rather than a bare `div` so it is focusable and operable from the keyboard without
+ * anything being reimplemented — the menu is the only way to sign out, and a sign-out that needs a
+ * mouse is not one (NFR-7).
+ */
+export const AccountButton = styled(Button)`
+  height: 36px;
+  padding-inline: ${({ theme }) => theme.space(2)};
+`;
+
+export const UserName = styled.span`
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: ${({ theme }) => theme.color.ink};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+
+  /* The name is decoration next to the avatar on a narrow screen; the avatar carries the meaning. */
+  @media (max-width: 640px) {
+    display: none;
+  }
+`;
+
+/**
+ * The banner shown until an address is confirmed.
+ *
+ * A strip rather than a modal: an unverified account can use the product (phase doc §8), so this is
+ * a reminder, not a gate.
+ */
+export const VerificationBanner = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${({ theme }) => theme.space(3)};
+  padding: ${({ theme }) => `${theme.space(2)} ${theme.space(5)}`};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.warningSubtle};
+  color: ${({ theme }) => theme.color.warning};
+  font-size: ${({ theme }) => theme.fontSize.sm};
 `;

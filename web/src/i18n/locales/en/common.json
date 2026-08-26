@@ -3,6 +3,11 @@
     "name": "Gia Ký",
     "tagline": "Your family lineage, kept together"
   },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…"
+  },
   "nav": {
     "tree": "Family tree",
     "members": "Members",
@@ -15,7 +20,118 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "clanSwitcherPlaceholder": "Select a clan",
-    "accountPlaceholder": "Account"
+    "accountPlaceholder": "Account",
+    "accountMenu": "Account menu",
+    "profile": "My profile",
+    "signOut": "Sign out",
+    "verifyEmailBanner": "Your email address is not verified yet. Open the verification link we sent you."
+  },
+  "auth": {
+    "field": {
+      "email": "Email",
+      "password": "Password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "displayName": "Display name"
+    },
+    "placeholder": {
+      "email": "you@example.com",
+      "displayName": "Nguyễn Văn An"
+    },
+    "validation": {
+      "emailRequired": "Enter your email.",
+      "emailInvalid": "That is not a valid email address.",
+      "emailTooLong": "That email address is too long.",
+      "passwordRequired": "Enter your password.",
+      "passwordTooShort": "Password must be at least 10 characters.",
+      "passwordTooLong": "Password must be at most 72 characters.",
+      "passwordsDoNotMatch": "The two passwords do not match.",
+      "displayNameRequired": "Enter a display name.",
+      "displayNameTooLong": "That display name is too long."
+    },
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Carry on building and preserving your family record.",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "No account yet?",
+      "registerLink": "Create one"
+    },
+    "register": {
+      "title": "Create an account",
+      "subtitle": "It takes a minute, and you can start straight away.",
+      "submit": "Create account",
+      "passwordHint": "At least {{count}} characters. Pick something you will remember and nobody else would guess.",
+      "created": "Account created. Welcome.",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Sign in"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email. If it has an account, we will send a reset link.",
+      "submit": "Send the link",
+      "backToLogin": "Back to sign in",
+      "sentTitle": "Sent",
+      "sentHeading": "Check your inbox",
+      "sentBody": "If that address has an account, a reset link is on its way. It is valid for one hour."
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Changing it ends every session currently signed in to this account.",
+      "submit": "Change password",
+      "done": "Password changed. Sign in again.",
+      "signsOutEverywhere": "This signs your account out on every device.",
+      "missingTokenTitle": "That link is not valid",
+      "missingTokenBody": "The reset link has no token in it. Request a new one.",
+      "requestNew": "Request a new link"
+    },
+    "verify": {
+      "title": "Verify your email",
+      "working": "Verifying…",
+      "successTitle": "Email verified",
+      "successBody": "Thank you. Your account is ready.",
+      "failedTitle": "Could not verify",
+      "failedBody": "That link is not valid, or it has expired.",
+      "missingToken": "The verification link has no token in it.",
+      "continue": "Continue"
+    }
+  },
+  "account": {
+    "title": "My account",
+    "subtitle": "How you appear to others, the language of the interface, and where you are signed in.",
+    "details": "Account details",
+    "language": "Interface language",
+    "verification": "Email status",
+    "verified": "Verified",
+    "unverified": "Not verified",
+    "saved": "Changes saved.",
+    "sessions": {
+      "title": "Active sessions",
+      "subtitle": "The browsers and devices currently signed in to this account.",
+      "empty": "No active sessions.",
+      "unknownClient": "Unknown device",
+      "unknownAddress": "Unknown address"
+    },
+    "logoutAll": {
+      "title": "Security",
+      "heading": "Sign out everywhere",
+      "body": "Ends every session, including this one. Use it if you think someone else has access to your account.",
+      "action": "Sign out everywhere",
+      "confirmTitle": "Sign out of every device?",
+      "confirmBody": "You will have to sign in again everywhere, including here.",
+      "confirmOk": "Sign out everywhere"
+    }
+  },
+  "errors": {
+    "unexpected": "Something went wrong. Try again.",
+    "authRequired": "Email or password is incorrect.",
+    "sessionExpired": "Your session has expired. Sign in again.",
+    "emailAlreadyRegistered": "That email address already has an account.",
+    "validationFailed": "Some of what you entered is not valid.",
+    "rateLimited": "Too many attempts. Wait a moment and try again.",
+    "permissionDenied": "You may not perform this action.",
+    "network": "Could not reach the server.",
+    "server": "The server is having trouble. Try again shortly."
   },
   "health": {
     "title": "System health",

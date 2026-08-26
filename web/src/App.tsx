@@ -9,6 +9,8 @@ import { RouterProvider } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
 import { ApiError } from './api/errors';
+import { SplashScreen } from './components/feedback/SplashScreen';
+import { useSessionBootstrap } from './hooks/useSessionBootstrap';
 import i18n from './i18n';
 import { router } from './router/routes';
 import { antdTheme } from './theme/antdTheme';
@@ -55,6 +57,19 @@ function LocalisedProviders({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Resolves the session before the router mounts (task F1.8).
+ *
+ * Inside the providers rather than around them, so the splash it shows is themed and translated —
+ * and so the router never renders against a session that is still `loading`, which is what would
+ * otherwise flash the login screen on every reload of a signed-in page.
+ */
+function RoutedApplication() {
+  const resolved = useSessionBootstrap();
+
+  return resolved ? <RouterProvider router={router} /> : <SplashScreen />;
+}
+
+/**
  * Provider order matters and is fixed by doc 07 §F0.4:
  * QueryClient → ConfigProvider → ThemeProvider → i18n → Router.
  *
@@ -66,7 +81,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <I18nextProvider i18n={i18n}>
         <LocalisedProviders>
-          <RouterProvider router={router} />
+          <RoutedApplication />
         </LocalisedProviders>
       </I18nextProvider>
     </QueryClientProvider>

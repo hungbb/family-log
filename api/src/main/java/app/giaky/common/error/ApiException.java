@@ -7,14 +7,17 @@ import java.util.List;
  * {@link ErrorCode}, which fixes both the HTTP status and the {@code code} the client reads.
  *
  * <p>Sealed at the root so {@code GlobalExceptionHandler} is exhaustive over the intended cases; the
- * five permitted subclasses are open, and later phases extend those rather than this.
+ * permitted subclasses are open, and a phase extends those rather than this list. Phase 1 is the
+ * exception that proves it: {@link TooManyRequestsException} describes the caller's recent history
+ * rather than anything about the request, which none of the original five could express.
  */
 public abstract sealed class ApiException extends RuntimeException
         permits AuthenticationRequiredException,
                 ConflictException,
                 DomainRuleViolation,
                 NotFoundException,
-                PermissionDeniedException {
+                PermissionDeniedException,
+                TooManyRequestsException {
 
     private final transient ErrorCode code;
     private final transient List<FieldViolation> errors;

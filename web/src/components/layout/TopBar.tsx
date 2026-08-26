@@ -1,10 +1,17 @@
-import { MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Segmented } from 'antd';
+import {
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import { Avatar, Button, Dropdown, Segmented, Space } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 
+import { useAuth } from '../../hooks/useAuth';
 import { SUPPORTED_LOCALES } from '../../i18n';
 
-import { Placeholder, TopBar as Bar, TopBarSpacer } from './styles';
+import { AccountButton, Placeholder, TopBar as Bar, TopBarSpacer, UserName } from './styles';
 
 interface TopBarProps {
   collapsed: boolean;
@@ -14,12 +21,14 @@ interface TopBarProps {
 /**
  * The top bar.
  *
- * The clan switcher and the account menu are placeholders — there are no clans and no accounts
- * until Phases 2 and 1. The language switch is real, because i18n is real from day one and it is
- * the cheapest way to keep the `en` stub honest.
+ * The account menu is real from Phase 1: it shows who is signed in and offers the two things a
+ * person wants from it — their profile, and the way out. The clan switcher is still a placeholder,
+ * because there are no clans until Phase 2.
  */
 export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { user, endSession } = useAuth();
   const currentLocale = SUPPORTED_LOCALES.find((locale) => i18n.language.startsWith(locale));
 
   return (
@@ -48,7 +57,49 @@ export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
         }))}
       />
 
-      <Avatar size="small" icon={<UserOutlined />} aria-label={t('shell.accountPlaceholder')} />
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: [
+            { key: 'profile', icon: <UserOutlined />, label: t('shell.profile') },
+            { type: 'divider' },
+            { key: 'signOut', icon: <LogoutOutlined />, label: t('shell.signOut'), danger: true },
+          ],
+          onClick: ({ key }) => {
+            if (key === 'profile') {
+              void navigate('/me');
+            }
+            if (key === 'signOut') {
+              // The guard sends us to /login once the store goes anonymous; no navigation here.
+              void endSession();
+            }
+          },
+        }}
+      >
+        <AccountButton type="text" aria-label={t('shell.accountMenu')}>
+          <Space size={8}>
+            <Avatar size="small">{initialsOf(user?.displayName)}</Avatar>
+            <UserName>{user?.displayName ?? ''}</UserName>
+          </Space>
+        </AccountButton>
+      </Dropdown>
     </Bar>
   );
+}
+
+/**
+ * Up to two initials from a display name.
+ *
+ * Takes the first and last words, which is what reads as a person's initials in both the Vietnamese
+ * order (Nguyễn Văn An gives NA) and the English one. Falls back to an icon-free blank rather than
+ * guessing when there is no name yet.
+ */
+function initialsOf(displayName: string | undefined): string {
+  if (displayName === undefined || displayName.trim() === '') {
+    return '';
+  }
+  const words = displayName.trim().split(/\s+/);
+  const first = words[0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
+  return (first.charAt(0) + last.charAt(0)).toUpperCase();
 }

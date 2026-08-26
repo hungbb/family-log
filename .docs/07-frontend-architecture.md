@@ -73,14 +73,16 @@ web/
       antdTheme.ts                # tokens → AntD ConfigProvider theme
       styled.d.ts                 # DefaultTheme augmentation
       GlobalStyle.ts              # createGlobalStyle: reset + font + CSS vars
-    hooks/                        # useAuth, useActiveClan, usePermissions, useDebounce
+    hooks/                        # useAuth, useSessionBootstrap, useActiveClan, usePermissions
+    stores/                       # Zustand stores (§6). Shared, because the app shell reads the
+                                  # session and components/ may not import from features/
     lib/                          # pure utils: date formatting, name formatting, guards
     i18n/
       index.ts
       locales/{vi,en}/*.json
 ```
 
-**Rules.** `features/*` may import from `components/`, `hooks/`, `lib/`, `api/`, `theme/` — never from another feature's internals (a feature exports through its own `index.ts`). `components/` never imports from `features/`.
+**Rules.** `features/*` may import from `components/`, `hooks/`, `lib/`, `stores/`, `api/`, `theme/` — never from another feature's internals (a feature exports through its own `index.ts`). The shared layers never import from `features/`; ESLint enforces it for `components/`, `hooks/`, `lib/`, `stores/` and `theme/`.
 
 ## 3. Styling System
 

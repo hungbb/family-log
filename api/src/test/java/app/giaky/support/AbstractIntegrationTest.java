@@ -1,5 +1,7 @@
 package app.giaky.support;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -51,5 +53,20 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    @PersistenceContext protected EntityManager entityManager;
+
+    /**
+     * Pushes pending JPA writes to the database and forgets what the session has cached.
+     *
+     * <p>Needed whenever a test mixes JPA with raw SQL, which several do — asserting on a column the
+     * mapping does not expose, or forcing a state no endpoint can produce. Without the flush the raw
+     * statement runs before the insert it is meant to act on; without the clear, a subsequent read
+     * through JPA answers from the first-level cache and never sees the raw update.
+     */
+    protected void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
     }
 }

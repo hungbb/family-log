@@ -3,6 +3,11 @@
     "name": "Gia Ký",
     "tagline": "Gia phả của dòng họ, gìn giữ cùng nhau"
   },
+  "common": {
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "loading": "Đang tải…"
+  },
   "nav": {
     "tree": "Cây gia phả",
     "members": "Thành viên",
@@ -15,7 +20,118 @@
     "collapseSidebar": "Thu gọn thanh bên",
     "expandSidebar": "Mở rộng thanh bên",
     "clanSwitcherPlaceholder": "Chọn gia tộc",
-    "accountPlaceholder": "Tài khoản"
+    "accountPlaceholder": "Tài khoản",
+    "accountMenu": "Menu tài khoản",
+    "profile": "Hồ sơ của tôi",
+    "signOut": "Đăng xuất",
+    "verifyEmailBanner": "Địa chỉ email của bạn chưa được xác minh. Hãy mở liên kết xác minh đã gửi cho bạn."
+  },
+  "auth": {
+    "field": {
+      "email": "Email",
+      "password": "Mật khẩu",
+      "newPassword": "Mật khẩu mới",
+      "confirmPassword": "Nhập lại mật khẩu mới",
+      "displayName": "Tên hiển thị"
+    },
+    "placeholder": {
+      "email": "ten@vidu.com",
+      "displayName": "Nguyễn Văn An"
+    },
+    "validation": {
+      "emailRequired": "Hãy nhập email.",
+      "emailInvalid": "Email không hợp lệ.",
+      "emailTooLong": "Email quá dài.",
+      "passwordRequired": "Hãy nhập mật khẩu.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 10 ký tự.",
+      "passwordTooLong": "Mật khẩu tối đa 72 ký tự.",
+      "passwordsDoNotMatch": "Hai mật khẩu không khớp nhau.",
+      "displayNameRequired": "Hãy nhập tên hiển thị.",
+      "displayNameTooLong": "Tên hiển thị quá dài."
+    },
+    "login": {
+      "title": "Đăng nhập",
+      "subtitle": "Tiếp tục xây dựng và gìn giữ gia phả của dòng họ.",
+      "submit": "Đăng nhập",
+      "forgotPassword": "Quên mật khẩu?",
+      "noAccount": "Chưa có tài khoản?",
+      "registerLink": "Đăng ký"
+    },
+    "register": {
+      "title": "Tạo tài khoản",
+      "subtitle": "Chỉ mất một phút. Bạn có thể dùng ngay sau khi đăng ký.",
+      "submit": "Tạo tài khoản",
+      "passwordHint": "Ít nhất {{count}} ký tự. Hãy chọn một cụm từ dễ nhớ với bạn nhưng khó đoán với người khác.",
+      "created": "Đã tạo tài khoản. Chào mừng bạn!",
+      "haveAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập"
+    },
+    "forgot": {
+      "title": "Đặt lại mật khẩu",
+      "subtitle": "Nhập email của bạn. Nếu email đó có tài khoản, chúng tôi sẽ gửi liên kết đặt lại mật khẩu.",
+      "submit": "Gửi liên kết",
+      "backToLogin": "Quay lại đăng nhập",
+      "sentTitle": "Đã gửi",
+      "sentHeading": "Hãy kiểm tra hộp thư của bạn",
+      "sentBody": "Nếu email đó có tài khoản, liên kết đặt lại mật khẩu đã được gửi. Liên kết có hiệu lực trong một giờ."
+    },
+    "reset": {
+      "title": "Chọn mật khẩu mới",
+      "subtitle": "Sau khi đổi, mọi phiên đăng nhập hiện có sẽ bị kết thúc.",
+      "submit": "Đổi mật khẩu",
+      "done": "Đã đổi mật khẩu. Hãy đăng nhập lại.",
+      "signsOutEverywhere": "Việc này sẽ đăng xuất tài khoản của bạn trên mọi thiết bị.",
+      "missingTokenTitle": "Liên kết không hợp lệ",
+      "missingTokenBody": "Liên kết đặt lại mật khẩu thiếu mã xác thực. Hãy yêu cầu một liên kết mới.",
+      "requestNew": "Yêu cầu liên kết mới"
+    },
+    "verify": {
+      "title": "Xác minh email",
+      "working": "Đang xác minh…",
+      "successTitle": "Đã xác minh email",
+      "successBody": "Cảm ơn bạn. Tài khoản của bạn đã sẵn sàng.",
+      "failedTitle": "Không xác minh được",
+      "failedBody": "Liên kết không hợp lệ hoặc đã hết hạn.",
+      "missingToken": "Liên kết xác minh thiếu mã xác thực.",
+      "continue": "Tiếp tục"
+    }
+  },
+  "account": {
+    "title": "Tài khoản của tôi",
+    "subtitle": "Thông tin hiển thị, ngôn ngữ giao diện và các phiên đăng nhập đang hoạt động.",
+    "details": "Thông tin tài khoản",
+    "language": "Ngôn ngữ giao diện",
+    "verification": "Trạng thái email",
+    "verified": "Đã xác minh",
+    "unverified": "Chưa xác minh",
+    "saved": "Đã lưu thay đổi.",
+    "sessions": {
+      "title": "Phiên đăng nhập",
+      "subtitle": "Những trình duyệt và thiết bị đang đăng nhập vào tài khoản này.",
+      "empty": "Không có phiên nào đang hoạt động.",
+      "unknownClient": "Thiết bị không xác định",
+      "unknownAddress": "Địa chỉ không xác định"
+    },
+    "logoutAll": {
+      "title": "Bảo mật",
+      "heading": "Đăng xuất khỏi mọi thiết bị",
+      "body": "Kết thúc mọi phiên đăng nhập, kể cả phiên hiện tại. Hãy dùng cách này nếu bạn nghi ngờ người khác đang truy cập tài khoản của mình.",
+      "action": "Đăng xuất mọi nơi",
+      "confirmTitle": "Đăng xuất khỏi mọi thiết bị?",
+      "confirmBody": "Bạn sẽ phải đăng nhập lại trên tất cả các thiết bị, kể cả thiết bị này.",
+      "confirmOk": "Đăng xuất mọi nơi"
+    }
+  },
+  "errors": {
+    "unexpected": "Đã xảy ra lỗi. Hãy thử lại.",
+    "authRequired": "Email hoặc mật khẩu không đúng.",
+    "sessionExpired": "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.",
+    "emailAlreadyRegistered": "Email này đã có tài khoản.",
+    "validationFailed": "Thông tin nhập vào chưa hợp lệ.",
+    "rateLimited": "Bạn đã thử quá nhiều lần. Hãy chờ một chút rồi thử lại.",
+    "permissionDenied": "Bạn không có quyền thực hiện thao tác này.",
+    "network": "Không kết nối được máy chủ.",
+    "server": "Máy chủ đang gặp sự cố. Hãy thử lại sau."
   },
   "health": {
     "title": "Tình trạng hệ thống",

@@ -8,9 +8,9 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 0 (foundation).** Both applications build, run and test. There is no
-> authentication, no clan, no person and no tree yet — one health page proves the wire path from
-> the browser through to PostgreSQL. See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
+> **Status: Phase 1 (identity & authentication) — milestone M1.** You can register, verify an
+> email, sign in, keep a session across reloads, edit your profile and sign out everywhere. There is
+> no clan, no person and no tree yet. See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
 
 ---
 
@@ -77,12 +77,37 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. The shell renders with the theme applied and a green **API healthy**
-badge, fed by a real cross-origin request through the fetch client.
+Open <http://localhost:5173>. You land on the sign-in screen.
 
-If the badge is red, the page shows the error code and correlation id. The usual cause is that the
-API is not running; the second is a `CORS_ALLOWED_ORIGINS` that does not include
-`http://localhost:5173`.
+### 4. Walk through an account
+
+There is no mail server until Phase 8, so verification and reset tokens are written to the API's
+log under the `dev` profile and served by a `dev`-only endpoint. That endpoint does not exist in any
+other profile, and a test asserts it.
+
+1. **Register** at <http://localhost:5173/register>. The account is created in
+   `PENDING_VERIFICATION` and signed in immediately; a banner asks for the address to be confirmed.
+2. **Fetch the verification token** — it is in the API log, or:
+
+   ```bash
+   curl "http://localhost:8080/api/v1/dev/verification-tokens?email=you@example.com"
+   ```
+
+3. **Verify** by opening `http://localhost:5173/verify-email?token=<token>`. The banner goes away.
+4. **Reload the page.** The session survives: the client exchanges its stored refresh token for a
+   new pair before rendering.
+5. **Edit your profile** at <http://localhost:5173/me> — change the display name and the language,
+   and watch the interface switch. The page also lists every browser signed in to the account.
+6. **Sign out everywhere** from that page, then try the other browser: its next request fails and it
+   is redirected to the sign-in screen.
+
+For a password reset, use the same endpoint with `&purpose=PASSWORD_RESET` after submitting
+<http://localhost:5173/forgot-password>, then open
+`http://localhost:5173/reset-password?token=<token>`.
+
+If the health badge at <http://localhost:5173/health> is red, the page shows the error code and
+correlation id. The usual cause is that the API is not running; the second is a
+`CORS_ALLOWED_ORIGINS` that does not include `http://localhost:5173`.
 
 ---
 
@@ -134,6 +159,8 @@ family-log/
       api/          the fetch client and one module per backend context
       components/   shared, app-agnostic UI
       features/     one folder per bounded context, mirroring the backend
+      stores/       Zustand stores; the session lives here, because the shell reads it
+      hooks/ lib/   shared hooks and pure helpers
       theme/        tokens, the AntD theme, the global stylesheet
       i18n/         vi (default) and en
     eslint-fixtures/  files that must fail lint; see `npm run lint:constraints`
@@ -149,6 +176,20 @@ that apply inside it. Those rules are enforced, not merely documented — see be
 The point of Phase 0 is that the constraints in [`.docs/draft.md`](.docs/draft.md) §3.2 and the
 layering in [`.docs/06-backend-architecture.md`](.docs/06-backend-architecture.md) §2.1 are
 mechanical, not a matter of review discipline. Both are cheap now and expensive to retrofit.
+
+**Authentication** (Phase 1, `.docs/phases/phase-1-identity-auth.md`):
+
+- HS256 access tokens, 15 minutes, carrying `sub / iat / exp / jti / email / tokenVersion` and
+  **no permission or clan claims** — permissions change far more often than a token lives.
+- Opaque 256-bit refresh tokens, stored as a SHA-256 hash, rotated on every use. Presenting an
+  already-rotated token revokes the entire chain, so a stolen token is loud rather than silent.
+- `users.token_version` lets a password reset and "log out everywhere" invalidate outstanding
+  *access* tokens immediately, rather than leaving a fifteen-minute window.
+- Every failure to sign in answers the same way, in about the same time, whether the address exists
+  or not.
+- Rate limits: login 10/min/IP and 5/min/account; register and forgot-password 5/min/IP.
+- The refresh token lives in `localStorage` — cross-site deployment, so an `HttpOnly` cookie is not
+  available. The trade is recorded in [ADR 0003](.docs/adr/0003-refresh-token-in-local-storage.md).
 
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 
@@ -170,7 +211,7 @@ layer gains a class.
 - no `.css` imports; the one global stylesheet is `theme/GlobalStyle.ts`
 - no raw `fetch` outside the client
 - no `style` prop on DOM elements
-- `components/`, `lib/` and `theme/` may not import from `features/`
+- `components/`, `hooks/`, `lib/`, `stores/` and `theme/` may not import from `features/`
 
 `web/eslint-fixtures/` holds files that break each of these on purpose, and
 `npm run lint:constraints` asserts that every one is still caught. A guardrail nobody tests is a
@@ -183,12 +224,16 @@ guardrail that quietly stops working.
 - **No CI, no Docker, no frontend test runner.** Deferred deliberately — see
   [ADR 0001](.docs/adr/0001-defer-containerisation-and-ci.md). Until CI exists, `./mvnw verify` and
   `npm run verify` are a convention, and the pre-commit hook is the only mechanical gate.
-- **Security permits everything.** `SecurityConfig` is a marked placeholder; `SecurityConfigTest`
-  is written to fail when Phase 1 lands, which is the reminder to replace it.
-- **The initial JS bundle is ~295 KB gzipped**, over the 250 KB budget in
-  [doc 07 §10](.docs/07-frontend-architecture.md). It is almost entirely Ant Design, and the budget
-  assumes route-level code splitting — of which Phase 0 has one route to split. Recheck once the
-  tree and the clan screens exist.
+- **No email delivery.** Verification and reset tokens are logged and served by a `dev`-only
+  endpoint. SMTP is Phase 8; in any profile that is neither `dev` nor `test`, a token is issued and
+  discarded with a `WARN`, so nobody can complete verification there. That is deliberate and loud.
+- **The initial JS bundle is ~296 KB gzipped**, over the 250 KB budget in
+  [doc 07 §10](.docs/07-frontend-architecture.md). It is almost entirely Ant Design. Route-level
+  splitting is in place from Phase 1 and the auth screens ship in their own chunks; the shared
+  AntD core is what exceeds the budget. Recheck once the tree and clan screens exist.
+- **Frontend API types are hand-written** against doc 05 rather than generated by
+  `openapi-typescript` (doc 07 §4.4). The generator's value is the diff that proves the client has
+  not drifted, and nothing runs that diff until CI lands with ADR 0001's workstream.
 - **ESLint is pinned to 9.x.** `eslint-plugin-react` and `eslint-plugin-jsx-a11y` have not declared
   ESLint 10 support; installing it needs `--legacy-peer-deps`, which is a worse trade than staying
   on the maintenance line. Revisit when those plugins ship.

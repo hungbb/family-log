@@ -1,9 +1,7 @@
 package app.giaky.common.error;
 
-import app.giaky.common.web.CorrelationId;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import java.net.URI;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,11 +44,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         } else {
             log.debug("{}: {}", ex.code(), ex.getMessage());
         }
-        ProblemDetail body = problem(ex.code(), ex.getMessage());
-        if (!ex.errors().isEmpty()) {
-            body.setProperty("errors", ex.errors());
+        ProblemDetail body = Problems.of(ex.code(), ex.getMessage(), ex.errors());
+
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.code().status());
+        if (ex instanceof TooManyRequestsException limited) {
+            // Seconds, rounded up: RFC 9110 delay-seconds is an integer, and rounding down would
+            // invite a retry that is still refused.
+            long seconds = (limited.retryAfter().toMillis() + 999L) / 1000L;
+            response.header(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
         }
-        return ResponseEntity.status(ex.code().status()).body(body);
+        return response.body(body);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
@@ -159,16 +162,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private static ProblemDetail problem(ErrorCode code, String detail) {
-        ProblemDetail body = ProblemDetail.forStatus(code.status());
-        body.setType(URI.create(code.typeUri()));
-        body.setTitle(code.title());
-        body.setDetail(detail);
-        body.setProperty("code", code.name());
-        String correlationId = CorrelationId.current();
-        if (correlationId != null) {
-            body.setProperty("correlationId", correlationId);
-        }
-        return body;
+        return Problems.of(code, detail);
     }
 
     private static FieldViolation toFieldViolation(ConstraintViolation<?> violation) {

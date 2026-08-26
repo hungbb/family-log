@@ -9,10 +9,10 @@
  * usually through a TanStack Query hook. That indirection is what keeps request shapes typed in
  * one place instead of scattered across components.
  *
- * TODO(Phase 1): `Authorization: Bearer` and the single-flight refresh described in doc 07 §4.2.
- * There is no session to attach yet, so `skipAuth` is accepted and currently has nothing to skip.
+ * It also owns the session, because that is the only place it can be owned once: the bearer header
+ * on every request, and the single-flight refresh of doc 07 §4.2 when one comes back expired.
  */
-import { ApiError, toApiError } from './errors';
+import { ApiError, hasCode, toApiError } from './errors';
 
 /** Header the API echoes on every response; quoted in bug reports and sent back on retries. */
 const CORRELATION_ID_HEADER = 'X-Correlation-Id';
@@ -28,7 +28,13 @@ export interface RequestOptions {
   query?: Record<string, QueryValue | QueryValue[]>;
   signal?: AbortSignal;
   headers?: Record<string, string>;
-  /** TODO(Phase 1): omit the bearer token. Set on the refresh call to stop it recursing. */
+  /**
+   * Send no bearer token, and never attempt a refresh on a 401.
+   *
+   * Set on everything under `/auth` — those endpoints are how a session is obtained, so attaching a
+   * token they do not want is pointless, and refreshing in response to their 401 is how you get an
+   * infinite loop.
+   */
   skipAuth?: boolean;
   /**
    * Overrides the {@link API_BASE_PATH} prefix.
@@ -96,11 +102,82 @@ async function readBody(response: Response): Promise<unknown> {
 }
 
 /**
+ * How the client reaches the session, without importing it.
+ *
+ * The session store needs the client (to call `/auth/refresh`) and the client needs the session
+ * (for the bearer token). Injecting the second direction keeps the module graph acyclic — which
+ * `import/no-cycle` enforces — and means this module can be reasoned about without knowing that
+ * Zustand exists.
+ */
+export interface AuthBridge {
+  /** The current access token, or null when nobody is signed in. */
+  getAccessToken: () => string | null;
+  /**
+   * Exchanges the stored refresh token for a new pair.
+   *
+   * @returns the new access token, or null when the session could not be renewed
+   */
+  refresh: () => Promise<string | null>;
+  /** Called once when a refresh fails: the session is over and the UI should say so. */
+  onSessionEnded: () => void;
+}
+
+let authBridge: AuthBridge | null = null;
+
+/** Wires the session into the client. Called once, at module load, by the session store. */
+export function configureAuth(bridge: AuthBridge): void {
+  authBridge = bridge;
+}
+
+/**
+ * The in-flight refresh, if there is one.
+ *
+ * Doc 07 §4.2: when five queries fail together because the token expired, they must produce one
+ * refresh call, not five. Five would rotate the refresh token five times, and four of those would
+ * present an already-rotated token — which the server correctly treats as theft and answers by
+ * revoking the whole chain. The single-flight promise is what stops the client from mugging itself.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+function refreshOnce(bridge: AuthBridge): Promise<string | null> {
+  refreshInFlight ??= bridge.refresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+/**
  * Performs one request and returns its parsed body.
+ *
+ * Retries once, and only once, after renewing an expired access token.
  *
  * @throws {ApiError} on any non-2xx response, and on a transport failure.
  */
 export async function request<T>(path: string, options?: RequestOptions): Promise<T> {
+  try {
+    return await send<T>(path, options);
+  } catch (error) {
+    const bridge = authBridge;
+    if (!bridge || options?.skipAuth || !isExpiredSession(error)) {
+      throw error;
+    }
+
+    const renewed = await refreshOnce(bridge);
+    if (renewed === null) {
+      bridge.onSessionEnded();
+      throw error;
+    }
+    // One retry. If the fresh token is refused too, something is wrong that retrying cannot fix.
+    return send<T>(path, options);
+  }
+}
+
+/** Whether this failure is the one a refresh can fix. */
+function isExpiredSession(error: unknown): boolean {
+  return hasCode(error, 'TOKEN_EXPIRED', 'TOKEN_INVALID');
+}
+
+async function send<T>(path: string, options?: RequestOptions): Promise<T> {
   const url = buildUrl(path, options);
   const method = options?.method ?? 'GET';
   const body = options?.body;
@@ -109,6 +186,13 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
     Accept: 'application/json',
     ...options?.headers,
   };
+
+  if (!options?.skipAuth) {
+    const accessToken = authBridge?.getAccessToken() ?? null;
+    if (accessToken !== null) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+  }
 
   let payload: BodyInit | undefined;
   if (body !== undefined) {

@@ -1,0 +1,97 @@
+import type { FormInstance } from 'antd';
+import type { TFunction } from 'i18next';
+import type { ZodError, ZodType } from 'zod';
+
+import { isApiError } from '../api/errors';
+
+/**
+ * Turning an API failure into something a person can act on (task F1.9).
+ *
+ * Two jobs, deliberately separate. Field-level violations belong on the fields they name, where the
+ * person is already looking; everything else becomes one message, chosen from the error `code`
+ * rather than from the server's `detail` — the interface is Vietnamese by default, and `detail` is
+ * developer-facing English prose that has never been translated.
+ */
+
+/** Message keys per error code. Anything unlisted falls back to `errors.unexpected`. */
+const MESSAGE_KEY_BY_CODE: Record<string, string> = {
+  AUTH_REQUIRED: 'errors.authRequired',
+  TOKEN_EXPIRED: 'errors.sessionExpired',
+  TOKEN_INVALID: 'errors.sessionExpired',
+  EMAIL_ALREADY_REGISTERED: 'errors.emailAlreadyRegistered',
+  VALIDATION_FAILED: 'errors.validationFailed',
+  RATE_LIMITED: 'errors.rateLimited',
+  PERMISSION_DENIED: 'errors.permissionDenied',
+  NETWORK_ERROR: 'errors.network',
+  INTERNAL_ERROR: 'errors.server',
+};
+
+/**
+ * One line to show the person, given any thrown value.
+ *
+ * Takes `unknown` because that is what `catch` and TanStack Query hand over, and narrowing it here
+ * means no call site has to.
+ */
+export function toMessage(error: unknown, t: TFunction): string {
+  if (!isApiError(error)) {
+    return t('errors.unexpected');
+  }
+  const key = MESSAGE_KEY_BY_CODE[error.code];
+  return key === undefined ? t('errors.unexpected') : t(key);
+}
+
+/**
+ * Puts a `422`'s field violations onto the matching form fields.
+ *
+ * The server's field messages are already specific — "Password must be at least 10 characters" —
+ * and are shown as they arrive. Translating them would mean a key for every rule the policy has;
+ * Phase 7's translation pass decides that, and until then a precise English sentence beats a vague
+ * Vietnamese one.
+ *
+ * @returns whether anything was placed on a field. False means the caller should show a message.
+ */
+export function applyApiError(error: unknown, form: FormInstance): boolean {
+  if (!isApiError(error) || error.errors.length === 0) {
+    return false;
+  }
+  const fields = Object.entries(error.fieldErrors).map(([name, errors]) => ({ name, errors }));
+  if (fields.length === 0) {
+    return false;
+  }
+  form.setFields(fields);
+  return true;
+}
+
+/**
+ * Validates with a Zod schema and reports the failures on the form.
+ *
+ * AntD's `Form` owns the interaction and Zod owns the rules (doc 07 §1). This is the seam between
+ * them: it runs the schema over the collected values and turns a `ZodError` into the shape
+ * `setFields` wants, translating each message from the key the schema produced.
+ *
+ * @returns the parsed values, or null when validation failed
+ */
+export function validateWithSchema<Output>(
+  schema: ZodType<Output>,
+  values: unknown,
+  form: FormInstance,
+  t: TFunction,
+): Output | null {
+  const result = schema.safeParse(values);
+  if (result.success) {
+    return result.data;
+  }
+  form.setFields(toFormFields(result.error, t));
+  return null;
+}
+
+function toFormFields(error: ZodError, t: TFunction): { name: string; errors: string[] }[] {
+  const byField = new Map<string, string[]>();
+  for (const issue of error.issues) {
+    const name = issue.path.length > 0 ? String(issue.path[0]) : 'form';
+    const existing = byField.get(name) ?? [];
+    existing.push(t(issue.message));
+    byField.set(name, existing);
+  }
+  return [...byField].map(([name, errors]) => ({ name, errors }));
+}

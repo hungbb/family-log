@@ -6,9 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import app.giaky.common.security.SecurityConfig;
 import app.giaky.common.web.CorrelationId;
 import app.giaky.common.web.CorrelationIdFilter;
+import app.giaky.common.web.RateLimiter;
 import app.giaky.config.WebConfig;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -17,11 +17,12 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,15 +36,23 @@ import org.springframework.web.bind.annotation.RestController;
  * detail: the frontend's error handling is written against these exact field names, and a silent
  * change here surfaces as an unhelpful "something went wrong" in the UI rather than a build failure.
  */
-@WebMvcTest
+@WebMvcTest(
+        controllers = GlobalExceptionHandlerTest.BoomController.class,
+        excludeAutoConfiguration = {
+            // The subject here is the exception-to-body mapping, and nothing else. Phase 1 turned
+            // the chain on, so leaving Spring Security in would mean every case below asserting a
+            // 401 instead of the code it is about; SecurityConfigTest owns that behaviour.
+            SecurityAutoConfiguration.class,
+            SecurityFilterAutoConfiguration.class
+        })
 @Import({
-    SecurityConfig.class,
     WebConfig.class,
     CorrelationIdFilter.class,
+    RateLimiter.class,
+    ProblemDetailWriter.class,
     GlobalExceptionHandler.class,
     GlobalExceptionHandlerTest.BoomController.class
 })
-@TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:5173")
 class GlobalExceptionHandlerTest {
 
     @Autowired private MockMvc mockMvc;
