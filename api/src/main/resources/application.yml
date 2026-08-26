@@ -88,6 +88,11 @@ springdoc:
 app:
   api:
     base-url: ${API_BASE_URL:http://localhost:8080}
+  web:
+    # Where the browser reaches the web client. Used to build the verification and password-reset
+    # links, which are redeemed by the frontend rather than by this API — so it is the *web* origin
+    # that belongs in them, not this one.
+    base-url: ${WEB_BASE_URL:http://localhost:5173}
   security:
     jwt:
       # No default: a deployment without a secret must fail at startup, not sign tokens with a

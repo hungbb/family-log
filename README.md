@@ -81,29 +81,37 @@ Open <http://localhost:5173>. You land on the sign-in screen.
 
 ### 4. Walk through an account
 
-There is no mail server until Phase 8, so verification and reset tokens are written to the API's
-log under the `dev` profile and served by a `dev`-only endpoint. That endpoint does not exist in any
+There is no mail server until Phase 8, so under the `dev` profile the API logs the link a real
+message would have carried, and a `dev`-only endpoint serves the raw token. Neither exists in any
 other profile, and a test asserts it.
 
 1. **Register** at <http://localhost:5173/register>. The account is created in
    `PENDING_VERIFICATION` and signed in immediately; a banner asks for the address to be confirmed.
-2. **Fetch the verification token** — it is in the API log, or:
+2. **Open the verification link from the API log.** It is ready to click:
+
+   ```
+   [dev delivery] EMAIL_VERIFY link for you@example.com: http://localhost:5173/verify-email?token=… (expires …)
+   ```
+
+   The banner goes away. If you would rather have the bare token — a script, say — the endpoint is:
 
    ```bash
    curl "http://localhost:8080/api/v1/dev/verification-tokens?email=you@example.com"
    ```
 
-3. **Verify** by opening `http://localhost:5173/verify-email?token=<token>`. The banner goes away.
-4. **Reload the page.** The session survives: the client exchanges its stored refresh token for a
+3. **Reload the page.** The session survives: the client exchanges its stored refresh token for a
    new pair before rendering.
-5. **Edit your profile** at <http://localhost:5173/me> — change the display name and the language,
+4. **Edit your profile** at <http://localhost:5173/me> — change the display name and the language,
    and watch the interface switch. The page also lists every browser signed in to the account.
-6. **Sign out everywhere** from that page, then try the other browser: its next request fails and it
+5. **Sign out everywhere** from that page, then try the other browser: its next request fails and it
    is redirected to the sign-in screen.
 
-For a password reset, use the same endpoint with `&purpose=PASSWORD_RESET` after submitting
-<http://localhost:5173/forgot-password>, then open
-`http://localhost:5173/reset-password?token=<token>`.
+A password reset works the same way: submit <http://localhost:5173/forgot-password> and follow the
+`PASSWORD_RESET` link from the log. The endpoint form is
+`…/dev/verification-tokens?email=you@example.com&purpose=PASSWORD_RESET`.
+
+The links point at `WEB_BASE_URL` (`http://localhost:5173` by default) — see `api/.env.example` if
+your web client runs somewhere else.
 
 If the health badge at <http://localhost:5173/health> is red, the page shows the error code and
 correlation id. The usual cause is that the API is not running; the second is a
