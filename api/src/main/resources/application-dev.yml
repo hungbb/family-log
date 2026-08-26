@@ -22,6 +22,16 @@ app:
   cors:
     # The Vite dev server.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  security:
+    jwt:
+      # A published, local-only key so a fresh clone runs without a .env file. It is in version
+      # control, which is exactly why the `prod` profile has no default and application.yml has
+      # none either: a deployment that reached this line would already have failed to start.
+      secret: ${JWT_SECRET:ZGV2LW9ubHktc2lnbmluZy1rZXktbm90LWZvci1kZXBsb3ltZW50cy0wMQ==}
+      # Doc 06 §5: long access tokens in dev, so nobody loses a debugging session to an expiry.
+      # The refresh path is still exercised by the frontend's bootstrap on every page load.
+      access-token-ttl: ${ACCESS_TOKEN_TTL:24h}
+      issuer: giaky-dev
 
 management:
   endpoint:

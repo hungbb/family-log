@@ -9,9 +9,10 @@ spring:
 
   autoconfigure:
     exclude:
-      # Without this, Spring Boot invents an in-memory "user" account and prints a generated
-      # password on every start — for an application that will authenticate against its own tables.
-      # TODO(Phase 1): delete this exclusion when identity ships a real UserDetailsService.
+      # Kept: there is no UserDetailsService and there will not be one. The only credential this
+      # application understands is a token it minted itself, verified by JwtAuthenticationFilter,
+      # so Spring Boot's default in-memory "user" account would be a second way in that nothing
+      # uses and nobody audits.
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
   threads:
@@ -87,6 +88,29 @@ springdoc:
 app:
   api:
     base-url: ${API_BASE_URL:http://localhost:8080}
+  web:
+    # Where the browser reaches the web client. Used to build the verification and password-reset
+    # links, which are redeemed by the frontend rather than by this API — so it is the *web* origin
+    # that belongs in them, not this one.
+    base-url: ${WEB_BASE_URL:http://localhost:5173}
+  security:
+    jwt:
+      # No default: a deployment without a secret must fail at startup, not sign tokens with a
+      # value someone could read in this file. Base64, decoding to at least 32 bytes (HS256).
+      secret: ${JWT_SECRET}
+      issuer: ${JWT_ISSUER:giaky}
+      # Doc 05 §5. Short on purpose — a bearer token cannot be recalled, so its window is the
+      # whole of its blast radius. The refresh rotation makes it invisible to the user.
+      access-token-ttl: 15m
+    refresh-token:
+      ttl: 30d
+    verification:
+      email-verify-ttl: 24h
+      # An hour: a reset token is a complete account takeover sitting in an inbox.
+      password-reset-ttl: 1h
+    # FR-A2 requires at least 12. Raising it re-hashes nothing — the factor lives in each stored
+    # hash, so old passwords keep verifying and new ones get the new cost.
+    bcrypt-cost: ${BCRYPT_COST:12}
   cors:
     # Comma-separated. Empty by default: a profile must opt in.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}

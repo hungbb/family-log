@@ -43,7 +43,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 | 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `TOKEN_INVALID` |
 | 403 | `PERMISSION_DENIED`, `OUT_OF_SCOPE`, `PERMISSION_ESCALATION_BLOCKED`, `LAST_ADMIN_PROTECTED` |
 | 404 | `CLAN_NOT_FOUND`, `PERSON_NOT_FOUND`, `BRANCH_NOT_FOUND`, `REQUEST_NOT_FOUND` |
-| 409 | `VERSION_CONFLICT`, `DUPLICATE_PENDING_REQUEST`, `NODE_ALREADY_LINKED`, `USER_ALREADY_LINKED_IN_CLAN`, `MEMBERSHIP_EXISTS` |
+| 409 | `VERSION_CONFLICT`, `EMAIL_ALREADY_REGISTERED`, `DUPLICATE_PENDING_REQUEST`, `NODE_ALREADY_LINKED`, `USER_ALREADY_LINKED_IN_CLAN`, `MEMBERSHIP_EXISTS` |
 | 422 | `VALIDATION_FAILED`, `CYCLE_DETECTED`, `INVALID_RELATIONSHIP`, `DATE_RANGE_INVALID` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` (never leaks internals; correlation id only) |
@@ -93,6 +93,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 |--------|------|---------|
 | GET | `/me` | Profile + `clans[]` (id, name, clanCode, role summary, linkedPersonId) |
 | PATCH | `/me` | Updates `displayName`, `locale`, `avatarMediaId` |
+| GET | `/me/sessions` | Active refresh-token sessions: `id, userAgent, ipAddress, issuedAt, expiresAt`. Never a token or a hash. Ended in bulk with `POST /auth/logout-all` |
 | POST | `/me/avatar` | multipart upload → `MediaRef` |
 | GET | `/me/notifications` | Paged notifications; `?unreadOnly=true` |
 | POST | `/me/notifications/{id}/read` | `204` |

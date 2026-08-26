@@ -73,14 +73,16 @@ web/
       antdTheme.ts                # tokens → AntD ConfigProvider theme
       styled.d.ts                 # DefaultTheme augmentation
       GlobalStyle.ts              # createGlobalStyle: reset + font + CSS vars
-    hooks/                        # useAuth, useActiveClan, usePermissions, useDebounce
+    hooks/                        # useAuth, useSessionBootstrap, useActiveClan, usePermissions
+    stores/                       # Zustand stores (§6). Shared, because the app shell reads the
+                                  # session and components/ may not import from features/
     lib/                          # pure utils: date formatting, name formatting, guards
     i18n/
       index.ts
       locales/{vi,en}/*.json
 ```
 
-**Rules.** `features/*` may import from `components/`, `hooks/`, `lib/`, `api/`, `theme/` — never from another feature's internals (a feature exports through its own `index.ts`). `components/` never imports from `features/`.
+**Rules.** `features/*` may import from `components/`, `hooks/`, `lib/`, `stores/`, `api/`, `theme/` — never from another feature's internals (a feature exports through its own `index.ts`). The shared layers never import from `features/`; ESLint enforces it for `components/`, `hooks/`, `lib/`, `stores/` and `theme/`.
 
 ## 3. Styling System
 
@@ -254,6 +256,7 @@ The canvas is `role="tree"` with keyboard navigation (arrows move between siblin
 | `no-restricted-imports: ['axios', 'ky', 'superagent', 'tailwindcss', ...]` | Blocks Axios and Tailwind at the import level. |
 | `no-restricted-syntax` on `ImportDeclaration[source.value=/\.css$/]` | Only `GlobalStyle` and the AntD reset may bring in CSS (allow-listed paths). |
 | `react/forbid-dom-props: ['style']` | Enforces the styled-components rule; the single `TreeCanvas` exception is an explicit inline disable. |
+| `no-restricted-syntax` on a `theme` JSX prop (except `ConfigProvider` / `ThemeProvider`) | styled-components owns the prop name `theme`: one on a styled component replaces the token context, so an AntD `theme="light"` makes every `props.theme.*` undefined and crashes it at render. |
 | `no-restricted-properties` on `window.fetch` outside `api/client.ts` | All HTTP goes through the wrapper. |
 | `i18next/no-literal-string` (warn) | Catches hard-coded user-facing strings (NFR-8). |
 | `import/no-cycle`, feature-boundary `no-restricted-imports` zones | Keeps the feature slices independent. |

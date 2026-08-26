@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
@@ -15,9 +16,9 @@ import org.springframework.context.annotation.Configuration;
 /**
  * The OpenAPI document behind {@code /swagger-ui.html}.
  *
- * <p>The bearer scheme is declared now even though nothing enforces it yet (see
- * {@code SecurityConfig}) so the exported spec — which the frontend generates its types from — is
- * already the shape Phase 1 will fill in.
+ * <p>The bearer scheme is declared globally: from Phase 1 every endpoint outside {@code /auth/**}
+ * needs a token, so declaring it once and letting the auth controller be the exception is both
+ * shorter and harder to get wrong than annotating each controller.
  */
 @Configuration
 public class OpenApiConfig {
@@ -45,6 +46,10 @@ public class OpenApiConfig {
                                                 .type(SecurityScheme.Type.HTTP)
                                                 .scheme("bearer")
                                                 .bearerFormat("JWT")
-                                                .description("TODO(Phase 1): issued by /api/v1/auth/login.")));
+                                                .description(
+                                                        "Issued by POST /api/v1/auth/login and"
+                                                            + " refreshed by POST /api/v1/auth/refresh."
+                                                            + " Valid for 15 minutes.")))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
     }
 }

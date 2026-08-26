@@ -1,0 +1,67 @@
+package app.giaky.common.audit;
+
+import app.giaky.common.types.ClanId;
+import app.giaky.common.types.UserId;
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * One entry for the audit trail.
+ *
+ * <p>Assembled at the call site and handed to {@link AuditWriter}; the correlation id and the
+ * timestamp are the writer's job, because a caller that had to remember them would eventually
+ * forget.
+ *
+ * @param action what happened
+ * @param targetType the kind of thing it happened to, e.g. {@code USER}
+ * @param targetId that thing's id; null when the target could not be identified
+ * @param actorUserId who did it; null for anonymous or system actions
+ * @param clanId the clan it happened in; null for actions outside any clan, which is all of Phase 1
+ * @param beforeJson state before, as JSON; null when there was none
+ * @param afterJson state after, as JSON; null when there is none
+ * @param ipAddress where the request came from
+ */
+public record AuditRecord(
+        AuditAction action,
+        String targetType,
+        UUID targetId,
+        UserId actorUserId,
+        ClanId clanId,
+        String beforeJson,
+        String afterJson,
+        String ipAddress) {
+
+    /** The {@code targetType} for anything that happens to an account. */
+    public static final String TARGET_USER = "USER";
+
+    public AuditRecord {
+        Objects.requireNonNull(action, "action must not be null");
+        Objects.requireNonNull(targetType, "targetType must not be null");
+    }
+
+    /** An action performed by an account upon itself — registration, login, logout, reset. */
+    public static AuditRecord ofUser(AuditAction action, UserId subject) {
+        return new AuditRecord(
+                action, TARGET_USER, subject.value(), subject, null, null, null, null);
+    }
+
+    /** An action against no identifiable account, such as a login for an address nobody owns. */
+    public static AuditRecord anonymous(AuditAction action) {
+        return new AuditRecord(action, TARGET_USER, null, null, null, null, null, null);
+    }
+
+    public AuditRecord withIpAddress(String value) {
+        return new AuditRecord(
+                action, targetType, targetId, actorUserId, clanId, beforeJson, afterJson, value);
+    }
+
+    public AuditRecord withAfterJson(String value) {
+        return new AuditRecord(
+                action, targetType, targetId, actorUserId, clanId, beforeJson, value, ipAddress);
+    }
+
+    public AuditRecord withChange(String before, String after) {
+        return new AuditRecord(
+                action, targetType, targetId, actorUserId, clanId, before, after, ipAddress);
+    }
+}

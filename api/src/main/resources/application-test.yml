@@ -22,6 +22,23 @@ app:
     allowed-origins: http://localhost:5173
   media:
     local-directory: ${java.io.tmpdir}/giaky-test-media
+  security:
+    jwt:
+      # Fixed, so a token minted in one test verifies in another and an expected value can be
+      # asserted. Paired with CoreConfig's frozen clock, token expiry is something tests choose
+      # rather than something they race.
+      secret: dGVzdC1vbmx5LXNpZ25pbmcta2V5LWZvci1hdXRvbWF0ZWQtdGVzdHMtMDE=
+      issuer: giaky-test
+      access-token-ttl: 15m
+    refresh-token:
+      ttl: 30d
+    verification:
+      email-verify-ttl: 24h
+      password-reset-ttl: 1h
+    # The same cost the product ships with. Every registering fixture pays about a quarter-second
+    # for it, which is a price worth paying: a suite that hashed cheaply would not be exercising
+    # the thing FR-A2 actually specifies.
+    bcrypt-cost: 12
 
 logging:
   level:

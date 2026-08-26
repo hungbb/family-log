@@ -1,9 +1,12 @@
 import { Layout } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router';
 
+import { useAuth } from '../../hooks/useAuth';
+
 import { Sidebar } from './Sidebar';
-import { Content, Shell } from './styles';
+import { Content, Shell, VerificationBanner } from './styles';
 import { AppTopBar } from './TopBar';
 
 /**
@@ -16,7 +19,11 @@ import { AppTopBar } from './TopBar';
  * change in `useUiStore`; this does not, so a `useState` is the honest amount of machinery.
  */
 export function AppShell() {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
+
+  const needsVerification = user !== null && !user.emailVerified;
 
   return (
     <Shell hasSider>
@@ -28,6 +35,9 @@ export function AppShell() {
             setCollapsed((previous) => !previous);
           }}
         />
+        {needsVerification && (
+          <VerificationBanner role="status">{t('shell.verifyEmailBanner')}</VerificationBanner>
+        )}
         <Content>
           <Outlet />
         </Content>

@@ -24,6 +24,9 @@
     <springdoc.version>2.8.6</springdoc.version>
     <archunit.version>1.4.1</archunit.version>
     <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
+    <jjwt.version>0.13.0</jjwt.version>
+    <bucket4j.version>8.19.0</bucket4j.version>
+    <jacoco.version>0.8.13</jacoco.version>
   </properties>
 
   <dependencies>
@@ -61,10 +64,41 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- security (Phase 1 fills the chain in; see SecurityConfig) -->
+    <!-- security -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+
+    <!-- JWT. jjwt rather than spring-boot-starter-oauth2-resource-server: we mint and verify our
+         own HS256 tokens against our own user table, so the OAuth2 machinery would be scaffolding
+         around a library we would still have to call. Only jjwt-api is compile-scoped; the
+         implementation and its Jackson serializer are runtime, which keeps call sites on the
+         stable API surface. -->
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Rate limiting (doc 05 §5). In-memory buckets in v1: one process, so there is no shared
+         state to coordinate. A distributed backend is a Bucket4j adapter swap, not a rewrite. -->
+    <dependency>
+      <groupId>com.bucket4j</groupId>
+      <artifactId>bucket4j_jdk17-core</artifactId>
+      <version>${bucket4j.version}</version>
     </dependency>
 
     <!-- observability -->
@@ -170,6 +204,57 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Coverage. The gate from doc 09 §4.4 is ≥ 80 % line coverage on every context's `domain`
+           and `application` package; it is bound to `verify` because that is where the integration
+           tests run, and a gate measured without them would be measuring the wrong thing.
+           `./mvnw test` still produces a report, it just does not fail on it. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>check-domain-and-application</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <haltOnFailure>true</haltOnFailure>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <includes>
+                    <include>app.giaky.*.domain.*</include>
+                    <include>app.giaky.*.application.*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
           </execution>
         </executions>
       </plugin>

@@ -34,6 +34,7 @@ public enum ErrorCode {
 
     // 409
     VERSION_CONFLICT(HttpStatus.CONFLICT, "Version conflict"),
+    EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "Email already registered"),
     DUPLICATE_PENDING_REQUEST(HttpStatus.CONFLICT, "Duplicate pending request"),
     NODE_ALREADY_LINKED(HttpStatus.CONFLICT, "Node already linked"),
     USER_ALREADY_LINKED_IN_CLAN(HttpStatus.CONFLICT, "User already linked in clan"),

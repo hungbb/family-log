@@ -86,7 +86,7 @@ const FORBIDDEN_PACKAGES = [
 const SHARED_LAYER_BOUNDARY = {
   group: ['**/features/**', '@/features/**'],
   message:
-    'components/, lib/ and theme/ are app-agnostic; the dependency runs from features/ to them, never back.',
+    'components/, hooks/, lib/, stores/ and theme/ are app-agnostic; the dependency runs from features/ to them, never back.',
 };
 
 export default tseslint.config(
@@ -174,6 +174,21 @@ export default tseslint.config(
           // The `@apply` smell, in case a stylesheet ever sneaks in through a template literal.
           selector: 'Literal[value=/@apply\\s/]',
           message: 'No Tailwind directives (draft §3.2).',
+        },
+        {
+          // styled-components claims the prop name `theme`: passing one to a styled component
+          // *replaces* the ThemeProvider context for every interpolation inside it, so
+          // `theme.color` becomes undefined and the component crashes at render.
+          //
+          // Several Ant Design components take a `theme` prop of their own — `Layout.Sider`,
+          // `Menu` — and wrapping one in `styled()` is how the two collide. It cost a whole
+          // broken shell once; the two providers that legitimately own the prop are exempt.
+          selector:
+            'JSXOpeningElement:not([name.name="ConfigProvider"]):not([name.name="ThemeProvider"]) > JSXAttribute[name.name="theme"]',
+          message:
+            'Never pass a `theme` prop to a component. styled-components uses that name for the ' +
+            'ThemeProvider context, so an AntD `theme="light"` on a styled component makes every ' +
+            'token undefined. Style the wrapper instead (doc 07 §3.2 rule 3).',
         },
       ],
 
@@ -272,8 +287,12 @@ export default tseslint.config(
   },
 
   // The shared layers, which may not import a feature.
+  //
+  // `stores/` joins them in Phase 1: the session has to be readable by the app shell, and
+  // `components/` may not import from `features/` — so a session store inside a feature would
+  // force the boundary to be broken the first time the top bar needed to know who is signed in.
   {
-    files: ['src/components/**', 'src/lib/**', 'src/theme/**'],
+    files: ['src/components/**', 'src/hooks/**', 'src/lib/**', 'src/stores/**', 'src/theme/**'],
     rules: {
       'no-restricted-imports': [
         'error',
