@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
-import { resetPassword } from '../../../api/endpoints/auth';
-import { applyApiError, toMessage, validateWithSchema } from '../../../lib/apiErrors';
+import { resetPassword } from '@/api/endpoints/auth.ts';
+import { applyApiError, toMessage, validateWithSchema } from '@/lib/apiErrors.ts';
+
 import { AuthLayout } from '../components/AuthLayout';
 import { Footer, Hint } from '../components/styles';
 import {

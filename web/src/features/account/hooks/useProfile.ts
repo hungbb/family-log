@@ -6,8 +6,8 @@ import {
   updateMe,
   type MeProfile,
   type UpdateProfileInput,
-} from '../../../api/endpoints/me';
-import { useSessionStore } from '../../../stores/useSessionStore';
+} from '@/api/endpoints/me.ts';
+import { useSessionStore } from '@/stores/useSessionStore.ts';
 
 /**
  * The profile and its sessions, as server state (doc 07 §5).

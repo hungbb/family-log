@@ -3,10 +3,11 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { logoutAll } from '../../../api/endpoints/auth';
-import type { LocaleTag } from '../../../api/endpoints/auth';
-import { useAuth } from '../../../hooks/useAuth';
-import { applyApiError, toMessage } from '../../../lib/apiErrors';
+import type { LocaleTag } from '@/api/endpoints/auth.ts';
+import { logoutAll } from '@/api/endpoints/auth.ts';
+import { useAuth } from '@/hooks/useAuth.ts';
+import { applyApiError, toMessage } from '@/lib/apiErrors.ts';
+
 import { useProfile, useSessions, useUpdateProfile } from '../hooks/useProfile';
 
 import {
