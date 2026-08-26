@@ -43,7 +43,7 @@ export function toMessage(error: unknown, t: TFunction): string {
 /**
  * Puts a `422`'s field violations onto the matching form fields.
  *
- * The server's field messages are already specific — "Password must be at least 10 characters" —
+ * The server's field messages are already specific — "Password must be at least 8 characters" —
  * and are shown as they arrive. Translating them would mean a key for every rule the policy has;
  * Phase 7's translation pass decides that, and until then a precise English sentence beats a vague
  * Vietnamese one.
@@ -90,8 +90,29 @@ function toFormFields(error: ZodError, t: TFunction): { name: string; errors: st
   for (const issue of error.issues) {
     const name = issue.path.length > 0 ? String(issue.path[0]) : 'form';
     const existing = byField.get(name) ?? [];
-    existing.push(t(issue.message));
+    existing.push(t(issue.message, boundOf(issue)));
     byField.set(name, existing);
   }
   return [...byField].map(([name, errors]) => ({ name, errors }));
+}
+
+/**
+ * The bound a length rule tripped on, as an i18next interpolation value.
+ *
+ * Lets a message read "at least {{count}} characters" and take the number from the schema itself,
+ * so changing `PASSWORD_MIN_LENGTH` cannot leave a translation quietly claiming the old one. Only
+ * one of `minimum` and `maximum` is present on any given issue, so they cannot collide.
+ *
+ * <p>Returns an empty object rather than `undefined` for the issues that carry no bound: under
+ * `exactOptionalPropertyTypes` an explicit `undefined` is not the same as an absent argument, and
+ * i18next ignores interpolation values a message does not mention anyway.
+ */
+function boundOf(issue: ZodError['issues'][number]): Record<string, number> {
+  if ('minimum' in issue) {
+    return { count: Number(issue.minimum) };
+  }
+  if ('maximum' in issue) {
+    return { count: Number(issue.maximum) };
+  }
+  return {};
 }

@@ -43,8 +43,8 @@
       "emailInvalid": "That is not a valid email address.",
       "emailTooLong": "That email address is too long.",
       "passwordRequired": "Enter your password.",
-      "passwordTooShort": "Password must be at least 10 characters.",
-      "passwordTooLong": "Password must be at most 72 characters.",
+      "passwordTooShort": "Password must be at least {{count}} characters.",
+      "passwordTooLong": "Password must be at most {{count}} characters.",
       "passwordsDoNotMatch": "The two passwords do not match.",
       "displayNameRequired": "Enter a display name.",
       "displayNameTooLong": "That display name is too long."

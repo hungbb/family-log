@@ -21,13 +21,14 @@ import java.util.Set;
 public final class PasswordPolicy {
 
     /**
-     * Ten, not the eight of FR-A2.
+     * Eight, exactly as FR-A2 specifies.
      *
-     * <p>The phase plan raises the floor (task B1.2) and the two do not conflict — anything ten
-     * characters long satisfies "at least eight". Two extra characters are close to free for the
-     * person choosing and multiply an offline attack's cost by several orders of magnitude.
+     * <p>The deny list is doing more work at this floor than it would at ten: every eight- and
+     * nine-character password is now length-legal, and that range is where the passwords in every
+     * breach corpus live — {@code password}, {@code 12345678}, {@code iloveyou}. Entries that short
+     * were unreachable while the floor was higher; they are the point of the list now.
      */
-    public static final int MIN_LENGTH = 10;
+    public static final int MIN_LENGTH = 8;
 
     /** BCrypt truncates beyond 72 <i>bytes</i>; refusing longer input is honest about that. */
     public static final int MAX_LENGTH = 72;

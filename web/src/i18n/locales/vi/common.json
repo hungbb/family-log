@@ -43,8 +43,8 @@
       "emailInvalid": "Email không hợp lệ.",
       "emailTooLong": "Email quá dài.",
       "passwordRequired": "Hãy nhập mật khẩu.",
-      "passwordTooShort": "Mật khẩu phải có ít nhất 10 ký tự.",
-      "passwordTooLong": "Mật khẩu tối đa 72 ký tự.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất {{count}} ký tự.",
+      "passwordTooLong": "Mật khẩu tối đa {{count}} ký tự.",
       "passwordsDoNotMatch": "Hai mật khẩu không khớp nhau.",
       "displayNameRequired": "Hãy nhập tên hiển thị.",
       "displayNameTooLong": "Tên hiển thị quá dài."

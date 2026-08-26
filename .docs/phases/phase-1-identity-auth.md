@@ -19,7 +19,7 @@
 | # | Task | Detail |
 |---|------|--------|
 | B1.1 | `identity/domain`: `User`, `EmailAddress`, `PasswordHash`, `UserStatus` | Framework-free; `EmailAddress` normalizes (trim + lowercase) and validates in its constructor |
-| B1.2 | Password policy service | ≥ 10 chars, common-password deny list loaded from a resource file |
+| B1.2 | Password policy service | ≥ 8 chars (FR-A2), common-password deny list loaded from a resource file. At that floor the list is what stops `password` and `12345678`, so it carries the eight- and nine-character entries rather than only long ones |
 | B1.3 | `infrastructure`: `UserJpaEntity`, `UserRepository`, MapStruct mapper, `BCryptPasswordHasher` (cost 12) | |
 | B1.4 | `RefreshTokenService` | 256-bit opaque token, stored as SHA-256 hash, 30-day TTL, **rotation with reuse detection**: presenting a rotated token revokes the entire chain |
 | B1.5 | `JwtService` + `JwtKeyProvider` | HS256, 15-min access token, claims `sub/iat/exp/jti/email/tokenVersion`; **no permission claims** (doc 05 §5) |

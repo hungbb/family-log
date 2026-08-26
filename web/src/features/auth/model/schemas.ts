@@ -13,8 +13,8 @@ import { z } from 'zod';
  * ESLint flags.
  */
 
-/** Matches `PasswordPolicy.MIN_LENGTH` on the backend. */
-export const PASSWORD_MIN_LENGTH = 10;
+/** Matches `PasswordPolicy.MIN_LENGTH` on the backend, which is FR-A2's floor. */
+export const PASSWORD_MIN_LENGTH = 8;
 
 /** Matches `PasswordPolicy.MAX_LENGTH` — BCrypt ignores anything past 72 bytes. */
 export const PASSWORD_MAX_LENGTH = 72;
