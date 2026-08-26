@@ -13,8 +13,22 @@ export const Shell = styled(Layout)`
   background: ${({ theme }) => theme.color.surfaceAlt};
 `;
 
+/**
+ * **Never pass Ant Design's `theme` prop to this component.**
+ *
+ * `Layout.Sider` accepts `theme="light" | "dark"`, and styled-components claims the name `theme`
+ * for itself: a `theme` prop on a styled component *replaces* the `ThemeProvider` context for every
+ * interpolation below. Passing the string would make `theme.color` undefined here and crash the
+ * whole shell, which is exactly what it did until this comment was written.
+ *
+ * The light appearance is ours instead — the two declarations below, plus `Layout.siderBg` in
+ * `antdTheme.ts` — which is what doc 07 §3.2 rule 3 asks for anyway: wrap the component, do not
+ * drive it by its own theming.
+ */
 export const Sider = styled(Layout.Sider)`
   border-right: 1px solid ${({ theme }) => theme.color.border};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.ink};
 
   /* The sider is sticky rather than scrolling with the page: navigation should not disappear
      while panning a tree that is several screens tall. */

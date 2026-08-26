@@ -25,15 +25,10 @@ interface SidebarProps {
 export function Sidebar({ collapsed }: SidebarProps) {
   const { t } = useTranslation();
 
+  // No `theme="light"` on `Sider`: it is a styled component, and a `theme` prop replaces the design
+  // tokens for every interpolation inside it. See the note on `Sider` in ./styles.
   return (
-    <Sider
-      collapsible
-      collapsed={collapsed}
-      trigger={null}
-      width={240}
-      collapsedWidth={64}
-      theme="light"
-    >
+    <Sider collapsible collapsed={collapsed} trigger={null} width={240} collapsedWidth={64}>
       <Brand $collapsed={collapsed}>
         <BrandMark aria-hidden="true">G</BrandMark>
         {!collapsed && <BrandName>{t('app.name')}</BrandName>}

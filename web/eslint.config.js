@@ -175,6 +175,21 @@ export default tseslint.config(
           selector: 'Literal[value=/@apply\\s/]',
           message: 'No Tailwind directives (draft §3.2).',
         },
+        {
+          // styled-components claims the prop name `theme`: passing one to a styled component
+          // *replaces* the ThemeProvider context for every interpolation inside it, so
+          // `theme.color` becomes undefined and the component crashes at render.
+          //
+          // Several Ant Design components take a `theme` prop of their own — `Layout.Sider`,
+          // `Menu` — and wrapping one in `styled()` is how the two collide. It cost a whole
+          // broken shell once; the two providers that legitimately own the prop are exempt.
+          selector:
+            'JSXOpeningElement:not([name.name="ConfigProvider"]):not([name.name="ThemeProvider"]) > JSXAttribute[name.name="theme"]',
+          message:
+            'Never pass a `theme` prop to a component. styled-components uses that name for the ' +
+            'ThemeProvider context, so an AntD `theme="light"` on a styled component makes every ' +
+            'token undefined. Style the wrapper instead (doc 07 §3.2 rule 3).',
+        },
       ],
 
       // Every request goes through api/client.ts, which owns error mapping, the correlation id,

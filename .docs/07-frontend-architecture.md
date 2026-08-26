@@ -256,6 +256,7 @@ The canvas is `role="tree"` with keyboard navigation (arrows move between siblin
 | `no-restricted-imports: ['axios', 'ky', 'superagent', 'tailwindcss', ...]` | Blocks Axios and Tailwind at the import level. |
 | `no-restricted-syntax` on `ImportDeclaration[source.value=/\.css$/]` | Only `GlobalStyle` and the AntD reset may bring in CSS (allow-listed paths). |
 | `react/forbid-dom-props: ['style']` | Enforces the styled-components rule; the single `TreeCanvas` exception is an explicit inline disable. |
+| `no-restricted-syntax` on a `theme` JSX prop (except `ConfigProvider` / `ThemeProvider`) | styled-components owns the prop name `theme`: one on a styled component replaces the token context, so an AntD `theme="light"` makes every `props.theme.*` undefined and crashes it at render. |
 | `no-restricted-properties` on `window.fetch` outside `api/client.ts` | All HTTP goes through the wrapper. |
 | `i18next/no-literal-string` (warn) | Catches hard-coded user-facing strings (NFR-8). |
 | `import/no-cycle`, feature-boundary `no-restricted-imports` zones | Keeps the feature slices independent. |
