@@ -1,9 +1,14 @@
 package app.giaky.identity.infrastructure;
 
 import app.giaky.common.types.TenantExempt;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data access to {@code users}.
@@ -23,4 +28,22 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
     Optional<UserJpaEntity> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    List<UserJpaEntity> findByIdIn(Collection<UUID> ids);
+
+    /**
+     * The member-search lookup behind {@code UserDirectory.search}.
+     *
+     * <p>{@code LIKE} on two columns rather than a full-text index: the result is intersected with
+     * one clan's memberships, so the query runs against a table whose growth is bounded by
+     * registrations rather than by tree size, and the {@code Pageable} caps it regardless.
+     */
+    @Query(
+            """
+            select u.id from UserJpaEntity u
+            where lower(u.displayName) like lower(concat('%', :query, '%'))
+               or lower(u.email) like lower(concat('%', :query, '%'))
+            order by u.displayName asc
+            """)
+    List<UUID> searchIds(@Param("query") String query, Pageable pageable);
 }
