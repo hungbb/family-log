@@ -6,7 +6,9 @@
   "common": {
     "save": "Lưu",
     "cancel": "Huỷ",
-    "loading": "Đang tải…"
+    "loading": "Đang tải…",
+    "copy": "Sao chép",
+    "back": "Quay lại"
   },
   "nav": {
     "tree": "Cây gia phả",
@@ -19,7 +21,6 @@
   "shell": {
     "collapseSidebar": "Thu gọn thanh bên",
     "expandSidebar": "Mở rộng thanh bên",
-    "clanSwitcherPlaceholder": "Chọn gia tộc",
     "accountPlaceholder": "Tài khoản",
     "accountMenu": "Menu tài khoản",
     "profile": "Hồ sơ của tôi",
@@ -131,7 +132,16 @@
     "rateLimited": "Bạn đã thử quá nhiều lần. Hãy chờ một chút rồi thử lại.",
     "permissionDenied": "Bạn không có quyền thực hiện thao tác này.",
     "network": "Không kết nối được máy chủ.",
-    "server": "Máy chủ đang gặp sự cố. Hãy thử lại sau."
+    "server": "Máy chủ đang gặp sự cố. Hãy thử lại sau.",
+    "clanNotFound": "Dòng họ này không tồn tại, hoặc bạn không phải thành viên.",
+    "branchNotFound": "Chi này không có trong dòng họ.",
+    "requestNotFound": "Yêu cầu này không còn nữa.",
+    "invalidClanCode": "Đây không giống một mã tham gia.",
+    "duplicatePendingRequest": "Bạn đã gửi yêu cầu rồi. Hãy chờ trả lời, hoặc rút yêu cầu cũ trước.",
+    "membershipExists": "Bạn đã là thành viên của dòng họ này.",
+    "versionConflict": "Có người vừa sửa trong lúc bạn đang chỉnh. Hãy tải lại rồi thử lại.",
+    "cycleDetected": "Không thể chuyển một chi về dưới chính nhánh của nó.",
+    "lastAdminProtected": "Dòng họ sẽ không còn ai quản lý."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -156,5 +166,193 @@
     "label": "Ngôn ngữ",
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "clan": {
+    "switcher": {
+      "label": "Chuyển dòng họ",
+      "none": "Chọn dòng họ",
+      "create": "Tạo dòng họ",
+      "createFirst": "Tạo dòng họ",
+      "join": "Tham gia bằng mã"
+    },
+    "onboarding": {
+      "title": "Bắt đầu gia phả của bạn",
+      "subtitle": "Hãy tạo một dòng họ rồi mời người thân, hoặc tham gia dòng họ mà người trong nhà đã lập.",
+      "create": {
+        "title": "Tạo dòng họ",
+        "body": "Lập gia phả cho gia đình bạn. Bạn sẽ nhận được một mã để chia sẻ cho người thân cùng tham gia.",
+        "action": "Tạo dòng họ"
+      },
+      "join": {
+        "title": "Tham gia bằng mã",
+        "body": "Người trong họ đã lập gia phả rồi. Hãy nhập mã mà họ gửi cho bạn.",
+        "action": "Nhập mã"
+      }
+    },
+    "field": {
+      "name": "Tên dòng họ",
+      "surname": "Họ",
+      "surnameHint": "Dùng để tạo mã tham gia. Dấu sẽ được bỏ, nên Nguyễn thành NGUYEN.",
+      "originPlace": "Quê quán",
+      "description": "Giới thiệu về dòng họ",
+      "code": "Mã tham gia",
+      "codeTooltip": "Được tạo một lần và không bao giờ thay đổi, để mã bạn đã chia sẻ luôn còn dùng được."
+    },
+    "placeholder": {
+      "name": "Nguyễn Văn",
+      "surname": "Nguyễn",
+      "originPlace": "Nam Định"
+    },
+    "validation": {
+      "nameRequired": "Hãy nhập tên dòng họ."
+    },
+    "create": {
+      "title": "Tạo dòng họ",
+      "subtitle": "Chỉ tên là bắt buộc. Những mục còn lại có thể bổ sung sau.",
+      "submit": "Tạo dòng họ",
+      "doneSubtitle": "Dòng họ của bạn đã sẵn sàng.",
+      "codeTitle": "Mã tham gia",
+      "codeBody": "Hãy gửi mã này cho người thân. Ai có mã đều có thể xin vào, và bạn là người quyết định.",
+      "codeCopied": "Đã sao chép mã.",
+      "copyUnavailable": "Không tự sao chép được — hãy bôi đen mã rồi sao chép.",
+      "copied": "Đã chép",
+      "addBranches": "Thêm chi, nhánh",
+      "openClan": "Mở dòng họ"
+    },
+    "join": {
+      "title": "Tham gia dòng họ",
+      "subtitle": "Nhập mã người thân gửi cho bạn. Chúng tôi sẽ cho bạn xem đó là dòng họ nào trước khi gửi yêu cầu.",
+      "field": {
+        "code": "Mã tham gia",
+        "message": "Đôi lời gửi người xét duyệt"
+      },
+      "placeholder": {
+        "code": "NGUYEN-7F3K",
+        "message": "Bạn là ai, và có quan hệ thế nào với dòng họ."
+      },
+      "validation": {
+        "codeRequired": "Hãy nhập mã."
+      },
+      "lookUp": "Tra cứu",
+      "memberCount": "{{count}} thành viên",
+      "alreadyMember": "Bạn đã ở trong dòng họ này.",
+      "alreadyRequested": "Bạn đã gửi yêu cầu rồi. Hãy chờ trả lời.",
+      "submit": "Gửi yêu cầu tham gia",
+      "sent": "Đã gửi yêu cầu. Bạn sẽ thấy kết quả ở trang cá nhân."
+    },
+    "settings": {
+      "title": "Thiết lập dòng họ",
+      "subtitle": "Tên gọi, quê quán, và những ghi chép về dòng họ.",
+      "details": "Thông tin",
+      "readOnly": "Hiện tại chỉ người lập dòng họ mới sửa được.",
+      "saved": "Đã lưu.",
+      "delete": {
+        "title": "Xoá dòng họ",
+        "heading": "Xoá dòng họ này",
+        "body": "Mọi thành viên sẽ không còn truy cập được. Trong 30 ngày vẫn có thể khôi phục.",
+        "action": "Xoá dòng họ",
+        "confirmTitle": "Xoá dòng họ này?",
+        "confirmBody": "Mọi thành viên sẽ mất quyền truy cập. Có thể khôi phục trong 30 ngày.",
+        "confirmOk": "Xoá dòng họ",
+        "done": "Đã xoá dòng họ."
+      }
+    },
+    "notFound": {
+      "title": "Không tìm thấy dòng họ",
+      "body": "Dòng họ này không tồn tại, hoặc bạn không phải thành viên."
+    }
+  },
+  "branch": {
+    "title": "Chi, nhánh",
+    "subtitle": "Các chi và nhánh của dòng họ. Kéo một chi thả vào chi khác để chuyển, cả nhánh bên dưới sẽ đi theo.",
+    "readOnly": "Hiện tại chỉ người lập dòng họ mới sửa được cơ cấu chi, nhánh.",
+    "add": "Thêm chi",
+    "addChild": "Thêm nhánh dưới chi này",
+    "rename": "Đổi tên chi",
+    "archived": "Đã lưu trữ",
+    "memberCount": "{{count}} thành viên",
+    "field": {
+      "name": "Tên chi",
+      "description": "Ghi chú"
+    },
+    "placeholder": {
+      "name": "Chi Trưởng"
+    },
+    "validation": {
+      "nameRequired": "Hãy nhập tên chi."
+    },
+    "create": {
+      "title": "Thêm nhánh dưới {{parent}}"
+    },
+    "move": {
+      "done": "Đã chuyển {{name}} về dưới {{parent}}."
+    },
+    "archive": {
+      "action": "Lưu trữ chi",
+      "confirmTitle": "Lưu trữ {{name}}?",
+      "confirmBody": "Chi vẫn còn trong gia phả và giữ nguyên thành viên, nhưng không thêm mới được nữa. Phải lưu trữ các nhánh bên dưới trước.",
+      "confirmOk": "Lưu trữ",
+      "done": "Đã lưu trữ chi."
+    }
+  },
+  "members": {
+    "title": "Thành viên",
+    "subtitle": "Ai đang ở trong dòng họ, và ai đang xin vào.",
+    "tab": {
+      "members": "Thành viên",
+      "requests": "Yêu cầu"
+    },
+    "searchPlaceholder": "Tìm theo tên hoặc email",
+    "allBranches": "Tất cả các chi",
+    "noBranch": "Chưa xếp chi",
+    "founder": "Người lập",
+    "column": {
+      "name": "Tên",
+      "branch": "Chi",
+      "joined": "Tham gia",
+      "role": "Vai trò",
+      "actions": ""
+    },
+    "status": {
+      "PENDING": "Đang chờ",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối",
+      "CANCELLED": "Đã rút",
+      "EXPIRED": "Hết hạn"
+    },
+    "inbox": {
+      "empty": "Không có ai đang chờ.",
+      "wholeClan": "Toàn dòng họ",
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "approveTitle": "Duyệt {{name}}",
+      "approveBody": "Người này thuộc chi nào? Để trống nếu muốn nhận vào họ mà chưa xếp chi.",
+      "approved": "{{name}} đã là thành viên.",
+      "rejectTitle": "Từ chối yêu cầu này",
+      "rejectBody": "Lý do sẽ được gửi tới người xin vào. Đó là người trong họ — hãy nói cho rõ.",
+      "rejected": "Đã từ chối yêu cầu."
+    },
+    "remove": {
+      "action": "Loại khỏi họ",
+      "confirmTitle": "Loại {{name}} khỏi dòng họ?",
+      "confirmBody": "Người này sẽ mất quyền truy cập và có thể xin vào lại.",
+      "confirmOk": "Loại khỏi họ",
+      "done": "Đã loại thành viên."
+    },
+    "leave": {
+      "action": "Rời dòng họ",
+      "confirmTitle": "Rời dòng họ này?",
+      "confirmBody": "Bạn sẽ mất quyền truy cập và phải xin vào lại.",
+      "confirmOk": "Rời đi",
+      "done": "Bạn đã rời dòng họ."
+    },
+    "myRequests": {
+      "title": "Yêu cầu tham gia của tôi",
+      "subtitle": "Những yêu cầu bạn đã gửi, và kết quả của chúng.",
+      "empty": "Bạn chưa xin vào dòng họ nào.",
+      "sentOn": "gửi ngày {{date}}",
+      "cancel": "Rút lại",
+      "cancelled": "Đã rút yêu cầu."
+    }
   }
 }

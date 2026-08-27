@@ -8,9 +8,15 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 1 (identity & authentication) — milestone M1.** You can register, verify an
-> email, sign in, keep a session across reloads, edit your profile and sign out everywhere. There is
-> no clan, no person and no tree yet. See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
+> **Status: Phase 2 (clans & branch structure) — milestone M2.** On top of Phase 1's accounts, you
+> can found a clan, share its join code, ask to join one with a code, approve or refuse those
+> requests, build the tree of *chi* and *nhánh* the family divides into, and switch between the
+> clans you belong to. There is no person and no family tree yet — those are Phase 4.
+> See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
+>
+> Until Phase 3 ships the permission model, **the person who created a clan is the only one who can
+> administer it.** That rule lives in exactly one class, `InterimClanAccessCheck`, and is marked for
+> removal.
 
 ---
 
@@ -199,6 +205,21 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - The refresh token lives in `localStorage` — cross-site deployment, so an `HttpOnly` cookie is not
   available. The trade is recorded in [ADR 0003](.docs/adr/0003-refresh-token-in-local-storage.md).
 
+**Clans and branches** (Phase 2, `.docs/phases/phase-2-clan-branch.md`):
+
+- A clan is the tenancy boundary. Every clan-scoped read takes a `ClanId`, and a branch id from
+  another clan answers `404` — not `403`, which would confirm that the id belongs to something.
+- A non-member gets `404` for every clan endpoint, and a member who lacks a permission gets `403`.
+  A private clan does not confirm its own existence to somebody outside it.
+- Join codes are `SURNAME-XXXX` in Crockford base32 — no `I`, `L`, `O` or `U`, because a code's
+  whole job is to survive being read aloud and typed back in. They are generated once, never
+  changed, and never reissued, even after a clan is deleted.
+- Branches form a tree with a materialized path, capped at ten deep. Re-parenting rewrites the path
+  of every branch beneath, in one statement inside one transaction; a property test re-derives every
+  path from the parent links after hundreds of random moves.
+- A join request that nobody answers is closed after 90 days by an hourly sweep, guarded by a
+  PostgreSQL advisory lock so two instances do not both run it.
+
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 
 - `domain` depends on nothing but the JDK and `common.types` — no Spring, no JPA
@@ -209,8 +230,8 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - plus the conventions: constructor injection only, `@Transactional` only on application services,
   no `System.out`, `Optional` never a parameter
 
-Most of these currently check empty packages and pass trivially. Each starts biting the moment its
-layer gains a class.
+`identity` and `clanorg` have real classes and are really checked; the four remaining contexts are
+still empty and pass trivially. Each starts biting the moment its layer gains a class.
 
 **Frontend — ESLint** (`web/eslint.config.js`):
 

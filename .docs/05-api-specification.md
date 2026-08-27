@@ -1,4 +1,5 @@
-# 05 — REST API Specification
+| GET | `/clans/{clanId}/my-permissions` | `CLAN_VIEW` | Grants + resolved scopes, with the granter and the expiry — the permissions <i>screen</i>, not UI gating. Arrives with the grant model in Phase 3; see [ADR 0004](adr/0004-clan-permissions-on-the-clan-resource.md) || GET | `/clans` | authenticated | Clans the caller is an active member of, each with `myPermissions[]` — the clan switcher gates on it (ADR 0004) |
+| GET | `/clans/{clanId}` | `CLAN_VIEW` | Detail incl. `myPermissions[]` for UI gating |# 05 — REST API Specification
 
 > Contract between `api` (Spring Boot) and `web` (React). Documented at runtime via OpenAPI 3 (springdoc) at `/swagger-ui.html`; this file is the design source of truth.
 
@@ -105,12 +106,12 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 | Method | Path | Permission | Notes |
 |--------|------|-----------|-------|
 | POST | `/clans` | authenticated | Creates clan + root branch + bootstrap `CLAN_ADMIN` |
-| GET | `/clans` | authenticated | Clans the caller is an active member of |
+| GET | `/clans` | authenticated | Clans the caller is an active member of, each with `myPermissions[]` — the clan switcher gates on it ([ADR 0004](adr/0004-clan-permissions-on-the-clan-resource.md)) |
 | GET | `/clans/{clanId}` | `CLAN_VIEW` | Detail incl. `myPermissions[]` for UI gating |
 | PATCH | `/clans/{clanId}` | `CLAN_ADMIN` | Name, description, origin, cover. `clanCode` immutable |
 | DELETE | `/clans/{clanId}` | `CLAN_ADMIN` | Soft delete, 30-day recovery |
 | GET | `/clans/lookup?code={clanCode}` | authenticated | Minimal public card (name, member count) used before joining |
-| GET | `/clans/{clanId}/my-permissions` | `CLAN_VIEW` | Grants + resolved scopes; drives UI affordances |
+| GET | `/clans/{clanId}/my-permissions` | `CLAN_VIEW` | Grants + resolved scopes, with the granter and the expiry — the permissions *screen*, not UI gating. Arrives with the grant model in Phase 3 ([ADR 0004](adr/0004-clan-permissions-on-the-clan-resource.md)) |
 
 ### 4.4 Branches — `/clans/{clanId}/branches`
 

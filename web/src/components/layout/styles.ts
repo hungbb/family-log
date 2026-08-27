@@ -151,3 +151,41 @@ export const VerificationBanner = styled.div`
   color: ${({ theme }) => theme.color.warning};
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
+
+/**
+ * The clan switcher's trigger.
+ *
+ * A `Button` rather than a bare `div` so it is focusable and operable from the keyboard: switching
+ * families is the most-used control in the shell, and one that needs a mouse is not one (NFR-7).
+ */
+export const SwitcherButton = styled(Button)`
+  height: 36px;
+  max-width: 320px;
+  padding-inline: ${({ theme }) => theme.space(2)};
+`;
+
+export const SwitcherName = styled.span`
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: ${({ theme }) => theme.color.ink};
+  font-size: ${({ theme }) => theme.fontSize.md};
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+`;
+
+/** The join code, shown beside the name so it is always one glance away when somebody asks. */
+export const SwitcherCode = styled.span`
+  padding: ${({ theme }) => `0 ${theme.space(1.5)}`};
+  border: 1px solid ${({ theme }) => theme.color.border};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.color.surfaceAlt};
+  color: ${({ theme }) => theme.color.inkMuted};
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+
+  /* On a narrow screen the name carries the meaning and the code is noise. */
+  @media (max-width: 720px) {
+    display: none;
+  }
+`;

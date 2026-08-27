@@ -6,7 +6,9 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "copy": "Copy",
+    "back": "Back"
   },
   "nav": {
     "tree": "Family tree",
@@ -19,7 +21,6 @@
   "shell": {
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "clanSwitcherPlaceholder": "Select a clan",
     "accountPlaceholder": "Account",
     "accountMenu": "Account menu",
     "profile": "My profile",
@@ -131,7 +132,16 @@
     "rateLimited": "Too many attempts. Wait a moment and try again.",
     "permissionDenied": "You may not perform this action.",
     "network": "Could not reach the server.",
-    "server": "The server is having trouble. Try again shortly."
+    "server": "The server is having trouble. Try again shortly.",
+    "clanNotFound": "This clan does not exist, or you are not a member of it.",
+    "branchNotFound": "That branch does not exist in this clan.",
+    "requestNotFound": "That request no longer exists.",
+    "invalidClanCode": "That does not look like a join code.",
+    "duplicatePendingRequest": "You have already asked to join. Wait for an answer, or withdraw that request first.",
+    "membershipExists": "You are already a member of this clan.",
+    "versionConflict": "Somebody else changed this while you were editing. Reload and try again.",
+    "cycleDetected": "A branch cannot be moved underneath itself.",
+    "lastAdminProtected": "This clan would be left with nobody able to administer it."
   },
   "health": {
     "title": "System health",
@@ -156,5 +166,195 @@
     "label": "Language",
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "clan": {
+    "switcher": {
+      "label": "Switch clan",
+      "none": "Select a clan",
+      "create": "Create a clan",
+      "createFirst": "Create a clan",
+      "join": "Join with a code"
+    },
+    "onboarding": {
+      "title": "Start your family record",
+      "subtitle": "Either create a clan and invite your relatives, or join one that somebody in your family has already started.",
+      "create": {
+        "title": "Create a clan",
+        "body": "Set up the record for your family. You will get a code to share with relatives so they can join.",
+        "action": "Create a clan"
+      },
+      "join": {
+        "title": "Join with a code",
+        "body": "Somebody in your family has already started the record. Enter the code they gave you.",
+        "action": "Enter a code"
+      }
+    },
+    "field": {
+      "name": "Clan name",
+      "surname": "Surname",
+      "surnameHint": "Used to build the join code. Diacritics are removed, so Nguyễn becomes NGUYEN.",
+      "originPlace": "Place of origin",
+      "description": "About this family",
+      "code": "Join code",
+      "codeTooltip": "Generated once and never changed, so a code you share stays valid."
+    },
+    "placeholder": {
+      "name": "Nguyễn Văn",
+      "surname": "Nguyễn",
+      "originPlace": "Nam Định"
+    },
+    "validation": {
+      "nameRequired": "Enter a name for the clan."
+    },
+    "create": {
+      "title": "Create a clan",
+      "subtitle": "Only the name is required. Everything else can be filled in later.",
+      "submit": "Create clan",
+      "doneSubtitle": "Your clan is ready.",
+      "codeTitle": "Join code",
+      "codeBody": "Share this with your relatives. Anyone who enters it can ask to join, and you decide who comes in.",
+      "codeCopied": "Code copied.",
+      "copyUnavailable": "Could not copy automatically — select the code and copy it.",
+      "copied": "Copied",
+      "addBranches": "Add branches",
+      "openClan": "Open the clan"
+    },
+    "join": {
+      "title": "Join a clan",
+      "subtitle": "Enter the code a relative shared with you. We will show you which family it belongs to before you ask to join.",
+      "field": {
+        "code": "Join code",
+        "message": "A note for whoever approves this"
+      },
+      "placeholder": {
+        "code": "NGUYEN-7F3K",
+        "message": "Who you are, and how you are related."
+      },
+      "validation": {
+        "codeRequired": "Enter a code."
+      },
+      "lookUp": "Look up",
+      "memberCount": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "alreadyMember": "You are already in this clan.",
+      "alreadyRequested": "You have already asked to join. Wait for an answer.",
+      "submit": "Ask to join",
+      "sent": "Request sent. You will see the answer on your profile."
+    },
+    "settings": {
+      "title": "Clan settings",
+      "subtitle": "The name, where the family comes from, and the record you keep about it.",
+      "details": "Details",
+      "readOnly": "Only the person who created this clan can change it for now.",
+      "saved": "Saved.",
+      "delete": {
+        "title": "Delete this clan",
+        "heading": "Delete the clan",
+        "body": "The clan disappears for everyone in it. There is a 30-day window in which it can be brought back.",
+        "action": "Delete clan",
+        "confirmTitle": "Delete this clan?",
+        "confirmBody": "Everyone loses access to it. It can be restored within 30 days.",
+        "confirmOk": "Delete clan",
+        "done": "Clan deleted."
+      }
+    },
+    "notFound": {
+      "title": "Clan not found",
+      "body": "This clan does not exist, or you are not a member of it."
+    }
+  },
+  "branch": {
+    "title": "Branches",
+    "subtitle": "The chi and nhánh your family divides into. Drag a branch onto another to move it, and everything beneath it moves too.",
+    "readOnly": "Only the person who created this clan can change its branches for now.",
+    "add": "Add a branch",
+    "addChild": "Add a branch under this one",
+    "rename": "Rename branch",
+    "archived": "Archived",
+    "memberCount": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "field": {
+      "name": "Branch name",
+      "description": "Notes"
+    },
+    "placeholder": {
+      "name": "Chi Trưởng"
+    },
+    "validation": {
+      "nameRequired": "Enter a name for the branch."
+    },
+    "create": {
+      "title": "Add a branch under {{parent}}"
+    },
+    "move": {
+      "done": "{{name}} moved under {{parent}}."
+    },
+    "archive": {
+      "action": "Archive branch",
+      "confirmTitle": "Archive {{name}}?",
+      "confirmBody": "It stays in the record and keeps its members, but nothing new can be added to it. Branches beneath it must be archived first.",
+      "confirmOk": "Archive",
+      "done": "Branch archived."
+    }
+  },
+  "members": {
+    "title": "Members",
+    "subtitle": "Who is in this clan, and who has asked to be.",
+    "tab": {
+      "members": "Members",
+      "requests": "Requests"
+    },
+    "searchPlaceholder": "Search by name or email",
+    "allBranches": "All branches",
+    "noBranch": "No branch yet",
+    "founder": "Founder",
+    "column": {
+      "name": "Name",
+      "branch": "Branch",
+      "joined": "Joined",
+      "role": "Role",
+      "actions": ""
+    },
+    "status": {
+      "PENDING": "Waiting",
+      "APPROVED": "Approved",
+      "REJECTED": "Refused",
+      "CANCELLED": "Withdrawn",
+      "EXPIRED": "Expired"
+    },
+    "inbox": {
+      "empty": "Nobody is waiting.",
+      "wholeClan": "The clan as a whole",
+      "approve": "Approve",
+      "reject": "Refuse",
+      "approveTitle": "Approve {{name}}",
+      "approveBody": "Which branch do they belong to? Leave it empty to admit them to the clan without placing them yet.",
+      "approved": "{{name}} is now a member.",
+      "rejectTitle": "Refuse this request",
+      "rejectBody": "The reason is shown to the person who asked. They are a relative — say something useful.",
+      "rejected": "Request refused."
+    },
+    "remove": {
+      "action": "Remove",
+      "confirmTitle": "Remove {{name}}?",
+      "confirmBody": "They lose access to this clan. They can ask to join again.",
+      "confirmOk": "Remove",
+      "done": "Member removed."
+    },
+    "leave": {
+      "action": "Leave clan",
+      "confirmTitle": "Leave this clan?",
+      "confirmBody": "You lose access to it and would have to ask to join again.",
+      "confirmOk": "Leave",
+      "done": "You have left the clan."
+    },
+    "myRequests": {
+      "title": "My join requests",
+      "subtitle": "Requests you have sent, and what came of them.",
+      "empty": "You have not asked to join any clan.",
+      "sentOn": "sent {{date}}",
+      "cancel": "Withdraw",
+      "cancelled": "Request withdrawn."
+    }
   }
 }

@@ -24,6 +24,19 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   PERMISSION_DENIED: 'errors.permissionDenied',
   NETWORK_ERROR: 'errors.network',
   INTERNAL_ERROR: 'errors.server',
+
+  // ClanOrg. `CLAN_NOT_FOUND` deliberately reads the same whether the clan does not exist or the
+  // caller is simply not in it — the server refuses to tell those apart (doc 04 §7), and a client
+  // that phrased them differently would give away exactly what the 404 is protecting.
+  CLAN_NOT_FOUND: 'errors.clanNotFound',
+  BRANCH_NOT_FOUND: 'errors.branchNotFound',
+  REQUEST_NOT_FOUND: 'errors.requestNotFound',
+  INVALID_CLAN_CODE: 'errors.invalidClanCode',
+  DUPLICATE_PENDING_REQUEST: 'errors.duplicatePendingRequest',
+  MEMBERSHIP_EXISTS: 'errors.membershipExists',
+  VERSION_CONFLICT: 'errors.versionConflict',
+  CYCLE_DETECTED: 'errors.cycleDetected',
+  LAST_ADMIN_PROTECTED: 'errors.lastAdminProtected',
 };
 
 /**
