@@ -4,8 +4,12 @@ import app.giaky.common.types.UserId;
 import app.giaky.identity.domain.EmailAddress;
 import app.giaky.identity.domain.User;
 import app.giaky.identity.domain.UserRepository;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -33,6 +37,24 @@ public final class InMemoryUserRepository implements UserRepository {
     @Override
     public boolean existsByEmail(EmailAddress email) {
         return findByEmail(email).isPresent();
+    }
+
+    @Override
+    public List<User> findAllById(Collection<UserId> ids) {
+        return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
+    }
+
+    @Override
+    public List<UserId> searchIds(String query, int limit) {
+        String needle = query.toLowerCase(Locale.ROOT);
+        return byId.values().stream()
+                .filter(
+                        user ->
+                                user.displayName().toLowerCase(Locale.ROOT).contains(needle)
+                                        || user.email().value().contains(needle))
+                .map(User::id)
+                .limit(limit)
+                .toList();
     }
 
     @Override

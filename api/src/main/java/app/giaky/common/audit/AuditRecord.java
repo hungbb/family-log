@@ -50,6 +50,38 @@ public record AuditRecord(
         return new AuditRecord(action, TARGET_USER, null, null, null, null, null, null);
     }
 
+    /** The {@code targetType} for anything that happens to a clan. */
+    public static final String TARGET_CLAN = "CLAN";
+
+    /** The {@code targetType} for anything that happens to a branch. */
+    public static final String TARGET_BRANCH = "BRANCH";
+
+    /** The {@code targetType} for a membership row. */
+    public static final String TARGET_MEMBERSHIP = "MEMBERSHIP";
+
+    /** The {@code targetType} for a join request. */
+    public static final String TARGET_JOIN_REQUEST = "JOIN_REQUEST";
+
+    /**
+     * An action inside a clan.
+     *
+     * <p>The {@code clanId} is what makes the entry reachable: {@code ix_audit_clan_time} is the
+     * index the clan audit view of doc 05 §4.11 reads, and an entry written without one is a row
+     * only a platform operator will ever see again.
+     *
+     * @param actorUserId who did it; null for the scheduled sweeps, which have no human behind them
+     */
+    public static AuditRecord inClan(
+            AuditAction action,
+            ClanId clanId,
+            String targetType,
+            UUID targetId,
+            UserId actorUserId) {
+
+        return new AuditRecord(
+                action, targetType, targetId, actorUserId, clanId, null, null, null);
+    }
+
     public AuditRecord withIpAddress(String value) {
         return new AuditRecord(
                 action, targetType, targetId, actorUserId, clanId, beforeJson, afterJson, value);

@@ -11,7 +11,8 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { SUPPORTED_LOCALES } from '../../i18n';
 
-import { AccountButton, Placeholder, TopBar as Bar, TopBarSpacer, UserName } from './styles';
+import { ClanSwitcher } from './ClanSwitcher';
+import { AccountButton, TopBar as Bar, TopBarSpacer, UserName } from './styles';
 
 interface TopBarProps {
   collapsed: boolean;
@@ -40,7 +41,7 @@ export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
         aria-label={collapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')}
       />
 
-      <Placeholder>{t('shell.clanSwitcherPlaceholder')}</Placeholder>
+      <ClanSwitcher />
 
       <TopBarSpacer />
 

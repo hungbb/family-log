@@ -1,6 +1,8 @@
 package app.giaky.identity.domain;
 
 import app.giaky.common.types.UserId;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -21,6 +23,24 @@ public interface UserRepository {
     Optional<User> findByEmail(EmailAddress email);
 
     boolean existsByEmail(EmailAddress email);
+
+    /**
+     * Several accounts at once, for the contexts that hold ids and need names (doc 02 §7 rule 1).
+     *
+     * <p>Reached only through {@code UserDirectory}. The alternative — every context joining {@code
+     * users} in its own query — is how a bounded context stops being one.
+     */
+    List<User> findAllById(Collection<UserId> ids);
+
+    /**
+     * Ids of accounts whose display name or address contains {@code query}, case-insensitively.
+     *
+     * <p>Returns ids rather than users because the caller intersects them with something else (a
+     * clan's memberships) before it needs anything else about them.
+     *
+     * @param limit hard cap on the result; a one-character query must not read the table
+     */
+    List<UserId> searchIds(String query, int limit);
 
     /** Inserts or updates, returning the stored state. */
     User save(User user);
