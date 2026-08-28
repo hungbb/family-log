@@ -34,10 +34,12 @@ export type ApiErrorCode =
   | 'NODE_ALREADY_LINKED'
   | 'USER_ALREADY_LINKED_IN_CLAN'
   | 'MEMBERSHIP_EXISTS'
+  | 'GRANT_ALREADY_EXISTS'
   | 'VALIDATION_FAILED'
   | 'CYCLE_DETECTED'
   | 'INVALID_RELATIONSHIP'
   | 'DATE_RANGE_INVALID'
+  | 'SUBTREE_SCOPE_UNAVAILABLE'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
   /** Not from the server: the request never completed (offline, DNS, CORS, abort). */

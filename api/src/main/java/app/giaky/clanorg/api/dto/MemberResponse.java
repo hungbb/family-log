@@ -16,9 +16,9 @@ public record MemberResponse(
         Instant joinedAt,
         @Schema(
                         description =
-                                "Whether this member founded the clan. Until roles ship, the"
-                                    + " founder is the only person who can administer it.")
-                boolean isCreator,
+                                "Whether this member holds CLAN_ADMIN. Any number of people can;"
+                                    + " this is who to ask when something is refused.")
+                boolean isAdministrator,
         @Schema(description = "The person node this member is linked to. Null until claiming ships.")
                 UUID linkedPersonId) {
 
@@ -31,7 +31,7 @@ public record MemberResponse(
                 view.homeBranchId(),
                 view.homeBranchName(),
                 view.joinedAt(),
-                view.isCreator(),
+                view.isAdministrator(),
                 view.linkedPersonId());
     }
 }

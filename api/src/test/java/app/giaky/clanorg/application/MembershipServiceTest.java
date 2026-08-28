@@ -55,9 +55,9 @@ class MembershipServiceTest {
         assertThat(page.totalElements()).isEqualTo(2);
         assertThat(page.content()).extracting(MemberView::displayName)
                 .containsExactlyInAnyOrder("Nguyễn Văn An", "Nguyễn Thị Bé");
-        // Until Phase 3, "founded it" is the same thing as "can administer it", and the member list
-        // is where somebody looks to find out who to ask.
-        assertThat(page.content()).filteredOn(MemberView::isCreator).hasSize(1);
+        // The founder holds the clan's bootstrap CLAN_ADMIN and the new member holds only
+        // CLAN_VIEW, so the list names exactly one person to ask.
+        assertThat(page.content()).filteredOn(MemberView::isAdministrator).hasSize(1);
         // Phase 6 fills this in.
         assertThat(page.content()).allSatisfy(view -> assertThat(view.linkedPersonId()).isNull());
     }

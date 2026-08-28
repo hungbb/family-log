@@ -7,13 +7,14 @@ import app.giaky.common.types.UserId;
  * Refuses to leave a clan without an administrator (I-M3).
  *
  * <p>A port, not an implementation, because the honest answer to "is this the last admin?" needs the
- * grant table, and grants arrive in Phase 3. Phase 2 satisfies it with the crude rule it has —
- * {@code clans.created_by} — inside {@code InterimClanAccessCheck}; Phase 3 replaces that
- * implementation and every call site here keeps working.
+ * grant table, which lives in another context. Phase 2 satisfied it with the crude rule it had —
+ * {@code clans.created_by} — and Phase 3 replaced that with {@code GrantBackedLastAdminProtection},
+ * which counts live {@code CLAN_ADMIN} grants. Every call site here kept working, which is what the
+ * port was for.
  *
- * <p>The interface exists now rather than then so the call sites are written once. A membership
- * removal that forgets to ask this question is how a clan ends up with nobody who can approve
- * anything, and adding the question later means finding every place that removes a membership.
+ * <p>A membership removal that forgets to ask this question is how a clan ends up with nobody who
+ * can approve anything, and adding the question later means finding every place that removes a
+ * membership.
  */
 public interface LastAdminProtection {
 

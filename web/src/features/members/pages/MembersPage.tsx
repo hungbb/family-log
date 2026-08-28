@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router';
 import { flattenBranches } from '@/api/endpoints/branches.ts';
 import { type Member } from '@/api/endpoints/members.ts';
 import { useBranches } from '@/features/branch';
+import { MemberPermissionsDrawer } from '@/features/permissions';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
 
@@ -48,6 +49,7 @@ export function MembersPage() {
   const [search, setSearch] = useState('');
   const [branchId, setBranchId] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
+  const [inspecting, setInspecting] = useState<Member | null>(null);
 
   const filters = {
     ...(search !== '' ? { search } : {}),
@@ -57,8 +59,11 @@ export function MembersPage() {
   };
   const { data: members, isPending } = useMembers(clanId, filters);
   const { data: branches } = useBranches(clanId);
-  const canAdminister = can('CLAN_ADMIN');
-  const { data: pending } = useClanJoinRequests(canAdminister ? clanId : '', 'PENDING');
+  // Phase 3 splits what Phase 2 answered with one flag: approving people and managing roles are
+  // different permissions, held by different relatives, and the page has to ask separately.
+  const canApproveMembers = can('MEMBER_APPROVE');
+  const canManageRoles = can('ROLE_MANAGE');
+  const { data: pending } = useClanJoinRequests(canApproveMembers ? clanId : '', 'PENDING');
 
   const removeMember = useRemoveMember(clanId);
   const leaveClan = useLeaveClan(clanId);
@@ -166,26 +171,45 @@ export function MembersPage() {
           },
           {
             title: t('members.column.role'),
-            dataIndex: 'isCreator',
+            dataIndex: 'isAdministrator',
             render: (_value, member) =>
-              member.isCreator ? <Tag color="processing">{t('members.founder')}</Tag> : null,
+              member.isAdministrator ? (
+                <Tag color="processing">{t('members.administrator')}</Tag>
+              ) : null,
           },
           {
             title: t('members.column.actions'),
             key: 'actions',
-            render: (_value, member) =>
-              canAdminister && !member.isCreator ? (
-                <Button
-                  size="small"
-                  danger
-                  type="text"
-                  onClick={() => {
-                    onRemove(member);
-                  }}
-                >
-                  {t('members.remove.action')}
-                </Button>
-              ) : null,
+            render: (_value, member) => (
+              <>
+                {canManageRoles && (
+                  // The drawer is where "what may this person actually do?" is answered in words
+                  // (F3.5); it needs ROLE_MANAGE, because that is what reading the grant table
+                  // needs, so offering it to anyone else would be offering a 403.
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={() => {
+                      setInspecting(member);
+                    }}
+                  >
+                    {t('members.viewPermissions')}
+                  </Button>
+                )}
+                {canApproveMembers && !member.isAdministrator && (
+                  <Button
+                    size="small"
+                    danger
+                    type="text"
+                    onClick={() => {
+                      onRemove(member);
+                    }}
+                  >
+                    {t('members.remove.action')}
+                  </Button>
+                )}
+              </>
+            ),
           },
         ]}
       />
@@ -210,7 +234,7 @@ export function MembersPage() {
         <Tabs
           items={[
             { key: 'members', label: t('members.tab.members'), children: memberList },
-            ...(canAdminister
+            ...(canApproveMembers
               ? [
                   {
                     key: 'requests',
@@ -226,6 +250,15 @@ export function MembersPage() {
           ]}
         />
       </SectionCard>
+
+      <MemberPermissionsDrawer
+        clanId={clanId}
+        member={inspecting}
+        members={members?.content ?? []}
+        onClose={() => {
+          setInspecting(null);
+        }}
+      />
     </Page>
   );
 }

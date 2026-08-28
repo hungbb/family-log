@@ -19,8 +19,8 @@ export interface Member {
   homeBranchId?: string;
   homeBranchName?: string;
   joinedAt: string;
-  /** Until roles ship, the founder is the only person who can administer the clan. */
-  isCreator: boolean;
+  /** Whether this member holds CLAN_ADMIN. Any number of people can; this is who to ask. */
+  isAdministrator: boolean;
   /** The person node this member is linked to. Null until node claiming ships. */
   linkedPersonId?: string;
 }

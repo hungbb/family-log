@@ -39,9 +39,17 @@ public enum ErrorCode {
     NODE_ALREADY_LINKED(HttpStatus.CONFLICT, "Node already linked"),
     USER_ALREADY_LINKED_IN_CLAN(HttpStatus.CONFLICT, "User already linked in clan"),
     MEMBERSHIP_EXISTS(HttpStatus.CONFLICT, "Membership exists"),
+    /** I-G5: this person already holds this permission at this exact scope. */
+    GRANT_ALREADY_EXISTS(HttpStatus.CONFLICT, "Grant already exists"),
 
     // 422
     VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "Validation failed"),
+    /**
+     * A grant was asked for at {@code SUBTREE} scope, which the resolver understands and Phase 4
+     * turns on (phase 3 §1). Deliberately its own code rather than a generic validation failure: the
+     * scope is not invalid, it is not available yet, and the UI says so in those words.
+     */
+    SUBTREE_SCOPE_UNAVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Subtree scope unavailable"),
     CYCLE_DETECTED(HttpStatus.UNPROCESSABLE_ENTITY, "Cycle detected"),
     INVALID_RELATIONSHIP(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid relationship"),
     DATE_RANGE_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "Date range invalid"),

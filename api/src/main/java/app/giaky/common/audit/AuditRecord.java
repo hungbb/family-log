@@ -19,6 +19,8 @@ import java.util.UUID;
  * @param clanId the clan it happened in; null for actions outside any clan, which is all of Phase 1
  * @param beforeJson state before, as JSON; null when there was none
  * @param afterJson state after, as JSON; null when there is none
+ * @param authorizingGrantId the permission grant that allowed the action (FR-Z8); null when nothing
+ *     had to be authorized — registration, a scheduled sweep, an action open to any member
  * @param ipAddress where the request came from
  */
 public record AuditRecord(
@@ -29,6 +31,7 @@ public record AuditRecord(
         ClanId clanId,
         String beforeJson,
         String afterJson,
+        UUID authorizingGrantId,
         String ipAddress) {
 
     /** The {@code targetType} for anything that happens to an account. */
@@ -42,12 +45,12 @@ public record AuditRecord(
     /** An action performed by an account upon itself — registration, login, logout, reset. */
     public static AuditRecord ofUser(AuditAction action, UserId subject) {
         return new AuditRecord(
-                action, TARGET_USER, subject.value(), subject, null, null, null, null);
+                action, TARGET_USER, subject.value(), subject, null, null, null, null, null);
     }
 
     /** An action against no identifiable account, such as a login for an address nobody owns. */
     public static AuditRecord anonymous(AuditAction action) {
-        return new AuditRecord(action, TARGET_USER, null, null, null, null, null, null);
+        return new AuditRecord(action, TARGET_USER, null, null, null, null, null, null, null);
     }
 
     /** The {@code targetType} for anything that happens to a clan. */
@@ -61,6 +64,9 @@ public record AuditRecord(
 
     /** The {@code targetType} for a join request. */
     public static final String TARGET_JOIN_REQUEST = "JOIN_REQUEST";
+
+    /** The {@code targetType} for a permission grant. */
+    public static final String TARGET_PERMISSION_GRANT = "PERMISSION_GRANT";
 
     /**
      * An action inside a clan.
@@ -79,21 +85,66 @@ public record AuditRecord(
             UserId actorUserId) {
 
         return new AuditRecord(
-                action, targetType, targetId, actorUserId, clanId, null, null, null);
+                action, targetType, targetId, actorUserId, clanId, null, null, null, null);
     }
 
     public AuditRecord withIpAddress(String value) {
         return new AuditRecord(
-                action, targetType, targetId, actorUserId, clanId, beforeJson, afterJson, value);
+                action,
+                targetType,
+                targetId,
+                actorUserId,
+                clanId,
+                beforeJson,
+                afterJson,
+                authorizingGrantId,
+                value);
     }
 
     public AuditRecord withAfterJson(String value) {
         return new AuditRecord(
-                action, targetType, targetId, actorUserId, clanId, beforeJson, value, ipAddress);
+                action,
+                targetType,
+                targetId,
+                actorUserId,
+                clanId,
+                beforeJson,
+                value,
+                authorizingGrantId,
+                ipAddress);
     }
 
     public AuditRecord withChange(String before, String after) {
         return new AuditRecord(
-                action, targetType, targetId, actorUserId, clanId, before, after, ipAddress);
+                action,
+                targetType,
+                targetId,
+                actorUserId,
+                clanId,
+                before,
+                after,
+                authorizingGrantId,
+                ipAddress);
+    }
+
+    /**
+     * Records <i>why</i> the actor was allowed to do this (FR-Z8).
+     *
+     * <p>Fed from {@code AccessDecision.authorizingGrantId}, which is why the resolver returns a
+     * decision rather than a boolean. Without it the trail says a person changed something and a
+     * different person had granted them something, and joining the two is guesswork — with it,
+     * every mutation names the row that permitted it, back to the founder's bootstrap grant.
+     */
+    public AuditRecord authorizedBy(UUID grantId) {
+        return new AuditRecord(
+                action,
+                targetType,
+                targetId,
+                actorUserId,
+                clanId,
+                beforeJson,
+                afterJson,
+                grantId,
+                ipAddress);
     }
 }
