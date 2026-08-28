@@ -1,5 +1,9 @@
 package app.giaky.clanorg.application;
 
+import app.giaky.authorization.domain.AccessDecision;
+import app.giaky.authorization.domain.Permission;
+import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.authorization.domain.Target;
 import app.giaky.clanorg.application.event.JoinRequestDecided;
 import app.giaky.clanorg.application.event.JoinRequestSubmitted;
 import app.giaky.clanorg.application.event.MembershipGranted;
@@ -65,7 +69,7 @@ public class JoinRequestService {
     private final ClanRepository clans;
     private final BranchRepository branches;
     private final ClanMembershipRepository memberships;
-    private final InterimClanAccessCheck access;
+    private final PermissionResolver resolver;
     private final UserDirectory users;
     private final AuditWriter auditWriter;
     private final ApplicationEventPublisher events;
@@ -77,7 +81,7 @@ public class JoinRequestService {
             ClanRepository clans,
             BranchRepository branches,
             ClanMembershipRepository memberships,
-            InterimClanAccessCheck access,
+            PermissionResolver resolver,
             UserDirectory users,
             AuditWriter auditWriter,
             ApplicationEventPublisher events,
@@ -87,7 +91,7 @@ public class JoinRequestService {
         this.clans = clans;
         this.branches = branches;
         this.memberships = memberships;
-        this.access = access;
+        this.resolver = resolver;
         this.users = users;
         this.auditWriter = auditWriter;
         this.events = events;
@@ -135,7 +139,7 @@ public class JoinRequestService {
         // I-J2. A member who asks to join again is not an error worth a stack trace, but it is an
         // error: their client is out of date, and creating the request would give an approver a
         // decision that cannot be carried out.
-        if (access.isMember(caller, clan.id())) {
+        if (resolver.isMember(caller, clan.id())) {
             throw new ConflictException(
                     ErrorCode.MEMBERSHIP_EXISTS, "You are already a member of this clan.");
         }
@@ -205,14 +209,31 @@ public class JoinRequestService {
                         now));
     }
 
-    /** The approver's inbox (doc 05 §4.5). A null status means every status. */
+    /**
+     * The approver's inbox (doc 05 §4.5), <b>filtered to what this approver may decide</b>. A null
+     * status means every status.
+     *
+     * <p>An approver for Chi Hai sees the requests aimed at Chi Hai and the chi below it, and
+     * nothing else — including nothing aimed at the clan as a whole, which only a clan-scoped
+     * approver can answer. Showing a request somebody cannot act on is worse than not showing it:
+     * they either try and are refused, or they assume it has been dealt with.
+     *
+     * <p>Filtered in memory, after the page is read. That is honest about its cost — the page total
+     * counts requests the caller may not see — and it is the only way to ask the resolver rather
+     * than re-implementing scope containment in SQL. Phase 8 revisits it if an inbox ever grows
+     * past a page or two; the correctness of the filter is what matters here.
+     */
     @Transactional(readOnly = true)
     public Paged<JoinRequestView> inbox(
             UserId caller, ClanId clanId, JoinRequestStatus status, int page, int size) {
 
-        Clan clan = access.requireAdministrator(caller, clanId);
+        requireApproverSomewhere(caller, clanId);
+        Clan clan = requireClan(clanId);
+
         List<ClanJoinRequest> rows =
-                requests.findByClanAndStatus(clanId, status, page * size, size);
+                requests.findByClanAndStatus(clanId, status, page * size, size).stream()
+                        .filter(request -> mayDecide(caller, clanId, request))
+                        .toList();
         long total = requests.countByClanAndStatus(clanId, status);
 
         Map<BranchId, String> branchNames = branchNames(clanId);
@@ -229,6 +250,12 @@ public class JoinRequestService {
     /**
      * Approves a request: the membership and the decision, in one transaction (FR-J3).
      *
+     * <p><b>Two checks, not one</b> (doc 04 §5.2 in spirit): {@code MEMBER_APPROVE} over the scope
+     * the request was aimed at, <i>and</i> over the branch the approver is placing them into. An
+     * approver for Chi Hai answering a Chi Hai request cannot drop the new member into Chi Ba on the
+     * way past — which is the same shape of escape hatch that multi-endpoint relationship checks
+     * close in the tree.
+     *
      * @param homeBranchId where to put them; null falls back to the branch they asked for, and then
      *     to no branch at all, which is what "approved into the clan as a whole" means
      */
@@ -236,14 +263,20 @@ public class JoinRequestService {
     public JoinRequestView approve(
             UserId caller, ClanId clanId, UUID requestId, BranchId homeBranchId) {
 
-        Clan clan = access.requireAdministrator(caller, clanId);
         ClanJoinRequest request =
                 requests.findById(clanId, requestId).orElseThrow(JoinRequestService::noSuchRequest);
+        AccessDecision authorizing =
+                resolver.require(
+                        caller, Permission.MEMBER_APPROVE, targetOf(clanId, request.targetBranchId()));
+        Clan clan = requireClan(clanId);
         requirePending(request);
 
         BranchId home = homeBranchId != null ? homeBranchId : request.targetBranchId();
         if (home != null && branches.findById(clanId, home).isEmpty()) {
             throw new NotFoundException(ErrorCode.BRANCH_NOT_FOUND, "No such branch.");
+        }
+        if (home != null && !home.equals(request.targetBranchId())) {
+            resolver.require(caller, Permission.MEMBER_APPROVE, Target.branch(clanId, home));
         }
 
         // I-M1, read-before-write. The index below is what actually holds under a race; this is
@@ -273,18 +306,20 @@ public class JoinRequestService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.JOIN_REQUEST_APPROVED,
-                        clanId,
-                        AuditRecord.TARGET_JOIN_REQUEST,
-                        requestId,
-                        caller));
+                                AuditAction.JOIN_REQUEST_APPROVED,
+                                clanId,
+                                AuditRecord.TARGET_JOIN_REQUEST,
+                                requestId,
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.MEMBERSHIP_GRANTED,
-                        clanId,
-                        AuditRecord.TARGET_MEMBERSHIP,
-                        membership.id(),
-                        caller));
+                                AuditAction.MEMBERSHIP_GRANTED,
+                                clanId,
+                                AuditRecord.TARGET_MEMBERSHIP,
+                                membership.id(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(
                 new JoinRequestDecided(
                         clanId,
@@ -313,9 +348,12 @@ public class JoinRequestService {
     /** Refuses a request, with a reason the requester will read (FR-J3). */
     @Transactional
     public JoinRequestView reject(UserId caller, ClanId clanId, UUID requestId, String reason) {
-        Clan clan = access.requireAdministrator(caller, clanId);
         ClanJoinRequest request =
                 requests.findById(clanId, requestId).orElseThrow(JoinRequestService::noSuchRequest);
+        AccessDecision authorizing =
+                resolver.require(
+                        caller, Permission.MEMBER_APPROVE, targetOf(clanId, request.targetBranchId()));
+        Clan clan = requireClan(clanId);
         requirePending(request);
 
         Instant now = clock.instant();
@@ -323,11 +361,12 @@ public class JoinRequestService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.JOIN_REQUEST_REJECTED,
-                        clanId,
-                        AuditRecord.TARGET_JOIN_REQUEST,
-                        requestId,
-                        caller));
+                                AuditAction.JOIN_REQUEST_REJECTED,
+                                clanId,
+                                AuditRecord.TARGET_JOIN_REQUEST,
+                                requestId,
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(
                 new JoinRequestDecided(
                         clanId,
@@ -410,6 +449,51 @@ public class JoinRequestService {
             log.info("Expired {} join requests older than {}", overdue.size(), ClanJoinRequest.LIFETIME);
         }
         return overdue.size();
+    }
+
+    /**
+     * The target a join request's scope corresponds to.
+     *
+     * <p>A request carrying a branch code was aimed at that chi and is that chi's to answer; one
+     * carrying a clan code was aimed at the family as a whole, and only somebody who approves for
+     * the whole family can answer it. Mapping the second case to a branch target would let any
+     * branch approver admit strangers to the clan.
+     */
+    private static Target targetOf(ClanId clanId, BranchId targetBranchId) {
+        return targetBranchId == null
+                ? Target.clan(clanId)
+                : Target.branch(clanId, targetBranchId);
+    }
+
+    /** Whether the caller may answer this particular request. Used to filter the inbox. */
+    private boolean mayDecide(UserId caller, ClanId clanId, ClanJoinRequest request) {
+        return resolver.can(
+                caller, Permission.MEMBER_APPROVE, targetOf(clanId, request.targetBranchId()));
+    }
+
+    /**
+     * The gate on opening the inbox at all: {@code MEMBER_APPROVE} somewhere in the clan.
+     *
+     * <p>Deliberately scope-blind, because the per-row filter above is what does the scoping. This
+     * is here so that a member who approves nothing gets a 403 rather than an empty page they will
+     * refresh three times.
+     */
+    private void requireApproverSomewhere(UserId caller, ClanId clanId) {
+        resolver.requireMembership(caller, clanId);
+        if (!resolver.permissionsOf(caller, clanId).contains(Permission.MEMBER_APPROVE)) {
+            throw new app.giaky.common.error.PermissionDeniedException(
+                    "You do not approve join requests in this clan.");
+        }
+    }
+
+    /** The clan, or a 404 that discloses nothing (doc 04 §7). */
+    private Clan requireClan(ClanId clanId) {
+        return clans.findById(clanId)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        ErrorCode.CLAN_NOT_FOUND,
+                                        "That clan does not exist, or you are not a member of it."));
     }
 
     private static void requirePending(ClanJoinRequest request) {

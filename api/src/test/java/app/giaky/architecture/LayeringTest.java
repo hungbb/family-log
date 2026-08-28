@@ -118,19 +118,41 @@ class LayeringTest {
         rule.check(productionClasses);
     }
 
+    /**
+     * The one context whose <i>domain</i> is public API.
+     *
+     * <p>Doc 04 §1.4 requires every service in the product to route its decisions through one
+     * resolver, and doc 06 §4.1 puts that resolver — with {@code Permission}, {@code Target} and
+     * {@code PermissionScope}, the vocabulary its signature is written in — in
+     * {@code authorization.domain}. A ClanOrg service calling {@code resolver.require(...)} therefore
+     * depends on this package by design, and the B3.15 rule in {@link AuthorizationCoverageTest}
+     * insists that it does.
+     *
+     * <p>The exemption is for the domain only. {@code authorization.infrastructure} — the grant table,
+     * the adapters, the request cache — stays unreachable from every other context, so what is shared
+     * is the vocabulary and the decision, never the storage.
+     */
+    private static final String AUTHORIZATION_KERNEL = "app.giaky.authorization.domain..";
+
     @Test
     @DisplayName("4. no context reaches into another context's domain or infrastructure")
     void contextsAreIsolated() {
         for (String context : CONTEXTS) {
+            String domainPackage = "app.giaky." + context + ".domain..";
+            String[] forbidden =
+                    AUTHORIZATION_KERNEL.equals(domainPackage)
+                            ? new String[] {"app.giaky." + context + ".infrastructure.."}
+                            : new String[] {
+                                domainPackage, "app.giaky." + context + ".infrastructure.."
+                            };
+
             ArchRule rule =
                     noClasses()
                             .that()
                             .resideOutsideOfPackage("app.giaky." + context + "..")
                             .should()
                             .dependOnClassesThat()
-                            .resideInAnyPackage(
-                                    "app.giaky." + context + ".domain..",
-                                    "app.giaky." + context + ".infrastructure..")
+                            .resideInAnyPackage(forbidden)
                             .because(
                                     "cross-context access goes through published application services or domain"
                                             + " events, so a context's internals stay free to change ("

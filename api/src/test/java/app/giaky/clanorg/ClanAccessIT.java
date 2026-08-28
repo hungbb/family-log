@@ -84,7 +84,14 @@ class ClanAccessIT extends ClanOrgApiSupport {
                 Arguments.of("POST leave", "leave"),
                 Arguments.of("GET join-request inbox", "inbox"),
                 Arguments.of("POST approve", "approve"),
-                Arguments.of("POST reject", "reject"));
+                Arguments.of("POST reject", "reject"),
+                // Phase 3's own endpoints (doc 05 §4.6). The list grows with every phase for the
+                // reason at the top of this file: the endpoint that leaks is the one nobody added.
+                Arguments.of("GET my-permissions", "my-permissions"),
+                Arguments.of("GET permissions", "permissions"),
+                Arguments.of("GET grantable", "grantable"),
+                Arguments.of("POST permission", "permission-create"),
+                Arguments.of("DELETE permission", "permission-revoke"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -106,6 +113,10 @@ class ClanAccessIT extends ClanOrgApiSupport {
         as(member, requestFor("branch-create")).andExpect(status().isForbidden());
         as(member, requestFor("inbox")).andExpect(status().isForbidden());
         as(member, requestFor("member-remove")).andExpect(status().isForbidden());
+        // The permissions screen belongs to whoever manages roles, which a plain member does not.
+        as(member, requestFor("permissions")).andExpect(status().isForbidden());
+        as(member, requestFor("grantable")).andExpect(status().isForbidden());
+        as(member, requestFor("permission-create")).andExpect(status().isForbidden());
     }
 
     @Test
@@ -114,6 +125,10 @@ class ClanAccessIT extends ClanOrgApiSupport {
         as(member, requestFor("clan")).andExpect(status().isOk());
         as(member, requestFor("branches")).andExpect(status().isOk());
         as(member, requestFor("members")).andExpect(status().isOk());
+        // What they themselves hold is theirs to see, whatever else they may not do.
+        as(member, requestFor("my-permissions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions[0]").value("CLAN_VIEW"));
     }
 
     @Test
@@ -175,6 +190,17 @@ class ClanAccessIT extends ClanOrgApiSupport {
                     jsonBody(
                             post(base + "/join-requests/" + joinRequestId + "/reject"),
                             Map.of("reason", "no"));
+            case "my-permissions" -> get(base + "/my-permissions");
+            case "permissions" -> get(base + "/permissions");
+            case "grantable" -> get(base + "/permissions/grantable");
+            case "permission-create" ->
+                    jsonBody(
+                            post(base + "/permissions"),
+                            Map.of(
+                                    "granteeUserId", member.userId().toString(),
+                                    "permission", "TREE_EDIT",
+                                    "scopeType", "CLAN"));
+            case "permission-revoke" -> delete(base + "/permissions/" + UUID.randomUUID());
             default -> throw new IllegalArgumentException("unknown endpoint: " + endpoint);
         };
     }

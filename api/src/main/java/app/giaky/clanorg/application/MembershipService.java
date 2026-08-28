@@ -1,9 +1,12 @@
 package app.giaky.clanorg.application;
 
+import app.giaky.authorization.application.PermissionQueryService;
+import app.giaky.authorization.domain.Permission;
+import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.authorization.domain.Target;
 import app.giaky.clanorg.application.event.MembershipRevoked;
 import app.giaky.clanorg.domain.Branch;
 import app.giaky.clanorg.domain.BranchRepository;
-import app.giaky.clanorg.domain.Clan;
 import app.giaky.clanorg.domain.ClanMembership;
 import app.giaky.clanorg.domain.ClanMembershipRepository;
 import app.giaky.common.audit.AuditAction;
@@ -44,7 +47,8 @@ public class MembershipService {
 
     private final ClanMembershipRepository memberships;
     private final BranchRepository branches;
-    private final InterimClanAccessCheck access;
+    private final PermissionResolver resolver;
+    private final PermissionQueryService permissions;
     private final LastAdminProtection lastAdmin;
     private final UserDirectory users;
     private final AuditWriter auditWriter;
@@ -54,7 +58,8 @@ public class MembershipService {
     public MembershipService(
             ClanMembershipRepository memberships,
             BranchRepository branches,
-            InterimClanAccessCheck access,
+            PermissionResolver resolver,
+            PermissionQueryService permissions,
             LastAdminProtection lastAdmin,
             UserDirectory users,
             AuditWriter auditWriter,
@@ -62,7 +67,8 @@ public class MembershipService {
             Clock clock) {
         this.memberships = memberships;
         this.branches = branches;
-        this.access = access;
+        this.resolver = resolver;
+        this.permissions = permissions;
         this.lastAdmin = lastAdmin;
         this.users = users;
         this.auditWriter = auditWriter;
@@ -87,7 +93,8 @@ public class MembershipService {
             int page,
             int size) {
 
-        Clan clan = access.requireVisible(caller, clanId);
+        // Membership and nothing finer: reads are clan-wide in v1 (doc 04 §5.5).
+        resolver.requireMembership(caller, clanId);
 
         List<ClanMembership> active = memberships.findAllActive(clanId);
         if (branchFilter != null) {
@@ -108,6 +115,9 @@ public class MembershipService {
         Map<UserId, UserProfile> profiles =
                 users.profiles(pageOfMemberships.content().stream().map(ClanMembership::userId).toList());
         Map<BranchId, String> branchNames = branchNames(clanId);
+        // One query for the whole page, so the list can say who to ask for access without a
+        // per-row permission lookup.
+        Set<UserId> administrators = permissions.administrators(clanId);
 
         List<MemberView> content = new ArrayList<>(pageOfMemberships.content().size());
         for (ClanMembership membership : pageOfMemberships.content()) {
@@ -125,7 +135,7 @@ public class MembershipService {
                                     ? null
                                     : branchNames.get(membership.homeBranchId()),
                             membership.joinedAt(),
-                            clan.isCreatedBy(membership.userId()),
+                            administrators.contains(membership.userId()),
                             // Phase 6 fills this in; the field is in the contract from doc 05 §4.5
                             // so the member list does not change shape when it does.
                             null));
@@ -136,14 +146,17 @@ public class MembershipService {
     /**
      * Removes another member (doc 05 §4.5).
      *
-     * <p>Refused for the last administrator (I-M3) — through {@link LastAdminProtection}, so the
-     * rule has one home and Phase 3 replaces the answer rather than the question.
+     * <p>Refused for the last administrator (I-M3) — through {@link LastAdminProtection}, whose
+     * implementation now counts live {@code CLAN_ADMIN} grants instead of asking who founded the
+     * clan. The call site did not change, which is what the port was for.
+     *
+     * <p>{@code MEMBER_APPROVE} <b>over the branch the member sits in</b>, not over the clan. A
+     * branch approver admits people to their chi and can therefore remove them from it; they cannot
+     * reach into the chi next door. A member with no home branch is a clan-level concern and needs a
+     * clan-scoped approver.
      */
     @Transactional
     public void remove(UserId caller, ClanId clanId, UserId target) {
-        access.requireAdministrator(caller, clanId);
-        lastAdmin.requireNotLastAdmin(clanId, target);
-
         ClanMembership membership =
                 memberships
                         .findActive(clanId, target)
@@ -153,16 +166,26 @@ public class MembershipService {
                                                 ErrorCode.RESOURCE_NOT_FOUND,
                                                 "That person is not a member of this clan."));
 
+        var authorizing =
+                resolver.require(
+                        caller,
+                        Permission.MEMBER_APPROVE,
+                        membership.homeBranchId() == null
+                                ? Target.clan(clanId)
+                                : Target.branch(clanId, membership.homeBranchId()));
+        lastAdmin.requireNotLastAdmin(clanId, target);
+
         Instant now = clock.instant();
         memberships.save(membership.remove(now));
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.MEMBERSHIP_REVOKED,
-                        clanId,
-                        AuditRecord.TARGET_MEMBERSHIP,
-                        membership.id(),
-                        caller));
+                                AuditAction.MEMBERSHIP_REVOKED,
+                                clanId,
+                                AuditRecord.TARGET_MEMBERSHIP,
+                                membership.id(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(new MembershipRevoked(clanId, target, caller, false, now));
 
         log.info("Membership revoked clanId={} userId={} by={}", clanId, target, caller);
@@ -176,7 +199,9 @@ public class MembershipService {
      */
     @Transactional
     public void leave(UserId caller, ClanId clanId) {
-        access.requireVisible(caller, clanId);
+        // No permission needed beyond being here: leaving is a member's own business. On the
+        // allow-list in architecture.AuthorizationCoverageTest for that reason.
+        resolver.requireMembership(caller, clanId);
         lastAdmin.requireNotLastAdmin(clanId, caller);
 
         ClanMembership membership =

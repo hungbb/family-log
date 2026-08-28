@@ -27,7 +27,14 @@ export interface ActiveClan {
   /** True when the caller belongs to no clan at all — the onboarding case (F2.1). */
   hasNoClans: boolean;
   setActiveClan: (clanId: string) => void;
-  /** Whether the caller holds a permission in the active clan. UI gating only. */
+  /**
+   * Whether the caller holds a permission in the active clan. UI gating only.
+   *
+   * Answered from the clan switcher's payload, which the shell already has — so a menu can gate on
+   * it without a second request. For a screen that is already inside one clan, `usePermissions`
+   * asks the same question of `/my-permissions` and additionally has the grants behind the answer.
+   * Either way the server re-decides on every request (doc 07 §8).
+   */
   can: (permission: ClanPermission) => boolean;
 }
 

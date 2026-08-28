@@ -253,6 +253,26 @@
                     </limit>
                   </limits>
                 </rule>
+
+                <!-- The exit criterion of `.docs/phases/phase-3-authorization.md` §7: the resolver
+                     and the containment relation it decides with are held to 100 % branch coverage.
+                     A leak in scope resolution breaks the product's central promise (goal G5), and
+                     "mostly covered" is the state a leak hides in. The number is deliberately not
+                     0.99: at this size, one uncovered branch is one nobody has thought about. -->
+                <rule>
+                  <element>CLASS</element>
+                  <includes>
+                    <include>app.giaky.authorization.domain.PermissionResolver</include>
+                    <include>app.giaky.authorization.domain.ScopeCoverage</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>BRANCH</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>1.00</minimum>
+                    </limit>
+                  </limits>
+                </rule>
               </rules>
             </configuration>
           </execution>

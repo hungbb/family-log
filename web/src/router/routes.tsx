@@ -8,7 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { RequireAnonymous, RequireAuth, RequireClan } from './guards';
 
 /**
- * The route tree of doc 07 §8, as far as Phase 2 fills it in.
+ * The route tree of doc 07 §8, as far as Phase 3 fills it in.
  *
  * Three bands. The signed-out screens sit behind `RequireAnonymous`; the signed-in but clan-less
  * screens (onboarding, create, join, profile) sit behind `RequireAuth` inside the shell; and the
@@ -60,6 +60,9 @@ const BranchesPage = lazy(async () => ({
 const MembersPage = lazy(async () => ({
   default: (await import('../features/members')).MembersPage,
 }));
+const PermissionsPage = lazy(async () => ({
+  default: (await import('../features/permissions')).PermissionsPage,
+}));
 
 /** Every lazy route renders through the same fallback, so a slow chunk never blanks the page. */
 function withSuspense(element: ReactNode): ReactNode {
@@ -105,8 +108,9 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="members" replace /> },
               { path: 'members', element: withSuspense(<MembersPage />) },
               { path: 'branches', element: withSuspense(<BranchesPage />) },
+              { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'settings', element: withSuspense(<ClanSettingsPage />) },
-              // The tree, permissions and claims arrive with the phases that build them.
+              // The tree and claims arrive with the phases that build them.
               { path: '*', element: <Navigate to="members" replace /> },
             ],
           },

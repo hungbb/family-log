@@ -191,11 +191,16 @@ public record Clan(
     }
 
     /**
-     * The interim administrator test of phase 2 doc §1.
+     * Who founded this clan.
      *
-     * <p>Lives here rather than being inlined at a call site so Phase 3 has one place to look: when
-     * {@code PermissionResolver} arrives, this method and {@code InterimClanAccessCheck} go
-     * together, and nothing else has to change.
+     * <p>In Phase 2 this <i>was</i> the authorization model. It is not any more — administering a
+     * clan means holding a live {@code CLAN_ADMIN} grant, which the founder is merely the first
+     * person to be given (doc 04 §6) and can be revoked from once somebody else has one. What
+     * remains is a fact about history, kept because a clan's origin is worth recording and because
+     * nothing else answers "whose idea was this?".
+     *
+     * <p>Nothing in the product decides access with it. If something starts to, that is the second
+     * policy doc 04 §1.4 exists to prevent.
      */
     public boolean isCreatedBy(UserId user) {
         return createdBy != null && createdBy.equals(user);

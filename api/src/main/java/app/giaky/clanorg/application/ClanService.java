@@ -1,5 +1,9 @@
 package app.giaky.clanorg.application;
 
+import app.giaky.authorization.application.PermissionQueryService;
+import app.giaky.authorization.domain.Permission;
+import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.authorization.domain.Target;
 import app.giaky.clanorg.application.event.ClanCreated;
 import app.giaky.clanorg.domain.Branch;
 import app.giaky.clanorg.domain.BranchCode;
@@ -39,8 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Clans: found one, list the ones you are in, read, edit, delete, and look one up by code
  * (FR-C1…FR-C3, FR-C8).
  *
- * <p>Access is decided by {@link InterimClanAccessCheck} and nowhere else — no method here tests a
- * membership or a creator id of its own. That is what makes Phase 3's replacement a one-file change.
+ * <p>Access is decided by {@link PermissionResolver} and nowhere else — no method here tests a
+ * membership or a creator id of its own (doc 04 §1.4). Phase 2 said the same sentence about {@code
+ * InterimClanAccessCheck}, which is why replacing it was a change to this file's constructor and
+ * five call sites rather than to its logic.
  */
 @Service
 public class ClanService {
@@ -52,7 +58,8 @@ public class ClanService {
     private final ClanMembershipRepository memberships;
     private final ClanJoinRequestRepository joinRequests;
     private final CodeGenerator codeGenerator;
-    private final InterimClanAccessCheck access;
+    private final PermissionResolver resolver;
+    private final PermissionQueryService permissions;
     private final AuditWriter auditWriter;
     private final ApplicationEventPublisher events;
     private final IdGenerator ids;
@@ -64,7 +71,8 @@ public class ClanService {
             ClanMembershipRepository memberships,
             ClanJoinRequestRepository joinRequests,
             CodeGenerator codeGenerator,
-            InterimClanAccessCheck access,
+            PermissionResolver resolver,
+            PermissionQueryService permissions,
             AuditWriter auditWriter,
             ApplicationEventPublisher events,
             IdGenerator ids,
@@ -74,7 +82,8 @@ public class ClanService {
         this.memberships = memberships;
         this.joinRequests = joinRequests;
         this.codeGenerator = codeGenerator;
-        this.access = access;
+        this.resolver = resolver;
+        this.permissions = permissions;
         this.auditWriter = auditWriter;
         this.events = events;
         this.ids = ids;
@@ -89,9 +98,14 @@ public class ClanService {
      * anybody; a clan whose founder is not a member is a clan its own creator gets a 404 from. There
      * is no partial state here worth being able to reach.
      *
-     * <p>The {@code ClanCreated} event is what Phase 3 will consume to issue the founder's
-     * {@code CLAN_ADMIN} grant (doc 04 §6). Publishing it now, with nothing subscribed, is what makes
-     * that a listener rather than an edit to this method.
+     * <p>The {@code ClanCreated} event is what {@code GrantLifecycleListener} consumes to issue the
+     * founder's {@code CLAN_ADMIN} grant (doc 04 §6). It is published <i>before</i> the permissions
+     * are read below, and the listener runs inside this transaction, so the response already tells
+     * the founder what they hold — and a clan whose creation committed without its administrator
+     * cannot exist.
+     *
+     * <p>No permission check: founding a clan is open to any authenticated account (FR-C1). This
+     * method is on the allow-list in {@code architecture.AuthorizationCoverageTest} for that reason.
      */
     @Transactional
     public ClanView create(UserId caller, CreateClanCommand command) {
@@ -130,7 +144,7 @@ public class ClanService {
         events.publishEvent(new ClanCreated(clanId, root.id(), caller, now));
 
         log.info("Clan created clanId={} clanCode={} createdBy={}", clanId, clanCode, caller);
-        return ClanView.of(clan, 1L, 1L, access.permissionsOf(caller, clan));
+        return ClanView.of(clan, 1L, 1L, permissions.permissionNames(caller, clanId));
     }
 
     /** The clans the caller is an active member of, newest membership first (FR-C8). */
@@ -152,20 +166,29 @@ public class ClanService {
                         membership -> {
                             Clan clan = byId.get(membership.clanId());
                             return ClanSummaryView.of(
-                                    clan, membership, access.permissionsOf(caller, clan));
+                                    clan,
+                                    membership,
+                                    permissions.permissionNames(caller, clan.id()));
                         })
                 .sorted(Comparator.comparing(ClanSummaryView::name))
                 .toList();
     }
 
+    /**
+     * One clan, to a member (doc 05 §4.3).
+     *
+     * <p>Membership and nothing finer, because reads are clan-wide in v1 (doc 04 §5.5) — a member
+     * admitted into one chi still sees the whole family, which is what a <i>gia phả</i> is.
+     */
     @Transactional(readOnly = true)
     public ClanView detail(UserId caller, ClanId clanId) {
-        Clan clan = access.requireVisible(caller, clanId);
+        resolver.requireMembership(caller, clanId);
+        Clan clan = requireClan(clanId);
         return ClanView.of(
                 clan,
                 memberships.findAllActive(clanId).size(),
                 branches.findAllByClan(clanId).size(),
-                access.permissionsOf(caller, clan));
+                permissions.permissionNames(caller, clanId));
     }
 
     /**
@@ -175,7 +198,8 @@ public class ClanService {
      */
     @Transactional
     public ClanView update(UserId caller, ClanId clanId, UpdateClanCommand command) {
-        Clan clan = access.requireAdministrator(caller, clanId);
+        var authorizing = resolver.require(caller, Permission.CLAN_ADMIN, Target.clan(clanId));
+        Clan clan = requireClan(clanId);
         requireVersion(clan.version(), command.expectedVersion());
 
         Clan updated =
@@ -190,17 +214,18 @@ public class ClanService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.CLAN_UPDATED,
-                        clanId,
-                        AuditRecord.TARGET_CLAN,
-                        clanId.value(),
-                        caller));
+                                AuditAction.CLAN_UPDATED,
+                                clanId,
+                                AuditRecord.TARGET_CLAN,
+                                clanId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
 
         return ClanView.of(
                 updated,
                 memberships.findAllActive(clanId).size(),
                 branches.findAllByClan(clanId).size(),
-                access.permissionsOf(caller, updated));
+                permissions.permissionNames(caller, clanId));
     }
 
     /**
@@ -212,16 +237,18 @@ public class ClanService {
      */
     @Transactional
     public void softDelete(UserId caller, ClanId clanId) {
-        Clan clan = access.requireAdministrator(caller, clanId);
+        var authorizing = resolver.require(caller, Permission.CLAN_ADMIN, Target.clan(clanId));
+        Clan clan = requireClan(clanId);
         clans.save(clan.softDelete(caller, clock.instant()));
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.CLAN_DELETED,
-                        clanId,
-                        AuditRecord.TARGET_CLAN,
-                        clanId.value(),
-                        caller));
+                                AuditAction.CLAN_DELETED,
+                                clanId,
+                                AuditRecord.TARGET_CLAN,
+                                clanId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         log.info("Clan soft-deleted clanId={} by={}", clanId, caller);
     }
 
@@ -255,7 +282,7 @@ public class ClanService {
                                                 "No clan uses that code."));
 
         BranchId targetBranchId = branch.map(Branch::id).orElse(null);
-        boolean member = access.isMember(caller, clan.id());
+        boolean member = resolver.isMember(caller, clan.id());
         boolean pending =
                 joinRequests.findPending(clan.id(), targetBranchId, caller).isPresent();
 
@@ -268,6 +295,22 @@ public class ClanService {
                 branch.map(Branch::name).orElse(null),
                 member,
                 pending);
+    }
+
+    /**
+     * The clan, or a 404 that discloses nothing.
+     *
+     * <p>Existence and access are two questions and this answers only the first. The resolver has
+     * already answered the second, with the same 404 for a caller who is not a member (doc 04 §7),
+     * so the two cases stay indistinguishable from outside.
+     */
+    private Clan requireClan(ClanId clanId) {
+        return clans.findById(clanId)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        ErrorCode.CLAN_NOT_FOUND,
+                                        "That clan does not exist, or you are not a member of it."));
     }
 
     /**

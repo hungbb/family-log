@@ -8,15 +8,20 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 2 (clans & branch structure) — milestone M2.** On top of Phase 1's accounts, you
-> can found a clan, share its join code, ask to join one with a code, approve or refuse those
-> requests, build the tree of *chi* and *nhánh* the family divides into, and switch between the
-> clans you belong to. There is no person and no family tree yet — those are Phase 4.
+> **Status: Phase 3 (the authorization engine) — milestone M3.** On top of Phase 2's clans and
+> branches, permissions are now real: an uncle can be given `TREE_EDIT` over *Chi Hai* and nothing
+> else, hand a slice of that on to his own son, and be unable — in the UI and at the API — to reach
+> the chi beside his. There is still no person and no family tree; those are Phase 4.
 > See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
 >
-> Until Phase 3 ships the permission model, **the person who created a clan is the only one who can
-> administer it.** That rule lives in exactly one class, `InterimClanAccessCheck`, and is marked for
-> removal.
+> `InterimClanAccessCheck` is gone. Every decision in the product now routes through
+> `PermissionResolver` (`.docs/04-authorization-model.md`), and `AuthorizationCoverageTest` fails the
+> build if a mutating service method stops asking it.
+>
+> One capability is deliberately deferred: a permission can be scoped to the whole clan or to a
+> branch, but not yet to *one person and their descendants*. The resolver understands that scope and
+> is tested against it; granting one answers `422 SUBTREE_SCOPE_UNAVAILABLE` until Phase 4 builds the
+> ancestry table it needs.
 
 ---
 
@@ -220,18 +225,45 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - A join request that nobody answers is closed after 90 days by an hourly sweep, guarded by a
   PostgreSQL advisory lock so two instances do not both run it.
 
+**Permissions** (Phase 3, `.docs/phases/phase-3-authorization.md`):
+
+- **Permissions, not roles.** There is no `role` column anywhere in the schema. A capability is a
+  row naming a person, one of six permissions, and a place — the clan, or a branch and everything
+  under it. Any number of relatives may hold the same one.
+- **One decision point.** `PermissionResolver` answers every authorization question in the product,
+  and `AuthorizationCoverageTest` fails the build when a mutating application-service method stops
+  calling it. It is held to 100 % branch coverage, which the JaCoCo gate enforces rather than hopes.
+- **Branch isolation.** A `TREE_EDIT@Chi Hai` holder can act inside Chi Hai and everything beneath
+  it, and nowhere else — not on the chi beside it, not on the common ancestor above it, not on clan
+  settings. An edge touching two people needs permission on both, so nobody reaches out of their
+  branch by linking into somebody else's.
+- **No escalation.** To hand out `(permission, scope)` you must manage roles over that scope *and*
+  already hold that permission over it yourself. The grant dialog is built from
+  `/permissions/grantable`, so an escalation cannot be expressed in the UI — and is refused with
+  `403 PERMISSION_ESCALATION_BLOCKED` if it arrives by another route.
+- **Last-administrator protection.** Revoking the final `CLAN_ADMIN`, removing that member, and
+  self-demotion all answer `403 LAST_ADMIN_PROTECTED`. A clan cannot be stranded.
+- Every mutation's audit entry carries the grant that authorised it, so the trail runs back to the
+  founder's bootstrap grant.
+- Refusals explain themselves: `OUT_OF_SCOPE` names the branch the caller *does* hold, and the
+  permissions screen tells somebody without `ROLE_MANAGE` what they have and who to ask.
+
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 
 - `domain` depends on nothing but the JDK and `common.types` — no Spring, no JPA
 - `application` never depends on `api`; `api` never touches repositories or JPA entities
-- no context reaches into another context's `domain` or `infrastructure`
+- no context reaches into another context's `domain` or `infrastructure` — with one documented
+  exception, `authorization.domain`, which is the shared vocabulary every service decides with
 - controllers never inject repositories
 - every repository read takes a `ClanId` or carries `@TenantExempt` with a justification
+- every mutating application-service method calls `PermissionResolver.require(...)` or is on an
+  allow-list with a written justification
 - plus the conventions: constructor injection only, `@Transactional` only on application services,
   no `System.out`, `Optional` never a parameter
 
-`identity` and `clanorg` have real classes and are really checked; the four remaining contexts are
-still empty and pass trivially. Each starts biting the moment its layer gains a class.
+`identity`, `clanorg` and `authorization` have real classes and are really checked; the three
+remaining contexts are still empty and pass trivially. Each starts biting the moment its layer gains
+a class.
 
 **Frontend — ESLint** (`web/eslint.config.js`):
 

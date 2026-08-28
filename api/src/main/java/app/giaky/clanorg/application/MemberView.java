@@ -10,8 +10,9 @@ import java.util.UUID;
  * id (doc 02 §1.1). {@code linkedPersonId} is in the contract from doc 05 §4.5 and stays null until
  * Phase 6 links accounts to nodes — shipping the field now means the UI does not change shape then.
  *
- * @param isCreator whether this member founded the clan. Until Phase 3 that is the same thing as
- *     administrator, and the member list is where somebody looks to find out who to ask
+ * @param isAdministrator whether this member holds CLAN_ADMIN. Phase 2 answered this with "did they
+ *     found the clan?", which was the only definition it had; now any number of people can, and the
+ *     member list is where somebody looks to find out who to ask
  */
 public record MemberView(
         UUID userId,
@@ -21,5 +22,5 @@ public record MemberView(
         UUID homeBranchId,
         String homeBranchName,
         Instant joinedAt,
-        boolean isCreator,
+        boolean isAdministrator,
         UUID linkedPersonId) {}

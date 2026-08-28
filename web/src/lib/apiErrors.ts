@@ -37,6 +37,14 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   VERSION_CONFLICT: 'errors.versionConflict',
   CYCLE_DETECTED: 'errors.cycleDetected',
   LAST_ADMIN_PROTECTED: 'errors.lastAdminProtected',
+
+  // Authorization. These three are the refusals a person meets while doing something reasonable,
+  // so each says what happened rather than that something did (F3.7). `OUT_OF_SCOPE` in particular
+  // is not a failure at all — it is the branch isolation working, and the message says so.
+  OUT_OF_SCOPE: 'errors.outOfScope',
+  PERMISSION_ESCALATION_BLOCKED: 'errors.escalationBlocked',
+  GRANT_ALREADY_EXISTS: 'errors.grantAlreadyExists',
+  SUBTREE_SCOPE_UNAVAILABLE: 'errors.subtreeUnavailable',
 };
 
 /**

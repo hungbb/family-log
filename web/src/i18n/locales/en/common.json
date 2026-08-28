@@ -141,7 +141,11 @@
     "membershipExists": "You are already a member of this clan.",
     "versionConflict": "Somebody else changed this while you were editing. Reload and try again.",
     "cycleDetected": "A branch cannot be moved underneath itself.",
-    "lastAdminProtected": "This clan would be left with nobody able to administer it."
+    "lastAdminProtected": "This clan would be left with nobody able to administer it. Make somebody else an administrator first.",
+    "outOfScope": "That is outside the part of the family you look after. You can only change what your own branch covers.",
+    "escalationBlocked": "You can only give somebody a permission you already hold yourself, and only where you already hold it.",
+    "grantAlreadyExists": "They already have that permission here.",
+    "subtreeUnavailable": "Limiting a permission to one person and their descendants becomes available once the family tree exists."
   },
   "health": {
     "title": "System health",
@@ -307,7 +311,8 @@
     "searchPlaceholder": "Search by name or email",
     "allBranches": "All branches",
     "noBranch": "No branch yet",
-    "founder": "Founder",
+    "administrator": "Administrator",
+    "viewPermissions": "Permissions",
     "column": {
       "name": "Name",
       "branch": "Branch",
@@ -355,6 +360,87 @@
       "sentOn": "sent {{date}}",
       "cancel": "Withdraw",
       "cancelled": "Request withdrawn."
+    }
+  },
+  "permissions": {
+    "title": "Permissions",
+    "subtitle": "Who may change what, and where. Every permission is given to a person for a part of the family — never to a role.",
+    "noExpiry": "No end date",
+    "expiresOn": "until {{date}}",
+    "grantedBy": "given by {{name}} on {{date}}",
+    "name": {
+      "CLAN_VIEW": "View",
+      "TREE_EDIT": "Edit the tree",
+      "MEMBER_APPROVE": "Approve members",
+      "NODE_CLAIM_APPROVE": "Approve node claims",
+      "ROLE_MANAGE": "Manage permissions",
+      "CLAN_ADMIN": "Administer the clan"
+    },
+    "description": {
+      "CLAN_VIEW": "Read the family tree, person details and the member list.",
+      "TREE_EDIT": "Add, change and remove people and the links between them.",
+      "MEMBER_APPROVE": "Decide who joins, and remove members.",
+      "NODE_CLAIM_APPROVE": "Decide who is linked to which person in the tree.",
+      "ROLE_MANAGE": "Give and take back permissions, within your own scope.",
+      "CLAN_ADMIN": "Clan settings, the branch structure, and everything above."
+    },
+    "summary": {
+      "clan": "Can {{permission}} anywhere in the clan.",
+      "branch": "Can {{permission}} in {{branch}} and everything under it.",
+      "subtree": "Can {{permission}} for one person and their descendants.",
+      "unnamedBranch": "that branch"
+    },
+    "scope": {
+      "placeholder": "Where does this apply?",
+      "wholeClan": "The whole clan",
+      "subtree": "One person and their descendants",
+      "subtreeUnavailable": "One person and their descendants — available once the tree exists"
+    },
+    "column": {
+      "holder": "Person",
+      "permission": "Permission",
+      "scope": "Where it applies",
+      "granted": "Given",
+      "expires": "Until",
+      "actions": ""
+    },
+    "filter": {
+      "anyone": "Anyone",
+      "anyPermission": "Any permission"
+    },
+    "gate": {
+      "requires": "This needs “{{permission}}”."
+    },
+    "grant": {
+      "action": "Give a permission",
+      "title": "Give a permission",
+      "member": "To whom",
+      "memberPlaceholder": "Choose a member",
+      "permission": "What they may do",
+      "permissionPlaceholder": "Choose a permission",
+      "scope": "Where",
+      "scopeAfterPermission": "Choose a permission first — where you may give it depends on what it is.",
+      "expires": "Until (optional)",
+      "expiresHint": "Leave empty for a permission that stands until somebody takes it back.",
+      "submit": "Give permission",
+      "done": "Permission given.",
+      "nothingToGrant": "There is nothing you can pass on yet. You can only give a permission you hold yourself, in a branch you manage."
+    },
+    "revoke": {
+      "action": "Take back",
+      "confirmTitle": "Take this permission back?",
+      "confirmOk": "Take back",
+      "done": "Permission taken back."
+    },
+    "drawer": {
+      "title": "Member",
+      "holds": "What they may do",
+      "holdsNothing": "They can read the clan, and nothing more."
+    },
+    "denied": {
+      "title": "You do not manage permissions here",
+      "body": "Only somebody who manages roles in this clan can see who holds what. Ask an administrator, or the person who looks after your branch.",
+      "youHold": "What you hold"
     }
   }
 }

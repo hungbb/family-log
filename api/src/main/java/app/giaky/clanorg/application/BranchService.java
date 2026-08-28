@@ -1,5 +1,8 @@
 package app.giaky.clanorg.application;
 
+import app.giaky.authorization.domain.Permission;
+import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.authorization.domain.Target;
 import app.giaky.clanorg.application.event.BranchArchived;
 import app.giaky.clanorg.application.event.BranchCreated;
 import app.giaky.clanorg.application.event.BranchMoved;
@@ -9,6 +12,7 @@ import app.giaky.clanorg.domain.BranchPathService;
 import app.giaky.clanorg.domain.BranchRepository;
 import app.giaky.clanorg.domain.Clan;
 import app.giaky.clanorg.domain.ClanMembershipRepository;
+import app.giaky.clanorg.domain.ClanRepository;
 import app.giaky.clanorg.domain.CodeGenerator;
 import app.giaky.clanorg.domain.MaterializedPath;
 import app.giaky.common.audit.AuditAction;
@@ -47,9 +51,10 @@ public class BranchService {
 
     private final BranchRepository branches;
     private final ClanMembershipRepository memberships;
+    private final ClanRepository clans;
     private final BranchPathService paths;
     private final CodeGenerator codeGenerator;
-    private final InterimClanAccessCheck access;
+    private final PermissionResolver resolver;
     private final AuditWriter auditWriter;
     private final ApplicationEventPublisher events;
     private final IdGenerator ids;
@@ -58,18 +63,20 @@ public class BranchService {
     public BranchService(
             BranchRepository branches,
             ClanMembershipRepository memberships,
+            ClanRepository clans,
             BranchPathService paths,
             CodeGenerator codeGenerator,
-            InterimClanAccessCheck access,
+            PermissionResolver resolver,
             AuditWriter auditWriter,
             ApplicationEventPublisher events,
             IdGenerator ids,
             Clock clock) {
         this.branches = branches;
         this.memberships = memberships;
+        this.clans = clans;
         this.paths = paths;
         this.codeGenerator = codeGenerator;
-        this.access = access;
+        this.resolver = resolver;
         this.auditWriter = auditWriter;
         this.events = events;
         this.ids = ids;
@@ -84,13 +91,13 @@ public class BranchService {
      */
     @Transactional(readOnly = true)
     public List<BranchView> tree(UserId caller, ClanId clanId) {
-        access.requireVisible(caller, clanId);
+        resolver.requireMembership(caller, clanId);
         return assembleTree(clanId);
     }
 
     @Transactional(readOnly = true)
     public BranchView detail(UserId caller, ClanId clanId, BranchId branchId) {
-        access.requireVisible(caller, clanId);
+        resolver.requireMembership(caller, clanId);
         Branch branch = require(clanId, branchId);
         return BranchView.of(branch, memberCounts(clanId).getOrDefault(branchId, 0L), List.of());
     }
@@ -100,14 +107,22 @@ public class BranchService {
      *
      * <p>A null parent means the clan's root branch. That is not a convenience: a branch with no
      * parent would be a second root, which I-C2 forbids and {@code ux_branches_one_root} refuses.
+     *
+     * <p>{@code ROLE_MANAGE} on the parent, not {@code CLAN_ADMIN} (doc 05 §4.4). Somebody trusted
+     * to hand out permissions inside a chi is trusted to divide that chi further — and because the
+     * check names the parent, dividing a chi they do not manage is refused with the branch they do
+     * hold named in the message. An administrator passes by implication, at clan scope.
      */
     @Transactional
     public BranchView create(UserId caller, ClanId clanId, CreateBranchCommand command) {
-        Clan clan = access.requireAdministrator(caller, clanId);
-        Instant now = clock.instant();
-
+        Clan clan = requireClan(clanId);
         BranchId parentId =
                 command.parentBranchId() == null ? clan.rootBranchId() : command.parentBranchId();
+        var authorizing =
+                resolver.require(
+                        caller, Permission.ROLE_MANAGE, Target.branch(clanId, parentId));
+
+        Instant now = clock.instant();
         Branch parent = require(clanId, parentId);
         if (parent.isArchived()) {
             throw new DomainRuleViolation(
@@ -136,11 +151,12 @@ public class BranchService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.BRANCH_CREATED,
-                        clanId,
-                        AuditRecord.TARGET_BRANCH,
-                        created.id().value(),
-                        caller));
+                                AuditAction.BRANCH_CREATED,
+                                clanId,
+                                AuditRecord.TARGET_BRANCH,
+                                created.id().value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(
                 new BranchCreated(clanId, created.id(), parent.id(), caller, now));
 
@@ -152,7 +168,7 @@ public class BranchService {
     public BranchView update(
             UserId caller, ClanId clanId, BranchId branchId, UpdateBranchCommand command) {
 
-        access.requireAdministrator(caller, clanId);
+        var authorizing = resolver.require(caller, Permission.CLAN_ADMIN, Target.clan(clanId));
         Branch branch = require(clanId, branchId);
         ClanService.requireVersion(branch.version(), command.expectedVersion());
 
@@ -163,11 +179,12 @@ public class BranchService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.BRANCH_UPDATED,
-                        clanId,
-                        AuditRecord.TARGET_BRANCH,
-                        branchId.value(),
-                        caller));
+                                AuditAction.BRANCH_UPDATED,
+                                clanId,
+                                AuditRecord.TARGET_BRANCH,
+                                branchId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
 
         return BranchView.of(updated, memberCounts(clanId).getOrDefault(branchId, 0L), List.of());
     }
@@ -184,7 +201,7 @@ public class BranchService {
      */
     @Transactional
     public BranchView move(UserId caller, ClanId clanId, BranchId branchId, BranchId newParentId) {
-        access.requireAdministrator(caller, clanId);
+        var authorizing = resolver.require(caller, Permission.CLAN_ADMIN, Target.clan(clanId));
         Branch branch = require(clanId, branchId);
         Branch newParent = require(clanId, newParentId);
         Instant now = clock.instant();
@@ -205,11 +222,12 @@ public class BranchService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.BRANCH_MOVED,
-                        clanId,
-                        AuditRecord.TARGET_BRANCH,
-                        branchId.value(),
-                        caller));
+                                AuditAction.BRANCH_MOVED,
+                                clanId,
+                                AuditRecord.TARGET_BRANCH,
+                                branchId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(
                 new BranchMoved(
                         clanId,
@@ -240,7 +258,7 @@ public class BranchService {
      */
     @Transactional
     public BranchView archive(UserId caller, ClanId clanId, BranchId branchId) {
-        access.requireAdministrator(caller, clanId);
+        var authorizing = resolver.require(caller, Permission.CLAN_ADMIN, Target.clan(clanId));
         Branch branch = require(clanId, branchId);
 
         if (branch.isRoot()) {
@@ -262,15 +280,32 @@ public class BranchService {
 
         auditWriter.write(
                 AuditRecord.inClan(
-                        AuditAction.BRANCH_ARCHIVED,
-                        clanId,
-                        AuditRecord.TARGET_BRANCH,
-                        branchId.value(),
-                        caller));
+                                AuditAction.BRANCH_ARCHIVED,
+                                clanId,
+                                AuditRecord.TARGET_BRANCH,
+                                branchId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
         events.publishEvent(new BranchArchived(clanId, branchId, caller, now));
 
         return BranchView.of(
                 archived, memberCounts(clanId).getOrDefault(branchId, 0L), List.of());
+    }
+
+    /**
+     * The clan, or a 404 that discloses nothing.
+     *
+     * <p>Loaded before the permission check here, unlike everywhere else, because the check needs
+     * the clan's root branch id to know what "under no parent" means. A caller who is not a member
+     * still gets the same 404 either way (doc 04 §7).
+     */
+    private Clan requireClan(ClanId clanId) {
+        return clans.findById(clanId)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        ErrorCode.CLAN_NOT_FOUND,
+                                        "That clan does not exist, or you are not a member of it."));
     }
 
     /** The branch, or a 404 that says nothing about whether it exists in some other clan. */

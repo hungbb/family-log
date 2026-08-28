@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Clans — doc 05 §4.3.
  *
  * <p>Bind, validate, delegate, map. Nothing here decides whether the caller may do what they are
- * asking: that is {@code InterimClanAccessCheck}, reached through the service, and a check repeated
+ * asking: that is {@code PermissionResolver}, reached through the service, and a check repeated
  * in a controller is a check that will one day disagree with the real one.
  *
  * <p>{@code /clans/lookup} is the one endpoint any signed-in caller reaches without a membership. It

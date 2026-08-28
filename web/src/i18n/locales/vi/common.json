@@ -141,7 +141,11 @@
     "membershipExists": "Bạn đã là thành viên của dòng họ này.",
     "versionConflict": "Có người vừa sửa trong lúc bạn đang chỉnh. Hãy tải lại rồi thử lại.",
     "cycleDetected": "Không thể chuyển một chi về dưới chính nhánh của nó.",
-    "lastAdminProtected": "Dòng họ sẽ không còn ai quản lý."
+    "lastAdminProtected": "Dòng họ sẽ không còn ai quản lý. Hãy cử người khác làm quản trị trước.",
+    "outOfScope": "Chỗ đó nằm ngoài phần dòng họ bạn phụ trách. Bạn chỉ sửa được trong phạm vi chi của mình.",
+    "escalationBlocked": "Bạn chỉ trao được quyền mình đang giữ, và chỉ ở nơi mình đang giữ quyền đó.",
+    "grantAlreadyExists": "Người này đã có quyền đó ở đây rồi.",
+    "subtreeUnavailable": "Giới hạn quyền theo một người và con cháu sẽ dùng được khi gia phả đã dựng xong."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -305,7 +309,8 @@
     "searchPlaceholder": "Tìm theo tên hoặc email",
     "allBranches": "Tất cả các chi",
     "noBranch": "Chưa xếp chi",
-    "founder": "Người lập",
+    "administrator": "Quản trị",
+    "viewPermissions": "Quyền hạn",
     "column": {
       "name": "Tên",
       "branch": "Chi",
@@ -353,6 +358,87 @@
       "sentOn": "gửi ngày {{date}}",
       "cancel": "Rút lại",
       "cancelled": "Đã rút yêu cầu."
+    }
+  },
+  "permissions": {
+    "title": "Quyền hạn",
+    "subtitle": "Ai được sửa gì, ở đâu. Mỗi quyền được trao cho một người trên một phần của dòng họ — không bao giờ trao cho một chức danh.",
+    "noExpiry": "Không có hạn",
+    "expiresOn": "đến {{date}}",
+    "grantedBy": "do {{name}} trao ngày {{date}}",
+    "name": {
+      "CLAN_VIEW": "Xem",
+      "TREE_EDIT": "Sửa gia phả",
+      "MEMBER_APPROVE": "Duyệt thành viên",
+      "NODE_CLAIM_APPROVE": "Duyệt nhận người",
+      "ROLE_MANAGE": "Quản lý quyền",
+      "CLAN_ADMIN": "Quản trị dòng họ"
+    },
+    "description": {
+      "CLAN_VIEW": "Xem gia phả, thông tin từng người và danh sách thành viên.",
+      "TREE_EDIT": "Thêm, sửa, xoá người và các mối quan hệ giữa họ.",
+      "MEMBER_APPROVE": "Quyết định ai được vào dòng họ, và mời ra khỏi dòng họ.",
+      "NODE_CLAIM_APPROVE": "Quyết định ai được gắn với người nào trong gia phả.",
+      "ROLE_MANAGE": "Trao và thu hồi quyền, trong phạm vi mình phụ trách.",
+      "CLAN_ADMIN": "Thiết lập dòng họ, cấu trúc chi nhánh, và toàn bộ những quyền trên."
+    },
+    "summary": {
+      "clan": "Được {{permission}} trong toàn dòng họ.",
+      "branch": "Được {{permission}} ở {{branch}} và mọi nhánh bên dưới.",
+      "subtree": "Được {{permission}} với một người và con cháu của người đó.",
+      "unnamedBranch": "chi đó"
+    },
+    "scope": {
+      "placeholder": "Áp dụng ở đâu?",
+      "wholeClan": "Toàn dòng họ",
+      "subtree": "Một người và con cháu",
+      "subtreeUnavailable": "Một người và con cháu — có khi gia phả đã dựng xong"
+    },
+    "column": {
+      "holder": "Người giữ quyền",
+      "permission": "Quyền",
+      "scope": "Phạm vi",
+      "granted": "Ngày trao",
+      "expires": "Đến",
+      "actions": ""
+    },
+    "filter": {
+      "anyone": "Mọi người",
+      "anyPermission": "Mọi quyền"
+    },
+    "gate": {
+      "requires": "Việc này cần quyền “{{permission}}”."
+    },
+    "grant": {
+      "action": "Trao quyền",
+      "title": "Trao quyền",
+      "member": "Trao cho ai",
+      "memberPlaceholder": "Chọn một thành viên",
+      "permission": "Được làm gì",
+      "permissionPlaceholder": "Chọn một quyền",
+      "scope": "Ở đâu",
+      "scopeAfterPermission": "Chọn quyền trước — nơi bạn được trao quyền đó tuỳ vào từng quyền.",
+      "expires": "Đến ngày (không bắt buộc)",
+      "expiresHint": "Để trống nếu quyền này giữ đến khi có người thu hồi.",
+      "submit": "Trao quyền",
+      "done": "Đã trao quyền.",
+      "nothingToGrant": "Chưa có quyền nào bạn trao lại được. Bạn chỉ trao được quyền mình đang giữ, trong chi mình phụ trách."
+    },
+    "revoke": {
+      "action": "Thu hồi",
+      "confirmTitle": "Thu hồi quyền này?",
+      "confirmOk": "Thu hồi",
+      "done": "Đã thu hồi quyền."
+    },
+    "drawer": {
+      "title": "Thành viên",
+      "holds": "Người này được làm gì",
+      "holdsNothing": "Chỉ xem được gia phả, không sửa được gì."
+    },
+    "denied": {
+      "title": "Bạn không quản lý quyền ở đây",
+      "body": "Chỉ người quản lý quyền trong dòng họ này mới xem được ai đang giữ quyền gì. Hãy hỏi người quản trị, hoặc người phụ trách chi của bạn.",
+      "youHold": "Quyền bạn đang giữ"
     }
   }
 }

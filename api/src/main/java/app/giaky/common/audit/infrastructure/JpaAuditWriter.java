@@ -69,6 +69,7 @@ public class JpaAuditWriter implements AuditWriter {
                 record.targetId(),
                 record.beforeJson(),
                 record.afterJson(),
+                record.authorizingGrantId(),
                 record.ipAddress(),
                 CorrelationId.current(),
                 clock.instant());

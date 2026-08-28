@@ -59,5 +59,31 @@ public enum AuditAction {
     JOIN_REQUEST_REJECTED,
     JOIN_REQUEST_CANCELLED,
     /** Closed by the sweep in {@code JoinRequestService}, with no human actor. */
-    JOIN_REQUEST_EXPIRED
+    JOIN_REQUEST_EXPIRED,
+
+    // --- Authorization (Phase 3) ---------------------------------------------------------------
+
+    /**
+     * Somebody was given a permission (FR-Z8).
+     *
+     * <p>The most consequential entry in the log, and the one an operator reads first when a family
+     * argues about who changed what. The entry's {@code authorizingGrantId} names the grant that
+     * allowed the granter to do it, so the chain back to the founder's bootstrap is walkable.
+     */
+    PERMISSION_GRANTED,
+    /** A permission was taken back, by a person. */
+    PERMISSION_REVOKED,
+    /**
+     * A permission lapsed and the nightly sweep marked it revoked. No actor: the calendar did it,
+     * and reads had already stopped honouring the grant at its expiry.
+     */
+    PERMISSION_EXPIRED,
+    /**
+     * The founder's {@code CLAN_ADMIN} at clan creation (doc 04 §6).
+     *
+     * <p>Its own action rather than a {@code PERMISSION_GRANTED} with a null actor, because "the
+     * system issued this" and "somebody issued this" are different facts and the audit view filters
+     * on exactly this distinction.
+     */
+    PERMISSION_BOOTSTRAPPED
 }

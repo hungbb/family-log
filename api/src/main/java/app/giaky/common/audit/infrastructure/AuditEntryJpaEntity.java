@@ -74,6 +74,7 @@ public class AuditEntryJpaEntity {
             UUID targetId,
             String beforeJson,
             String afterJson,
+            UUID authorizingGrantId,
             String ipAddress,
             String correlationId,
             Instant occurredAt) {
@@ -85,6 +86,7 @@ public class AuditEntryJpaEntity {
         this.targetId = targetId;
         this.beforeJson = beforeJson;
         this.afterJson = afterJson;
+        this.authorizingGrantId = authorizingGrantId;
         this.ipAddress = ipAddress;
         this.correlationId = correlationId;
         this.occurredAt = occurredAt;
@@ -104,6 +106,11 @@ public class AuditEntryJpaEntity {
 
     public UUID getTargetId() {
         return targetId;
+    }
+
+    /** Which grant authorised the action (FR-Z8); null when nothing had to be authorised. */
+    public UUID getAuthorizingGrantId() {
+        return authorizingGrantId;
     }
 
     public String getCorrelationId() {
