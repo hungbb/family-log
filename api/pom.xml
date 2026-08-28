@@ -27,6 +27,7 @@
     <jjwt.version>0.13.0</jjwt.version>
     <bucket4j.version>8.19.0</bucket4j.version>
     <owasp-sanitizer.version>20240325.1</owasp-sanitizer.version>
+    <caffeine.version>3.2.0</caffeine.version>
     <jacoco.version>0.8.13</jacoco.version>
   </properties>
 
@@ -133,6 +134,17 @@
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>owasp-java-html-sanitizer</artifactId>
       <version>${owasp-sanitizer.version}</version>
+    </dependency>
+
+    <!-- In-process cache for the assembled tree snapshot (B5.3). Caffeine rather than a
+         ConcurrentHashMap because the thing that makes this cache safe is eviction: one entry per
+         clan version, bounded by weight, dropped on idle. A map would grow one entry per edit
+         forever. Not spring-boot-starter-cache: @Cacheable keys off the method arguments, and this
+         cache is keyed off the clan's tree version, which is a value the method has to read first. -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+      <version>${caffeine.version}</version>
     </dependency>
 
     <!-- test -->

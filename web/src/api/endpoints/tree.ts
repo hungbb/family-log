@@ -58,6 +58,37 @@ export interface AncestorStep {
   depth: number;
 }
 
+/**
+ * A bounded read of the tree (B5.7).
+ *
+ * ## When to use it, and why the default is not to
+ *
+ * The default is the whole clan, and that is deliberate at every size NFR-1 speaks of. The master
+ * view is three indexed scans that the server caches per tree version, so the second reader of an
+ * unchanged tree pays nothing; splitting the same clan into subtree requests turns one cached
+ * response into dozens of uncached ones, and the client then has to stitch them back together and
+ * decide what to do when two of them disagree because somebody edited in between.
+ *
+ * What costs on a large clan is not the payload — it is having five thousand nodes in the document.
+ * The canvas answers that with virtualization and collapse, which are free and reversible, rather
+ * than by fetching less.
+ *
+ * ## Above about three thousand nodes
+ *
+ * Past that, a client on a slow connection should stop loading the whole clan on first paint:
+ *
+ * 1. Open on a subtree — `{ rootPersonId, depth: 4 }` from the founding ancestor, or from the
+ *    caller's own node once Phase 6 links accounts to people.
+ * 2. Watch `meta.truncated`. It is true when the depth bound cut the family short, and it is what
+ *    the "load more" affordance hangs off — a family that appears to end is worse than one that
+ *    says it continues.
+ * 3. Expand by re-reading with the expanded node as `rootPersonId`, keyed separately in the query
+ *    cache (`treeQueryKey` already includes the root and the depth), and let a lineage mutation
+ *    invalidate all of them at once — which is what `useInvalidateLineage` does.
+ *
+ * Nothing above is on by default. This is the escape hatch and the note that says when to reach for
+ * it, not the path every clan takes.
+ */
 export interface TreeQuery {
   rootPersonId?: string;
   /** Generations below the root. Ignored without a root. */

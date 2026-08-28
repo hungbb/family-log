@@ -47,6 +47,9 @@ public final class LineageTestFixtures {
     public final InMemoryAncestryRepository ancestryRows =
             new InMemoryAncestryRepository(persons, parentages);
     public final InMemoryTreeVersionRepository treeVersions = new InMemoryTreeVersionRepository();
+    public final InMemoryTreeSnapshotRepository treeSnapshots =
+            new InMemoryTreeSnapshotRepository(persons, parentages, unions);
+    public final InMemoryTreeSnapshotCache treeSnapshotCache = new InMemoryTreeSnapshotCache();
 
     public final AncestryProjection ancestry = new AncestryProjection(ancestryRows);
     public final LineageGraphService graph =
@@ -99,8 +102,8 @@ public final class LineageTestFixtures {
     public final TreeQueryService treeQueryService =
             new TreeQueryService(
                     persons,
-                    parentages,
-                    unions,
+                    treeSnapshots,
+                    treeSnapshotCache,
                     ancestry,
                     treeVersions,
                     clanOrg.resolver,

@@ -8,7 +8,14 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 4 (the lineage core).** There is a family tree now. People are rows in a book, not
+> **Status: Phase 5 (the tree visualizer).** The *gia phả* looks like one. The whole clan renders as
+> a single navigable tree — every branch aggregated, couples drawn as one unit, *đời* rails down the
+> side — and the parts you may edit are the parts that carry actions. Branch isolation stops being a
+> rule in a document and becomes something visible: you see the whole family, and you can edit your
+> chi.
+> See [`.docs/phases/phase-5-tree-visualizer.md`](.docs/phases/phase-5-tree-visualizer.md).
+>
+> **Phase 4 (the lineage core) is behind it.** There is a family tree now. People are rows in a book, not
 > accounts — a clan of five thousand ancestors can be recorded without a single one of them ever
 > signing in, which is the product's first goal and the reason the schema is shaped the way it is.
 > Dates are kept at whatever precision the book has (a year, "khoảng 1890", a lunar reading), several
@@ -281,6 +288,34 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - The list view of the tree is not a placeholder for Phase 5's canvas — it is the permanent
   keyboard- and screen-reader-navigable route to every node (NFR-7).
 
+**The tree, drawn** (Phase 5, `.docs/phases/phase-5-tree-visualizer.md`):
+
+- **One tree, not one per branch.** Every member sees the whole clan; what branch and subtree scope
+  constrain is writing. On the canvas that is a card with no hover actions and a sentence naming the
+  chi you *can* edit — the same rule the server enforces, stated where somebody will read it.
+- **A couple is one layout slot.** A marriage is not two nodes in the descent, it is two or three
+  people standing in the same position, and children hang from the marriage they were born into. A
+  *thứ thất* and a remarriage are drawn distinctly from a *chính thất* — visibly a second union
+  rather than a lesser one. Without this, a man with three wives overlaps his brother, which is what
+  a stock tree layout does to an old *gia phả*.
+- **One person is drawn in one place.** Two blood descendants of the same clan who marry are drawn as
+  one couple, and the second one's edge to their own parents is not drawn. Nobody vanishes, no child
+  is orphaned, and the list view still shows both parentages — that connector is the price of a
+  picture, and the alternative is drawing somebody twice.
+- **Three layers of not doing the work.** A client holding the tree revalidates with
+  `If-None-Match` and gets a `304` for one indexed read. A client that does not, but asks for a clan
+  somebody has read since its last edit, gets it from a Caffeine cache keyed on `(clan, tree
+  version)` — so there is no invalidation to get wrong, because an entry is either current or
+  unreachable. Only the first reader after an edit pays for the three scans, and those scans are
+  plain JDBC over fourteen columns rather than a JPA read of the whole aggregate.
+- **The canvas is SVG and stays SVG.** Canvas rendering was the documented fallback if 60 fps could
+  not be held; virtualization removed the reason to switch, and SVG keeps real text — selectable,
+  translatable, reachable by a screen reader.
+- **Rails are labelled from the data.** *Đời N* comes from the generation the people on that rail
+  actually carry, not from their depth in the layout. A fragment attached at the wrong height, or a
+  subtree read starting at *đời* 4, both put depth 0 somewhere other than the founding ancestor — and
+  a rail with nobody's generation on it is drawn without a number rather than with an invented one.
+
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 
 - `domain` depends on nothing but the JDK and `common.types` — no Spring, no JPA
@@ -323,8 +358,13 @@ guardrail that quietly stops working.
   discarded with a `WARN`, so nobody can complete verification there. That is deliberate and loud.
 - **The initial JS bundle is ~302 KB gzipped**, over the 250 KB budget in
   [doc 07 §10](.docs/07-frontend-architecture.md). It is almost entirely Ant Design. Route-level
-  splitting works: the tree screens Phase 4 added ship in their own 84 KB chunk and cost the initial
-  load nothing. The shared AntD core is what exceeds the budget, and only trimming that will fix it.
+  splitting works: the tree screens — canvas, layout, `d3-hierarchy` and all — ship in their own
+  94 KB chunk and cost the initial load nothing. The shared AntD core is what exceeds the budget,
+  and only trimming that will fix it.
+- **NFR-1's numbers are unmeasured.** The benchmarks against the 5,000-person fixture and the
+  browser-profiler pass §5 asks for both need a machine this was not written on: the first needs a
+  Docker daemon for Testcontainers, the second needs somebody at a browser. Phase 5's exit criteria
+  are not met until both are run — see that phase's report.
 - **Frontend API types are hand-written** against doc 05 rather than generated by
   `openapi-typescript` (doc 07 §4.4). The generator's value is the diff that proves the client has
   not drifted, and nothing runs that diff until CI lands with ADR 0001's workstream.

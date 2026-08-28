@@ -11,13 +11,13 @@ import app.giaky.common.types.UserId;
 import app.giaky.lineage.domain.AncestryProjection;
 import app.giaky.lineage.domain.AncestryRepository;
 import app.giaky.lineage.domain.LifeStatus;
-import app.giaky.lineage.domain.Parentage;
-import app.giaky.lineage.domain.ParentageRepository;
 import app.giaky.lineage.domain.Person;
 import app.giaky.lineage.domain.PersonRepository;
+import app.giaky.lineage.domain.TreeSnapshotCache;
+import app.giaky.lineage.domain.TreeSnapshotRepository;
+import app.giaky.lineage.domain.TreeSnapshotRepository.NodeRow;
+import app.giaky.lineage.domain.TreeSnapshotRepository.TreeSnapshot;
 import app.giaky.lineage.domain.TreeVersionRepository;
-import app.giaky.lineage.domain.Union;
-import app.giaky.lineage.domain.UnionRepository;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,20 +32,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Reading the tree (B4.9, doc 05 §4.9, FR-T1/FR-T2).
+ * Reading the tree (B4.9 and B5.1–B5.5, doc 05 §4.9, FR-T1/FR-T2).
  *
  * <p><b>Flat, in three scans.</b> The whole-clan read is one query for persons, one for parentages,
  * one for unions, assembled by the client. Doc 03 §4 measured the alternative — per-node recursion —
  * and it loses by a wide margin at every size that matters. A subtree read is the same three queries
- * bounded by one closure lookup, which is the whole reason {@code person_ancestry} exists.
+ * bounded by one closure lookup, which is the whole reason {@code person_ancestry} exists. Phase 5
+ * moved those three off JPA and onto {@link TreeSnapshotRepository}: the payload wants fourteen
+ * columns per person, and an entity read hands over the aggregate and a dirty-checking snapshot of
+ * it (B5.2).
  *
  * <p><b>Reads are clan-wide</b> (doc 04 §5.5). A member who can open the clan sees all of it; a
  * <i>gia phả</i> in fragments is not a <i>gia phả</i>. What branch and subtree scopes constrain is
  * writing, and that appears here as the per-node {@code canEdit} flag — computed once for the whole
  * payload by the batch resolver (doc 04 §4.1), never per node.
  *
- * <p>Every response is tagged with the clan's tree version, so a client that already has the tree
- * revalidates with {@code If-None-Match} and gets a {@code 304} without any of this running (B4.12).
+ * <p><b>Three layers of not doing the work</b>, cheapest first. A client that already holds the tree
+ * revalidates with {@code If-None-Match} and gets a {@code 304} for the cost of one indexed read
+ * (B4.12) — none of this runs. A client that does not, but asks for a clan somebody else has read
+ * since its last edit, gets the snapshot from {@link TreeSnapshotCache} keyed on the same version
+ * (B5.3). Only the first reader after an edit pays for the scans.
+ *
+ * <p>The cache holds the rows, never the finished payload: rows are the same for every member, and
+ * {@code canEdit} is not.
  */
 @Service
 public class TreeQueryService {
@@ -59,8 +68,8 @@ public class TreeQueryService {
     public static final int MAX_DEPTH = 64;
 
     private final PersonRepository persons;
-    private final ParentageRepository parentages;
-    private final UnionRepository unions;
+    private final TreeSnapshotRepository snapshots;
+    private final TreeSnapshotCache cache;
     private final AncestryProjection ancestry;
     private final TreeVersionRepository treeVersions;
     private final PermissionResolver resolver;
@@ -69,8 +78,8 @@ public class TreeQueryService {
 
     public TreeQueryService(
             PersonRepository persons,
-            ParentageRepository parentages,
-            UnionRepository unions,
+            TreeSnapshotRepository snapshots,
+            TreeSnapshotCache cache,
             AncestryProjection ancestry,
             TreeVersionRepository treeVersions,
             PermissionResolver resolver,
@@ -78,8 +87,8 @@ public class TreeQueryService {
             Clock clock) {
 
         this.persons = persons;
-        this.parentages = parentages;
-        this.unions = unions;
+        this.snapshots = snapshots;
+        this.cache = cache;
         this.ancestry = ancestry;
         this.treeVersions = treeVersions;
         this.resolver = resolver;
@@ -111,54 +120,38 @@ public class TreeQueryService {
     public TreeView tree(UserId caller, ClanId clanId, PersonId rootPersonId, Integer depth) {
         resolver.requireMembership(caller, clanId);
 
-        List<Person> people;
-        boolean truncated = false;
+        // Read first, and inside this transaction: the snapshot the loader below produces is the
+        // tree at exactly this version, because a mutation bumps the counter in its own transaction
+        // (B4.12). A version read after the scans could name a tree the scans never saw.
+        long version = treeVersions.current(clanId);
 
         if (rootPersonId == null) {
-            people = persons.findAllByClan(clanId);
-        } else {
-            requireExists(clanId, rootPersonId);
-            int bound = depth == null ? MAX_DEPTH : Math.clamp(depth, 0, MAX_DEPTH);
-            Set<PersonId> withinBound = ancestry.descendantsOf(clanId, rootPersonId, bound);
-            people = persons.findAllByIds(clanId, withinBound);
-            if (depth != null) {
-                // Cheaper than it looks — one indexed count against the same closure rows — and it
-                // is what lets the client say "there is more below" instead of showing a family
-                // that appears to end.
-                truncated = ancestry.descendantsOf(clanId, rootPersonId).size() > withinBound.size();
-            }
+            return assemble(
+                    caller,
+                    clanId,
+                    cache.get(clanId, version, () -> snapshots.ofClan(clanId)),
+                    false,
+                    version);
         }
 
-        Set<PersonId> included = new HashSet<>();
-        for (Person person : people) {
-            included.add(person.id());
+        requireExists(clanId, rootPersonId);
+        int bound = depth == null ? MAX_DEPTH : Math.clamp(depth, 0, MAX_DEPTH);
+        Set<PersonId> withinBound = ancestry.descendantsOf(clanId, rootPersonId, bound);
+
+        boolean truncated = false;
+        if (depth != null) {
+            // Cheaper than it looks — one indexed count against the same closure rows — and it is
+            // what lets the client say "there is more below" instead of showing a family that
+            // appears to end.
+            truncated = ancestry.descendantsOf(clanId, rootPersonId).size() > withinBound.size();
         }
 
-        List<Parentage> edges =
-                (rootPersonId == null
-                                ? parentages.findAllByClan(clanId)
-                                : parentages.findByChildren(clanId, included))
-                        .stream()
-                        // Both endpoints have to be in the payload, or the client draws an edge to a
-                        // node it does not have. A subtree read reaches exactly this case at its top.
-                        .filter(
-                                edge ->
-                                        included.contains(edge.parentPersonId())
-                                                && included.contains(edge.childPersonId()))
-                        .toList();
-
-        List<Union> marriages =
-                (rootPersonId == null
-                                ? unions.findAllByClan(clanId)
-                                : unions.findByPartners(clanId, included))
-                        .stream()
-                        .filter(
-                                union ->
-                                        included.contains(union.partnerAId())
-                                                && included.contains(union.partnerBId()))
-                        .toList();
-
-        return assemble(caller, clanId, people, edges, marriages, truncated);
+        // Deliberately uncached. A subtree read is keyed by root *and* depth as well as by version,
+        // so its key space is the clan times its depth bound — one entry per person a client has
+        // ever expanded — while the payload it saves is by definition a small one. The whole-clan
+        // read is the one that is both expensive and shared.
+        return assemble(
+                caller, clanId, snapshots.ofPersons(clanId, withinBound), truncated, version);
     }
 
     /**
@@ -190,17 +183,20 @@ public class TreeQueryService {
     }
 
     /**
-     * Counts for the overview (doc 05 §4.9).
+     * Counts for the overview (doc 05 §4.9, B5.5).
      *
-     * <p>One scan of the clan's people, and everything computed from it in memory. Deliberately not
-     * five aggregate queries: this is the same single indexed scan the tree read already makes, and
-     * at the scale NFR-1 sets, five round trips cost more than one pass over the rows.
+     * <p>One pass over the same snapshot the tree read uses, and everything computed from it in
+     * memory. Deliberately not five aggregate queries and deliberately not its own scan: whoever
+     * asks for the statistics is looking at the tree, so the rows are already in the cache under the
+     * same key, and five round trips would cost more than a loop over rows already in hand.
      */
     @Transactional(readOnly = true)
     public TreeStatsView stats(UserId caller, ClanId clanId) {
         resolver.requireMembership(caller, clanId);
 
-        List<Person> people = persons.findAllByClan(clanId);
+        long version = treeVersions.current(clanId);
+        List<NodeRow> people =
+                cache.get(clanId, version, () -> snapshots.ofClan(clanId)).persons();
         if (people.isEmpty()) {
             return TreeStatsView.empty();
         }
@@ -212,7 +208,7 @@ public class TreeQueryService {
         Map<Integer, Long> byGeneration = new LinkedHashMap<>();
         Map<UUID, Long> byBranch = new LinkedHashMap<>();
 
-        for (Person person : people) {
+        for (NodeRow person : people) {
             if (person.lifeStatus() == LifeStatus.ALIVE) {
                 living++;
             } else if (person.lifeStatus() == LifeStatus.DECEASED) {
@@ -227,7 +223,7 @@ public class TreeQueryService {
                 maxGeneration = generation;
             }
             if (person.branchId() != null) {
-                byBranch.merge(person.branchId().value(), 1L, Long::sum);
+                byBranch.merge(person.branchId(), 1L, Long::sum);
             }
         }
 
@@ -251,27 +247,26 @@ public class TreeQueryService {
     private TreeView assemble(
             UserId caller,
             ClanId clanId,
-            List<Person> people,
-            List<Parentage> edges,
-            List<Union> marriages,
-            boolean truncated) {
+            TreeSnapshot snapshot,
+            boolean truncated,
+            long treeVersion) {
 
         EditableSet editable = resolver.editableSet(caller, clanId);
 
         // The roots of the returned payload: everybody with no parent inside it. Usually several —
         // a founding ancestor, and every wife who married into the family.
-        Set<PersonId> withParents = new HashSet<>();
-        for (Parentage edge : edges) {
+        Set<UUID> withParents = new HashSet<>();
+        for (TreeSnapshotRepository.EdgeRow edge : snapshot.parentages()) {
             withParents.add(edge.childPersonId());
         }
 
         List<UUID> rootPersonIds = new ArrayList<>();
-        List<PersonSummaryView> summaries = new ArrayList<>(people.size());
+        List<PersonSummaryView> summaries = new ArrayList<>(snapshot.persons().size());
         Integer maxGeneration = null;
-        for (Person person : people) {
-            summaries.add(PersonService.summary(person, editable));
+        for (NodeRow person : snapshot.persons()) {
+            summaries.add(PersonSummaryView.of(person, editable));
             if (!withParents.contains(person.id())) {
-                rootPersonIds.add(person.id().value());
+                rootPersonIds.add(person.id());
             }
             if (person.generation() != null
                     && (maxGeneration == null || person.generation() > maxGeneration)) {
@@ -295,11 +290,12 @@ public class TreeQueryService {
                 clanId.value(),
                 List.copyOf(rootPersonIds),
                 List.copyOf(summaries),
-                edges.stream().map(ParentageView::of).toList(),
-                marriages.stream().map(UnionView::of).toList(),
+                snapshot.parentages().stream().map(ParentageView::of).toList(),
+                snapshot.unions().stream().map(UnionView::of).toList(),
                 branches,
-                new TreeView.Meta(people.size(), maxGeneration, truncated, clock.instant()),
-                treeVersions.current(clanId));
+                new TreeView.Meta(
+                        snapshot.persons().size(), maxGeneration, truncated, clock.instant()),
+                treeVersion);
     }
 
     private void requireExists(ClanId clanId, PersonId personId) {

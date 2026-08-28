@@ -216,8 +216,10 @@ export default tseslint.config(
         },
       ],
 
-      // All styling in styled-components. The single sanctioned exception is the zoom/pan
-      // transform in TreeCanvas (doc 07 §7.3), which carries an inline disable and a rationale.
+      // All styling in styled-components. Doc 07 §7.3 anticipated one exception here — the zoom/pan
+      // transform on the tree canvas — and Phase 5 did not need it: the transform is an SVG
+      // *attribute* on a `<g>`, which this rule does not touch. There is no disable comment in the
+      // codebase for this rule, and there should not be one.
       'react/forbid-dom-props': ['error', { forbid: ['style'] }],
 
       // --- i18n (NFR-8) ---------------------------------------------------------------------

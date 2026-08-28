@@ -1,6 +1,7 @@
 package app.giaky.lineage.application;
 
 import app.giaky.common.types.PartialDate;
+import app.giaky.lineage.domain.TreeSnapshotRepository.UnionRow;
 import app.giaky.lineage.domain.Union;
 import app.giaky.lineage.domain.UnionStatus;
 import app.giaky.lineage.domain.UnionType;
@@ -32,5 +33,18 @@ public record UnionView(
                 union.startDate(),
                 union.endDate(),
                 union.notes());
+    }
+
+    /** The same marriage, from the flat tree read (B5.2). */
+    static UnionView of(UnionRow row) {
+        return new UnionView(
+                row.id(),
+                row.partnerAId(),
+                row.partnerBId(),
+                row.unionType(),
+                row.status(),
+                row.startDate(),
+                row.endDate(),
+                row.notes());
     }
 }

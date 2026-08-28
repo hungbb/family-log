@@ -86,3 +86,102 @@ None. This phase is read-path and UI work; any index tuning discovered during be
 - **Couple rendering is the layout subtlety.** Multiple unions per person (common in older *gia phả*) break naive tree layouts — treat the couple as one layout node and give secondary unions a distinct visual treatment.
 - **Validate with a real record (R4).** Sit with an actual family book at the start of this phase; layout conventions people expect (right-to-left birth order, đời labels, branch grouping) are cheaper to honour now than to retrofit.
 - **The list view is not a consolation prize.** It is the accessible path, the printable path, and the fastest way to audit data — keep it first-class.
+
+---
+
+## 9. Phase Report
+
+> Appended on completion, per doc 09 §5.
+
+### What shipped
+
+**Backend.** All of B5.1–B5.8.
+
+- **B5.2 — the tree read left JPA.** `TreeSnapshotRepository` is a purpose-built read port and
+  `TreeSnapshotJdbcAdapter` is three flat scans behind it. The aggregate read it replaces returned
+  whole `Person` records — `notesHtml` and `notesText` included, several megabytes of rich text on
+  the fixture — and hydrated every row into a persistence context that kept a dirty-checking snapshot
+  a read-only request never uses. Both costs scaled with the clan, on the hottest read in the
+  product. The new rows carry the fourteen columns a node card renders. Edges join *both* of their
+  endpoints to live persons: soft-deleting somebody leaves their edges alone (I-P7), so an edge can
+  outlive the node at one end, and a payload carrying it draws a line into empty space.
+- **B5.3 — `TreeSnapshotCache`, on Caffeine, keyed by (clan, tree version).** There is no
+  invalidation to get wrong: a mutation bumps the version inside its own transaction (B4.12), so an
+  entry is either current or unreachable. The cache holds *rows*, never the finished payload —
+  `canEdit` is per-caller and is stamped on after the cache, from the batch resolver. Bounded by
+  weight in people rather than by entry count, because one entry is one clan and clans differ by
+  three orders of magnitude. `ETag` / `If-None-Match` → `304` was already in place from B4.12 and is
+  the layer above this one: an unchanged tree costs one indexed read and never reaches the cache.
+- **B5.5 — statistics read the cached snapshot** rather than making a scan of their own. Whoever
+  asks for them is looking at the tree, so the rows are already in the cache under the same key.
+- **B5.6/B5.8 — the benchmark harness grew three measurements**: an uncached tree read (the version
+  is bumped between warmups so the measurement is a real scan and not a map lookup), a cached read,
+  and the batch `EditableSet`. The 5,000-person fixture now records marriages as well as wives, so
+  the union scan and the canvas's couple rendering are both exercised at size.
+- **B5.1, B5.4, B5.7** were delivered in Phase 4 and are unchanged. B5.7's client strategy is
+  documented on `TreeQuery` in `web/src/api/endpoints/tree.ts`.
+
+**Frontend.** All of F5.1–F5.15.
+
+- `model/buildGraph.ts` (F5.1) normalizes the flat payload into couple-slots: an *anchor*, the
+  spouses beside them, and children hanging from the marriage they were born into. Pure — no React,
+  no d3, no DOM.
+- `model/layout.ts` (F5.2) is layout maths only, over `d3-hierarchy`'s tidy tree. A couple occupies
+  one layout slot and the separation function is told how wide each slot actually is, which is what
+  stops a man with three wives overlapping his brother. Both orientations are one set of maths in
+  *axis space*.
+- `TreeCanvas` (F5.3, F5.4, F5.8, F5.15) is one transformed `<g>`, viewport virtualization with a
+  400 px overscan, `requestAnimationFrame`-batched pan commits, memoized cards, wheel/pinch zoom
+  about the pointer, and arrow-key navigation between siblings and generations.
+- `PersonNode` (F5.5, F5.11, F5.12), `UnionLine`/`ParentEdgePath` (F5.6), generation rails labelled
+  from the data rather than from the depth (F5.7), `TreeToolbar` (F5.9), `MiniMap` (F5.10),
+  `TreeListView` (F5.13) and the skeleton/empty states (F5.14).
+- `useTreeViewStore` holds viewport, collapsed set, orientation, focus and branch highlighting, and
+  resets when the clan changes.
+
+**Migrations.** None, as §4 said.
+
+### Measured
+
+| | |
+|---|---|
+| Backend unit tests | **531 pass** (526 before this phase) |
+| Frontend | `eslint --max-warnings=0`, constraint script, `tsc --noEmit`, `vite build` all clean |
+| Tree chunk | 312 KB raw / 94 KB gzipped, lazily loaded per route — the initial bundle is unchanged |
+
+**Integration tests were written but not executed in the authoring environment** — it has no Docker
+daemon and every `*IT` needs Testcontainers. `LineageCoreIT.cachedTreeIsBustedByAnEdit` and the three
+new `LargeTreePerformanceIT` measurements are complete and must be run (`./mvnw verify`) on a machine
+with Docker. Until then **the NFR-1 numbers in §7 are unmeasured**, and so are the 60 fps pan and the
+2,000-node paint, which §5 asks for by hand in a browser profiler. §7's exit criteria are not met
+until somebody does both.
+
+### Deviations from the design docs
+
+1. **No inline style on the canvas.** Doc 07 §7.3 and F5.3 anticipated one sanctioned `style` prop
+   with an ESLint disable. It turned out not to be needed: the pan/zoom transform is an SVG
+   *attribute* on a `<g>`, which `react/forbid-dom-props` does not touch. The comment in
+   `eslint.config.js` was corrected to say so — there is no disable comment for that rule anywhere
+   in the codebase, and there should not be one.
+2. **The tree read model lives in `lineage.domain` as `TreeSnapshotRepository`'s row records**, not
+   as the aggregates. Doc 06 §2.1 keeps ports in `domain`, and these are rows a port returns; they
+   deliberately carry no invariants, because re-validating five thousand records to draw a picture is
+   work with no reader.
+
+### Notes for the next phase
+
+- **One person is drawn in one place.** A tree is a spanning tree of a graph that is not one. Two
+  blood descendants of the same clan who marry each other — not rare in an old book — are drawn as
+  one couple under whichever of them the walk reaches first, and the second one's edge to their own
+  parents is not drawn. Nobody vanishes and no child is orphaned; the list view still shows both
+  parentages. Any layout avoiding this would have to draw somebody twice, which is worse.
+- **"Find me" is inert until Phase 6.** It looks for a node whose `linkedUserId` is the signed-in
+  account, and almost nothing is linked yet, so the control is hidden rather than shown disabled.
+  Linking will light it up with no change here.
+- **Avatars are initials.** `avatarMediaId` is carried through the payload and ignored; Phase 7
+  resolves it. The initials are taken from the *end* of the name, because Vietnamese names run family
+  name first and the last word is the one somebody is actually called by.
+- **R4 is still open.** §8 asks for a real family book to be read at the start of this phase; the
+  layout conventions honoured here — right-to-left birth order via `birthOrder`, *đời* rails,
+  *chính thất* before *thứ thất*, secondary unions drawn distinctly — come from the design docs
+  rather than from a book on the table. Worth checking against one before M4 is demoed.

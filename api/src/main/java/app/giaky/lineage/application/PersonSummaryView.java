@@ -1,9 +1,12 @@
 package app.giaky.lineage.application;
 
+import app.giaky.authorization.domain.EditableSet;
+import app.giaky.common.types.BranchId;
 import app.giaky.common.types.PartialDate;
 import app.giaky.lineage.domain.Gender;
 import app.giaky.lineage.domain.LifeStatus;
 import app.giaky.lineage.domain.Person;
+import app.giaky.lineage.domain.TreeSnapshotRepository.NodeRow;
 import java.util.UUID;
 
 /**
@@ -52,5 +55,32 @@ public record PersonSummaryView(
                 person.linkedUserId() == null ? null : person.linkedUserId().value(),
                 person.foundingAncestor(),
                 canEdit);
+    }
+
+    /**
+     * The same view, from the flat tree read's row rather than from the aggregate (B5.2).
+     *
+     * <p>Two constructors for one shape, because the two reads genuinely differ: a person screen has
+     * the aggregate in hand and a tree read deliberately never loads one. Keeping both here is what
+     * stops the two paths from drifting into two subtly different node payloads.
+     */
+    static PersonSummaryView of(NodeRow row, EditableSet editable) {
+        return new PersonSummaryView(
+                row.id(),
+                row.clanId(),
+                row.branchId(),
+                row.fullName(),
+                row.alias(),
+                row.gender(),
+                row.lifeStatus(),
+                row.birth(),
+                row.death(),
+                row.generation(),
+                row.birthOrder(),
+                row.avatarMediaId(),
+                row.linkedUserId(),
+                row.foundingAncestor(),
+                editable.contains(
+                        row.id(), row.branchId() == null ? null : BranchId.of(row.branchId())));
     }
 }
