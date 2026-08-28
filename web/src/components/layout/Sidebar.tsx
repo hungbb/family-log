@@ -3,6 +3,7 @@ import {
   IdcardOutlined,
   PartitionOutlined,
   SafetyOutlined,
+  SearchOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -21,9 +22,9 @@ interface SidebarProps {
 /**
  * Navigation.
  *
- * Items are enabled as the phases that own them land. Members and Branches are real from Phase 2 and
- * Permissions from Phase 3; the tree and claims stay disabled rather than linking to screens that do
- * not exist — a dead end is worse than a greyed-out label.
+ * Items are enabled as the phases that own them land. Members and Branches are real from Phase 2,
+ * Permissions from Phase 3, and the tree and the search from Phase 4; claims stay disabled rather
+ * than linking to a screen that does not exist — a dead end is worse than a greyed-out label.
  *
  * With no clan selected, every clan-scoped item is disabled: there is nothing for them to point at
  * until the person creates or joins one.
@@ -55,7 +56,18 @@ export function Sidebar({ collapsed }: SidebarProps) {
           }
         }}
         items={[
-          { key: 'tree', icon: <PartitionOutlined />, label: t('nav.tree'), disabled: true },
+          {
+            key: 'tree',
+            icon: <PartitionOutlined />,
+            label: t('nav.tree'),
+            disabled: clanBase === null,
+          },
+          {
+            key: 'search',
+            icon: <SearchOutlined />,
+            label: t('nav.search'),
+            disabled: clanBase === null,
+          },
           {
             key: 'members',
             icon: <TeamOutlined />,

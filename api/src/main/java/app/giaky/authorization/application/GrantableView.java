@@ -12,9 +12,10 @@ import java.util.UUID;
  * never the boundary (doc 07 §8) — but a person who cannot see an option does not spend an afternoon
  * wondering why it does not work.
  *
- * @param subtreeAvailable false until Phase 4 creates {@code person_ancestry}; the scope picker
- *     shows the option greyed out with an explanation rather than hiding a capability the product
- *     is documented as having (phase 3 §1, F3.6)
+ * @param subtreeAvailable whether SUBTREE scopes may be granted — true from Phase 4, when the
+ *     ancestry closure arrived. Subtree scopes are not listed among the permissions above: a scope
+ *     names a person and a clan has thousands of them, so the picker offers a person search and
+ *     this flag is what tells it to (F3.6, F4.2)
  */
 public record GrantableView(List<GrantablePermission> permissions, boolean subtreeAvailable) {
 

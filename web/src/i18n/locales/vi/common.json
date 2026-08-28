@@ -16,7 +16,8 @@
     "branches": "Chi nhánh",
     "permissions": "Phân quyền",
     "claims": "Yêu cầu nhận nút",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "search": "Tìm người thân"
   },
   "shell": {
     "collapseSidebar": "Thu gọn thanh bên",
@@ -140,12 +141,15 @@
     "duplicatePendingRequest": "Bạn đã gửi yêu cầu rồi. Hãy chờ trả lời, hoặc rút yêu cầu cũ trước.",
     "membershipExists": "Bạn đã là thành viên của dòng họ này.",
     "versionConflict": "Có người vừa sửa trong lúc bạn đang chỉnh. Hãy tải lại rồi thử lại.",
-    "cycleDetected": "Không thể chuyển một chi về dưới chính nhánh của nó.",
+    "cycleDetected": "Như vậy sẽ khiến một người trở thành tổ tiên của chính mình, hoặc đưa một chi xuống dưới chính nó.",
     "lastAdminProtected": "Dòng họ sẽ không còn ai quản lý. Hãy cử người khác làm quản trị trước.",
     "outOfScope": "Chỗ đó nằm ngoài phần dòng họ bạn phụ trách. Bạn chỉ sửa được trong phạm vi chi của mình.",
     "escalationBlocked": "Bạn chỉ trao được quyền mình đang giữ, và chỉ ở nơi mình đang giữ quyền đó.",
     "grantAlreadyExists": "Người này đã có quyền đó ở đây rồi.",
-    "subtreeUnavailable": "Giới hạn quyền theo một người và con cháu sẽ dùng được khi gia phả đã dựng xong."
+    "subtreeUnavailable": "Giới hạn quyền theo một người và con cháu sẽ dùng được khi gia phả đã dựng xong.",
+    "personNotFound": "Không có người này trong họ.",
+    "invalidRelationship": "Quan hệ này chưa ghi được. Kiểm tra lại những người bạn đã chọn.",
+    "dateRangeInvalid": "Hai mốc thời gian này không thể cùng đúng. Kiểm tra lại năm bạn nhập."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -422,7 +426,8 @@
       "expiresHint": "Để trống nếu quyền này giữ đến khi có người thu hồi.",
       "submit": "Trao quyền",
       "done": "Đã trao quyền.",
-      "nothingToGrant": "Chưa có quyền nào bạn trao lại được. Bạn chỉ trao được quyền mình đang giữ, trong chi mình phụ trách."
+      "nothingToGrant": "Chưa có quyền nào bạn trao lại được. Bạn chỉ trao được quyền mình đang giữ, trong chi mình phụ trách.",
+      "subtreePerson": "Người nào và con cháu của họ"
     },
     "revoke": {
       "action": "Thu hồi",
@@ -439,6 +444,217 @@
       "title": "Bạn không quản lý quyền ở đây",
       "body": "Chỉ người quản lý quyền trong dòng họ này mới xem được ai đang giữ quyền gì. Hãy hỏi người quản trị, hoặc người phụ trách chi của bạn.",
       "youHold": "Quyền bạn đang giữ"
+    }
+  },
+  "tree": {
+    "title": "Cây gia phả",
+    "subtitle": "Mọi người trong gia phả, theo từng đời. Bấm vào một tên để xem người thân xung quanh.",
+    "empty": "Chưa có ai trong gia phả",
+    "emptyHelp": "Bắt đầu từ thủy tổ — đời 1 — rồi thêm con cháu bên dưới.",
+    "unknown": "Không rõ",
+    "unplaced": "Chưa thuộc chi nào",
+    "canEdit": "Bạn sửa được",
+    "readOnlyTag": "Chỉ xem",
+    "linked": "Đã gắn tài khoản",
+    "notLinked": "Chưa có tài khoản",
+    "personLabel": "{{name}} (đời {{generation}})",
+    "action": {
+      "addPerson": "Thêm người",
+      "addChild": "Thêm con",
+      "edit": "Sửa",
+      "delete": "Gỡ khỏi cây"
+    },
+    "placement": {
+      "CHILD_OF_PARENT": "Con của…",
+      "CHILD_OF_UNION": "Con của một cuộc hôn nhân…",
+      "SPOUSE_OF": "Vợ/chồng của…",
+      "BRANCH_ROOT": "Tổ của một chi",
+      "UNPLACED": "Chưa xếp vào đâu"
+    },
+    "stats": {
+      "people": "Số người",
+      "generations": "Số đời",
+      "living": "Còn sống",
+      "unlinked": "Chưa có tài khoản"
+    },
+    "column": {
+      "name": "Họ tên",
+      "generation": "Đời",
+      "lifespan": "Sinh – mất",
+      "branch": "Chi",
+      "access": "Quyền",
+      "marriedTo": "Kết hôn với {{names}}"
+    },
+    "field": {
+      "fullName": "Họ và tên",
+      "alias": "Tên khác (tên tự, tên hiệu)",
+      "posthumousName": "Tên thụy",
+      "gender": "Giới tính",
+      "lifeStatus": "Tình trạng",
+      "birth": "Sinh",
+      "death": "Mất",
+      "birthOrder": "Thứ tự sinh",
+      "burialPlace": "Nơi an táng",
+      "notes": "Ghi chú",
+      "notesHelp": "Giữ nguyên như bạn viết. Định dạng được giữ lại; phần có thể chạy được sẽ bị loại bỏ.",
+      "generation": "Đời",
+      "lifespan": "Sinh – mất",
+      "branch": "Chi",
+      "linkedUser": "Tài khoản"
+    },
+    "placeholder": {
+      "fullName": "Nguyễn Văn An",
+      "posthumousName": "Tên dùng trong ngày giỗ"
+    },
+    "validation": {
+      "nameRequired": "Cần có tên — những phần khác có thể bổ sung sau.",
+      "anchorRequired": "Chọn người mà người này gắn vào.",
+      "branchRequired": "Chọn một chi."
+    },
+    "form": {
+      "createTitle": "Thêm người",
+      "editTitle": "Sửa thông tin",
+      "childOf": "Con của",
+      "spouseOf": "Vợ/chồng của",
+      "branch": "Chi"
+    },
+    "gender": {
+      "MALE": "Nam",
+      "FEMALE": "Nữ",
+      "OTHER": "Khác",
+      "UNKNOWN": "Không rõ"
+    },
+    "lifeStatus": {
+      "ALIVE": "Còn sống",
+      "DECEASED": "Đã mất",
+      "UNKNOWN": "Không rõ"
+    },
+    "unionType": {
+      "PRIMARY": "Chính thất",
+      "SECONDARY": "Thứ thất",
+      "SEQUENTIAL": "Tái hôn"
+    },
+    "nature": {
+      "BIOLOGICAL": "Con đẻ",
+      "ADOPTED": "Con nuôi",
+      "STEP": "Con riêng",
+      "FOSTER": "Nuôi dưỡng"
+    },
+    "role": {
+      "FATHER": "Cha",
+      "MOTHER": "Mẹ"
+    },
+    "kin": {
+      "father": "Cha",
+      "mother": "Mẹ",
+      "wife": "Vợ",
+      "husband": "Chồng",
+      "spouse": "Vợ/chồng"
+    },
+    "generation": {
+      "value": "đời {{generation}}",
+      "unknown": "chưa rõ đời"
+    },
+    "date": {
+      "precisionFor": "Biết được bao nhiêu về ngày {{field}}",
+      "precision": {
+        "UNKNOWN": "Không rõ",
+        "YEAR": "Năm",
+        "MONTH": "Tháng",
+        "EXACT": "Ngày cụ thể",
+        "RANGE": "Khoảng giữa"
+      },
+      "year": "Năm",
+      "month": "Tháng",
+      "day": "Ngày",
+      "rangeEnd": "Đến năm",
+      "circaLabel": "Khoảng chừng",
+      "lunar": "Ngày âm lịch",
+      "lunarPlaceholder": "tháng 6 năm Quý Mùi",
+      "lunarNeedsPrecision": "Chọn mức độ chi tiết của ngày trước khi ghi ngày âm lịch.",
+      "format": {
+        "range": "{{from}}–{{to}}",
+        "exact": "{{day}}/{{month}}/{{year}}",
+        "month": "{{month}}/{{year}}",
+        "circa": "khoảng {{date}}",
+        "withLunar": "{{date}} ({{lunar}})"
+      }
+    },
+    "lifespan": {
+      "both": "{{birth}} – {{death}}",
+      "birthOnly": "sinh {{birth}}",
+      "deathOnly": "mất {{death}}"
+    },
+    "relation": {
+      "parents": "Cha mẹ",
+      "unions": "Hôn nhân",
+      "children": "Con",
+      "siblings": "Anh chị em",
+      "none": "Chưa ghi nhận"
+    },
+    "drawer": {
+      "title": "Nhân vật"
+    },
+    "readOnly": {
+      "branch": "Người này thuộc {{branch}}, nằm ngoài phần cây bạn được sửa.",
+      "noBranch": "Người này chưa thuộc chi nào, nên chỉ người sửa được cả họ mới thay đổi được.",
+      "generic": "Người này nằm ngoài phần cây bạn được sửa."
+    },
+    "delete": {
+      "title": "Gỡ {{name}} khỏi cây?",
+      "body": "Hồ sơ vẫn được giữ và quản trị viên có thể khôi phục trong 30 ngày.",
+      "bodyWithChildren_other": "Hồ sơ vẫn được giữ và có thể khôi phục trong 30 ngày. Có {{count}} người con đang ghi dưới tên này: {{names}}.",
+      "confirm": "Gỡ",
+      "done": "Đã gỡ khỏi cây."
+    },
+    "deleted": {
+      "title": "Vừa gỡ gần đây",
+      "help": "Đã gỡ trong 30 ngày qua. Khôi phục sẽ đưa người đó trở lại y như cũ.",
+      "restore": "Khôi phục",
+      "restored": "Đã khôi phục."
+    },
+    "conflict": {
+      "title": "Hồ sơ này vừa thay đổi",
+      "body": "Người khác vừa lưu thay đổi cho người này. Hãy tải lại để xem trước khi sửa tiếp — lưu bây giờ sẽ ghi đè lên.",
+      "reload": "Tải lại"
+    },
+    "picker": {
+      "placeholder": "Tìm theo tên — không cần dấu",
+      "empty": "Không tìm thấy ai"
+    },
+    "editor": {
+      "addParent": "Thêm cha hoặc mẹ",
+      "parent": "Cha/mẹ",
+      "role": "Vai trò",
+      "roleHelp": "Để trống thì lấy theo giới tính đã ghi.",
+      "link": "Gắn",
+      "parentAdded": "Đã gắn cha/mẹ.",
+      "removeParent": "Gỡ {{name}}",
+      "removeParentTitle": "Gỡ {{name}} khỏi vai trò cha/mẹ?",
+      "removeParentBody": "Chỉ gỡ liên kết; không ai rời khỏi cây. Các đời bên dưới sẽ được tính lại.",
+      "remove": "Gỡ",
+      "parentRemoved": "Đã gỡ liên kết.",
+      "addUnion": "Ghi nhận hôn nhân",
+      "spouse": "Vợ/chồng",
+      "unionType": "Loại",
+      "unionTypeHelp": "Mỗi người chỉ có một chính thất. Vợ lẽ được ghi là thứ thất.",
+      "record": "Ghi nhận",
+      "unionAdded": "Đã ghi nhận hôn nhân.",
+      "attachChild": "Gắn con vào một cuộc hôn nhân",
+      "union": "Hôn nhân",
+      "unionOption": "{{partner}} · {{type}}",
+      "child": "Con",
+      "attachChildHelp": "Gắn người con với cả hai vợ chồng, để gia phả rõ con của ai.",
+      "attach": "Gắn",
+      "childAttached": "Đã gắn con."
+    },
+    "search": {
+      "title": "Tìm người thân",
+      "subtitle": "Không cần dấu — gõ \"nguyen van an\" vẫn ra \"Nguyễn Văn An\".",
+      "placeholder": "Tên, tên khác hoặc tên thụy",
+      "linked": "Tài khoản",
+      "linkedYes": "Đã có tài khoản",
+      "linkedNo": "Chưa có tài khoản"
     }
   }
 }

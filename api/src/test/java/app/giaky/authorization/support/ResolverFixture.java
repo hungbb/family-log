@@ -130,6 +130,22 @@ public final class ResolverFixture {
                         }
 
                         @Override
+                        public boolean personExists(ClanId clan, UUID personId) {
+                            requireAvailable();
+                            return placementByPerson.containsKey(personId)
+                                    || descendantsByAncestor.containsKey(personId);
+                        }
+
+                        @Override
+                        public java.util.Map<UUID, String> displayNames(
+                                ClanId clan, java.util.Collection<UUID> personIds) {
+                            requireAvailable();
+                            // The resolver never asks for names; only GrantDecorator does, and it
+                            // is not the subject of these tests.
+                            return java.util.Map.of();
+                        }
+
+                        @Override
                         public Optional<BranchId> placementOf(ClanId clan, UUID personId) {
                             requireAvailable();
                             return Optional.ofNullable(placementByPerson.get(personId));

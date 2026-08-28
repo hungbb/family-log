@@ -235,6 +235,17 @@ class ScopeCoverageTest {
                             }
 
                             @Override
+                            public boolean personExists(ClanId clan, UUID personId) {
+                                throw new IllegalStateException("not reachable");
+                            }
+
+                            @Override
+                            public java.util.Map<UUID, String> displayNames(
+                                    ClanId clan, java.util.Collection<UUID> personIds) {
+                                throw new IllegalStateException("not reachable");
+                            }
+
+                            @Override
                             public Optional<BranchId> placementOf(ClanId clan, UUID personId) {
                                 throw new IllegalStateException("not reachable");
                             }

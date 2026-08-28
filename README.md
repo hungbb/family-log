@@ -8,20 +8,22 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 3 (the authorization engine) — milestone M3.** On top of Phase 2's clans and
-> branches, permissions are now real: an uncle can be given `TREE_EDIT` over *Chi Hai* and nothing
-> else, hand a slice of that on to his own son, and be unable — in the UI and at the API — to reach
-> the chi beside his. There is still no person and no family tree; those are Phase 4.
+> **Status: Phase 4 (the lineage core).** There is a family tree now. People are rows in a book, not
+> accounts — a clan of five thousand ancestors can be recorded without a single one of them ever
+> signing in, which is the product's first goal and the reason the schema is shaped the way it is.
+> Dates are kept at whatever precision the book has (a year, "khoảng 1890", a lunar reading), several
+> wives are a first-class case rather than a workaround, and every parent-child edge maintains an
+> ancestry closure inside the same transaction that wrote it.
 > See [`.docs/08-implementation-roadmap.md`](.docs/08-implementation-roadmap.md).
 >
-> `InterimClanAccessCheck` is gone. Every decision in the product now routes through
-> `PermissionResolver` (`.docs/04-authorization-model.md`), and `AuthorizationCoverageTest` fails the
-> build if a mutating service method stops asking it.
+> **The capability Phase 3 deferred is live.** A permission can now be scoped to *one person and
+> their descendants*, not just to a clan or a branch. The resolver did not change to make that
+> happen — it was written against a port in Phase 3 and Phase 4 supplied the table behind it, which
+> is exactly what that design was buying.
 >
-> One capability is deliberately deferred: a permission can be scoped to the whole clan or to a
-> branch, but not yet to *one person and their descendants*. The resolver understands that scope and
-> is tested against it; granting one answers `422 SUBTREE_SCOPE_UNAVAILABLE` until Phase 4 builds the
-> ancestry table it needs.
+> Every decision in the product still routes through `PermissionResolver`
+> (`.docs/04-authorization-model.md`), and `AuthorizationCoverageTest` fails the build if a mutating
+> service method stops asking it.
 
 ---
 
@@ -248,6 +250,37 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - Refusals explain themselves: `OUT_OF_SCOPE` names the branch the caller *does* hold, and the
   permissions screen tells somebody without `ROLE_MANAGE` what they have and who to ask.
 
+**The family tree** (Phase 4, `.docs/phases/phase-4-lineage-core.md`):
+
+- **A person is not a user.** `linked_user_id` is null on almost every row and nothing in the tree
+  needs it: nodes are created, placed, related, searched and rendered without any account existing.
+  Linking accounts to nodes is Phase 6, and the whole of this phase runs without it.
+- **Dates at the precision the book actually has.** A year, a month and a year, an exact day, a span,
+  or "khoảng 1890" — plus the âm lịch reading recorded verbatim, because converting lunar dates
+  silently moves a family's anniversary. Comparison is three-valued: two dates that overlap are
+  *indeterminate*, never equal, so an invariant built on it refuses only what is certainly wrong.
+- **Several wives are a first-class case.** A `PRIMARY` union and any number of `SECONDARY` ones may
+  be live at once, children carry the union they were born into, and the tree shows each family under
+  the same father rather than as one undifferentiated list.
+- **The ancestry closure is maintained in the mutation's own transaction.** Never in a listener: an
+  asynchronous projection means a window in which authorization reads an ancestry the tree no longer
+  has, and the failure mode is somebody editing a branch they were never granted.
+  `AncestryProjectionPropertyIT` runs randomized edit sequences and asserts the result matches a
+  rebuild from the edges — it is the release gate on that risk, not a nice-to-have.
+- **Cycles and second fathers are refused** with `422 CYCLE_DETECTED` and `409`. `đời` is recomputed
+  from the edges and cascades to descendants, and is **null when unknown** — never 0, because an
+  imported fragment with no path to the founding ancestor genuinely has no generation.
+- **Placement decides authorization.** A person is created attached — child of, spouse of, ancestor
+  of a branch — and the same field decides both the branch they inherit and the permission checked.
+  Creating an unplaced node needs clan-wide `TREE_EDIT`, because a node with no branch is outside
+  every branch-scoped grant.
+- **Search folds diacritics both ways.** "nguyen van an" finds "Nguyễn Văn An", and so does "NGUYỄN".
+- **Soft delete is reversible without a repair.** The row, its edges and its closure rows all stay,
+  so restoring is a timestamp. Administrators restore from a list of what was removed in the last 30
+  days.
+- The list view of the tree is not a placeholder for Phase 5's canvas — it is the permanent
+  keyboard- and screen-reader-navigable route to every node (NFR-7).
+
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 
 - `domain` depends on nothing but the JDK and `common.types` — no Spring, no JPA
@@ -261,9 +294,9 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
 - plus the conventions: constructor injection only, `@Transactional` only on application services,
   no `System.out`, `Optional` never a parameter
 
-`identity`, `clanorg` and `authorization` have real classes and are really checked; the three
-remaining contexts are still empty and pass trivially. Each starts biting the moment its layer gains
-a class.
+`identity`, `clanorg`, `authorization` and `lineage` have real classes and are really checked; the
+three remaining contexts are still empty and pass trivially. Each starts biting the moment its layer
+gains a class.
 
 **Frontend — ESLint** (`web/eslint.config.js`):
 
@@ -288,10 +321,10 @@ guardrail that quietly stops working.
 - **No email delivery.** Verification and reset tokens are logged and served by a `dev`-only
   endpoint. SMTP is Phase 8; in any profile that is neither `dev` nor `test`, a token is issued and
   discarded with a `WARN`, so nobody can complete verification there. That is deliberate and loud.
-- **The initial JS bundle is ~296 KB gzipped**, over the 250 KB budget in
+- **The initial JS bundle is ~302 KB gzipped**, over the 250 KB budget in
   [doc 07 §10](.docs/07-frontend-architecture.md). It is almost entirely Ant Design. Route-level
-  splitting is in place from Phase 1 and the auth screens ship in their own chunks; the shared
-  AntD core is what exceeds the budget. Recheck once the tree and clan screens exist.
+  splitting works: the tree screens Phase 4 added ship in their own 84 KB chunk and cost the initial
+  load nothing. The shared AntD core is what exceeds the budget, and only trimming that will fix it.
 - **Frontend API types are hand-written** against doc 05 rather than generated by
   `openapi-typescript` (doc 07 §4.4). The generator's value is the diff that proves the client has
   not drifted, and nothing runs that diff until CI lands with ADR 0001's workstream.

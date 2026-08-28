@@ -194,6 +194,26 @@ Indexes / constraints:
 - `ix_persons_generation (clan_id, generation) WHERE deleted_at IS NULL`
 - `CHECK (life_status <> 'ALIVE' OR death_year IS NULL)` — I-P3
 
+Partial dates also carry a `*_range_end_year` column each, for the `RANGE` precision of doc 05 §3.1.
+
+### 3.7.1 `clan_tree_versions`
+
+One row per clan, created lazily on the clan's first lineage mutation.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `clan_id` | UUID PK → `clans` | `ON DELETE CASCADE` |
+| `tree_version` | BIGINT | incremented by every lineage mutation |
+| `updated_at` | TIMESTAMPTZ | |
+
+Rendered as the `ETag` on tree reads (doc 05 §4.9), so an unchanged tree answers `304` after one
+indexed read rather than after assembling the payload.
+
+**Why not a column on `clans`.** `clans.version` is the aggregate's optimistic lock, and bumping it
+whenever somebody adds a cousin would answer a concurrent settings edit with `409 VERSION_CONFLICT`
+over a change that had nothing to do with it. A separate row also keeps the lineage write path off
+the clan row entirely, so two editors adding people never contend with the settings screen.
+
 ### 3.8 `parentages`
 
 
@@ -252,9 +272,13 @@ PK `(ancestor_id, descendant_id)`; index `ix_ancestry_descendant (descendant_id)
 
 **Maintenance.** Rebuilt inside the same transaction as any parentage change:
 
-- *Add edge (P → C)*: insert the cross product `ancestors(P) ∪ {P}` × `descendants(C) ∪ {C}`, skipping existing pairs.
-- *Remove edge*: recompute the closure for `descendants(C) ∪ {C}` via a recursive CTE (bounded and cheap at family-tree scale).
-- A `rebuild_person_ancestry(clan_id)` maintenance function exists for repair and is verified by a scheduled consistency check (Phase 8).
+- *Add edge (P → C)*: insert the cross product `ancestors(P) ∪ {P}` × `descendants(C) ∪ {C}`, keeping the shorter depth where a pair was already connected.
+- *Remove edge*: `recompute_person_ancestry_from(clan_id, C)` — deletes only the rows reaching into C's subtree from outside it (nothing inside can have used an edge whose parent is above C), re-seeds from the edges that still enter it, and pushes the result downward. Bounded by the subtree rather than by the clan.
+- A `rebuild_person_ancestry(clan_id)` maintenance function exists for repair and is verified by a scheduled consistency check (Phase 8). It is also the reference the closure property test compares incremental maintenance against (doc 09 §4.5).
+
+**Depth** is the *shortest* generational distance: parentage is a DAG, so two people may be connected by more than one path, and a single number keeps the primary key a pair. Nothing about access depends on it.
+
+**Soft delete does not touch this table.** A soft-deleted person keeps their self-row and their edges, so restoring them restores their place in the tree rather than requiring a repair; readers join `persons` and filter `deleted_at IS NULL`. `rebuild_person_ancestry` reproduces exactly that, which is what makes the two comparable.
 
 **Alternative considered.** Pure recursive CTEs at query time — simpler, no projection to maintain, but puts a recursive walk on the hot authorization path for every mutation. Rejected for NFR-1; the closure table is introduced in Phase 4 alongside relationships.
 
@@ -357,7 +381,7 @@ Forward-only, one concern per migration, aligned with the phases in [08-implemen
 | `V4__create_clans_and_branches.sql`            | `clans`, `branches`, path/root constraints                            | 2                                       |
 | `V5__create_memberships_and_join_requests.sql` | `clan_memberships`, `clan_join_requests`                              | 2                                       |
 | `V6__create_permission_grants.sql`             | `permission_grants` + constraints                                     | 3                                       |
-| `V7__create_persons.sql`                       | `persons`, name search vector, indexes                                | 4                                       |
+| `V7__create_persons.sql`                       | `persons`, name search vector, indexes, `clan_tree_versions`          | 4                                       |
 | `V8__create_parentages_and_unions.sql`         | `parentages`, `unions`                                                | 4                                       |
 | `V9__create_person_ancestry.sql`               | closure table + `rebuild_person_ancestry()`                           | 4                                       |
 | `V10__link_branches_to_root_person.sql`        | `branches.branch_root_person_id` FK (deferred until `persons` exists) | 4                                       |

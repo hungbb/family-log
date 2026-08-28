@@ -1,4 +1,4 @@
-package app.giaky.clanorg.application;
+package app.giaky.common.types;
 
 import java.util.List;
 

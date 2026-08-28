@@ -12,10 +12,12 @@ import { FieldRow } from '../pages/styles';
  * offer a scope the caller may actually grant at. Building it from the branch tree instead would
  * mean showing every chi in the clan and refusing most of them on submit.
  *
- * The subtree option is <b>present and disabled</b> rather than absent. Doc 04 describes three
- * scopes and Phase 4 turns the third on; a picker that simply omitted it would read as a product
- * that does not have the feature, and the person who was told it does would go looking for it
- * somewhere else. Disabled with an explanation is the honest state.
+ * The subtree option is not one of those: a subtree scope names a person, and a clan has thousands
+ * of them, so it cannot be enumerated alongside the branches. Choosing it reveals a person search
+ * instead (see {@link GrantDialog}), and the server resolves whoever comes back. Before Phase 4 it
+ * was present and disabled rather than absent — a picker that omitted it read as a product without
+ * the feature — and {@code subtreeAvailable} still drives that state for a deployment without a
+ * lineage schema.
  */
 interface ScopePickerProps {
   scopes: GrantableScope[];
@@ -28,6 +30,14 @@ interface ScopePickerProps {
 
 /** The sentinel the clan-wide option carries, since it has no `scopeRefId` of its own. */
 export const CLAN_SCOPE_VALUE = 'CLAN';
+
+/**
+ * The sentinel for the subtree option.
+ *
+ * It carries no id either, for the opposite reason: the id is a person, and *which* person is a
+ * second question the dialog asks with a search box.
+ */
+export const SUBTREE_SCOPE_VALUE = 'SUBTREE';
 
 export function ScopePicker({
   scopes,
@@ -61,7 +71,7 @@ export function ScopePicker({
         options={[
           ...options,
           {
-            value: 'SUBTREE',
+            value: SUBTREE_SCOPE_VALUE,
             label: subtreeAvailable
               ? t('permissions.scope.subtree')
               : t('permissions.scope.subtreeUnavailable'),

@@ -16,7 +16,8 @@
     "branches": "Branches",
     "permissions": "Permissions",
     "claims": "Node claims",
-    "settings": "Settings"
+    "settings": "Settings",
+    "search": "Find a relative"
   },
   "shell": {
     "collapseSidebar": "Collapse sidebar",
@@ -140,12 +141,15 @@
     "duplicatePendingRequest": "You have already asked to join. Wait for an answer, or withdraw that request first.",
     "membershipExists": "You are already a member of this clan.",
     "versionConflict": "Somebody else changed this while you were editing. Reload and try again.",
-    "cycleDetected": "A branch cannot be moved underneath itself.",
+    "cycleDetected": "That would make somebody their own ancestor, or move a branch underneath itself.",
     "lastAdminProtected": "This clan would be left with nobody able to administer it. Make somebody else an administrator first.",
     "outOfScope": "That is outside the part of the family you look after. You can only change what your own branch covers.",
     "escalationBlocked": "You can only give somebody a permission you already hold yourself, and only where you already hold it.",
     "grantAlreadyExists": "They already have that permission here.",
-    "subtreeUnavailable": "Limiting a permission to one person and their descendants becomes available once the family tree exists."
+    "subtreeUnavailable": "Limiting a permission to one person and their descendants becomes available once the family tree exists.",
+    "personNotFound": "That person does not exist in this clan.",
+    "invalidRelationship": "That relationship cannot be recorded as it stands. Check the people you chose.",
+    "dateRangeInvalid": "Those dates cannot both be right. Check the year you entered."
   },
   "health": {
     "title": "System health",
@@ -424,7 +428,8 @@
       "expiresHint": "Leave empty for a permission that stands until somebody takes it back.",
       "submit": "Give permission",
       "done": "Permission given.",
-      "nothingToGrant": "There is nothing you can pass on yet. You can only give a permission you hold yourself, in a branch you manage."
+      "nothingToGrant": "There is nothing you can pass on yet. You can only give a permission you hold yourself, in a branch you manage.",
+      "subtreePerson": "Which person and their descendants"
     },
     "revoke": {
       "action": "Take back",
@@ -441,6 +446,218 @@
       "title": "You do not manage permissions here",
       "body": "Only somebody who manages roles in this clan can see who holds what. Ask an administrator, or the person who looks after your branch.",
       "youHold": "What you hold"
+    }
+  },
+  "tree": {
+    "title": "Family tree",
+    "subtitle": "Everyone in the book, by generation. Open a name to see the family around them.",
+    "empty": "Nobody in the book yet",
+    "emptyHelp": "Start with the founding ancestor — đời 1 — and hang the rest of the family below them.",
+    "unknown": "Not recorded",
+    "unplaced": "No branch",
+    "canEdit": "You can edit",
+    "readOnlyTag": "Read only",
+    "linked": "Linked to an account",
+    "notLinked": "No account",
+    "personLabel": "{{name}} (đời {{generation}})",
+    "action": {
+      "addPerson": "Add a person",
+      "addChild": "Add a child",
+      "edit": "Edit",
+      "delete": "Remove"
+    },
+    "placement": {
+      "CHILD_OF_PARENT": "Child of…",
+      "CHILD_OF_UNION": "Child of a marriage…",
+      "SPOUSE_OF": "Spouse of…",
+      "BRANCH_ROOT": "Ancestor of a branch",
+      "UNPLACED": "Not placed yet"
+    },
+    "stats": {
+      "people": "People",
+      "generations": "Generations",
+      "living": "Living",
+      "unlinked": "Without an account"
+    },
+    "column": {
+      "name": "Name",
+      "generation": "Generation",
+      "lifespan": "Born – died",
+      "branch": "Branch",
+      "access": "Access",
+      "marriedTo": "Married to {{names}}"
+    },
+    "field": {
+      "fullName": "Full name",
+      "alias": "Also known as",
+      "posthumousName": "Posthumous name (tên thụy)",
+      "gender": "Gender",
+      "lifeStatus": "Living status",
+      "birth": "Born",
+      "death": "Died",
+      "birthOrder": "Birth order among siblings",
+      "burialPlace": "Burial place",
+      "notes": "Notes",
+      "notesHelp": "Kept as written. Formatting is preserved; anything that could run is removed.",
+      "generation": "Generation (đời)",
+      "lifespan": "Born – died",
+      "branch": "Branch",
+      "linkedUser": "Account"
+    },
+    "placeholder": {
+      "fullName": "Nguyễn Văn An",
+      "posthumousName": "The name used at the giỗ"
+    },
+    "validation": {
+      "nameRequired": "A name is required — everything else can wait.",
+      "anchorRequired": "Choose the person this one attaches to.",
+      "branchRequired": "Choose a branch."
+    },
+    "form": {
+      "createTitle": "Add a person",
+      "editTitle": "Edit this person",
+      "childOf": "Child of",
+      "spouseOf": "Spouse of",
+      "branch": "Branch"
+    },
+    "gender": {
+      "MALE": "Male",
+      "FEMALE": "Female",
+      "OTHER": "Other",
+      "UNKNOWN": "Not recorded"
+    },
+    "lifeStatus": {
+      "ALIVE": "Living",
+      "DECEASED": "Deceased",
+      "UNKNOWN": "Not recorded"
+    },
+    "unionType": {
+      "PRIMARY": "Principal marriage",
+      "SECONDARY": "Secondary marriage",
+      "SEQUENTIAL": "Later marriage"
+    },
+    "nature": {
+      "BIOLOGICAL": "By birth",
+      "ADOPTED": "Adopted (con nuôi)",
+      "STEP": "By marriage",
+      "FOSTER": "Raised by"
+    },
+    "role": {
+      "FATHER": "Father",
+      "MOTHER": "Mother"
+    },
+    "kin": {
+      "father": "Father (cha)",
+      "mother": "Mother (mẹ)",
+      "wife": "Wife (vợ)",
+      "husband": "Husband (chồng)",
+      "spouse": "Spouse"
+    },
+    "generation": {
+      "value": "đời {{generation}}",
+      "unknown": "đời not known"
+    },
+    "date": {
+      "precisionFor": "How much of {{field}} is known",
+      "precision": {
+        "UNKNOWN": "Not known",
+        "YEAR": "Year",
+        "MONTH": "Month",
+        "EXACT": "Exact day",
+        "RANGE": "Between"
+      },
+      "year": "Year",
+      "month": "Month",
+      "day": "Day",
+      "rangeEnd": "To year",
+      "circaLabel": "Approximate (khoảng)",
+      "lunar": "Lunar date (âm lịch)",
+      "lunarPlaceholder": "tháng 6 năm Quý Mùi",
+      "lunarNeedsPrecision": "Choose how much of the date is known before adding the lunar reading.",
+      "format": {
+        "range": "{{from}}–{{to}}",
+        "exact": "{{day}}/{{month}}/{{year}}",
+        "month": "{{month}}/{{year}}",
+        "circa": "about {{date}}",
+        "withLunar": "{{date}} ({{lunar}})"
+      }
+    },
+    "lifespan": {
+      "both": "{{birth}} – {{death}}",
+      "birthOnly": "b. {{birth}}",
+      "deathOnly": "d. {{death}}"
+    },
+    "relation": {
+      "parents": "Parents",
+      "unions": "Marriages",
+      "children": "Children",
+      "siblings": "Siblings",
+      "none": "None recorded"
+    },
+    "drawer": {
+      "title": "Person"
+    },
+    "readOnly": {
+      "branch": "This person is in {{branch}}, which is outside the part of the tree you can edit.",
+      "noBranch": "This person is not placed in a branch, so only a clan-wide editor can change them.",
+      "generic": "This person is outside the part of the tree you can edit."
+    },
+    "delete": {
+      "title": "Remove {{name}} from the tree?",
+      "body": "They stay in the record and an administrator can put them back within 30 days.",
+      "bodyWithChildren_one": "They stay in the record and can be restored within 30 days. {{count}} child is recorded under them: {{names}}.",
+      "bodyWithChildren_other": "They stay in the record and can be restored within 30 days. {{count}} children are recorded under them: {{names}}.",
+      "confirm": "Remove",
+      "done": "Removed from the tree."
+    },
+    "deleted": {
+      "title": "Recently removed",
+      "help": "Removed within the last 30 days. Restoring puts a person back exactly as they were.",
+      "restore": "Restore",
+      "restored": "Restored."
+    },
+    "conflict": {
+      "title": "This record changed while you were editing",
+      "body": "Somebody else saved a change to this person. Reload to see theirs before making yours — saving now would overwrite it.",
+      "reload": "Reload"
+    },
+    "picker": {
+      "placeholder": "Search by name — diacritics optional",
+      "empty": "Nobody found"
+    },
+    "editor": {
+      "addParent": "Add a parent",
+      "parent": "Parent",
+      "role": "As",
+      "roleHelp": "Leave empty to take it from their recorded gender.",
+      "link": "Link",
+      "parentAdded": "Parent linked.",
+      "removeParent": "Remove {{name}}",
+      "removeParentTitle": "Remove {{name}} as a parent?",
+      "removeParentBody": "The link is removed; neither person leaves the tree. Generations below are recalculated.",
+      "remove": "Remove",
+      "parentRemoved": "Parent link removed.",
+      "addUnion": "Record a marriage",
+      "spouse": "Spouse",
+      "unionType": "Kind",
+      "unionTypeHelp": "One principal marriage per person. A second wife is recorded as a secondary marriage.",
+      "record": "Record",
+      "unionAdded": "Marriage recorded.",
+      "attachChild": "Attach a child to a marriage",
+      "union": "Marriage",
+      "unionOption": "{{partner}} · {{type}}",
+      "child": "Child",
+      "attachChildHelp": "Links the child to both partners, so the book shows whose child is whose.",
+      "attach": "Attach",
+      "childAttached": "Child attached."
+    },
+    "search": {
+      "title": "Find a relative",
+      "subtitle": "Diacritics are optional — \"nguyen van an\" finds \"Nguyễn Văn An\".",
+      "placeholder": "Name, alias or posthumous name",
+      "linked": "Account",
+      "linkedYes": "Has an account",
+      "linkedNo": "No account"
     }
   }
 }

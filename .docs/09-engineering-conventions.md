@@ -148,7 +148,7 @@ These exist from the phase that introduces them and are never deleted:
 1. **`BranchIsolationIT`** — the isolation matrix (doc 04 §8). The single most important test in the codebase.
 2. **`TenancyBoundaryIT`** — cross-clan id substitution on every nested endpoint, parameterized.
 3. **`PermissionEscalationIT`** — every escalation path from doc 04 §5.4.
-4. **`AncestryProjectionPropertyTest`** — randomized edit sequences vs a reference closure.
+4. **`AncestryProjectionPropertyIT`** — randomized edit sequences vs a reference closure. An `IT` rather than a `Test`: the thing under test is the maintenance SQL, and a version of it running against an in-memory double would be checking a reimplementation of the bug it is looking for. The reference is `rebuild_person_ancestry`, which shares no code with the incremental path.
 5. **`ApiContractTest`** — the exported OpenAPI spec matches the committed frontend types.
 6. **`SensitiveFieldExposureTest`** — no DTO serializes a password hash, token, or non-member-visible field.
 

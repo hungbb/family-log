@@ -1,5 +1,6 @@
 package app.giaky.authorization.application;
 
+import app.giaky.authorization.domain.LineageAncestryPort;
 import app.giaky.authorization.domain.PermissionGrant;
 import app.giaky.authorization.domain.ScopeType;
 import app.giaky.clanorg.application.ClanDirectory;
@@ -14,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,10 +31,12 @@ public class GrantDecorator {
 
     private final ClanDirectory clans;
     private final UserDirectory users;
+    private final LineageAncestryPort lineage;
 
-    public GrantDecorator(ClanDirectory clans, UserDirectory users) {
+    public GrantDecorator(ClanDirectory clans, UserDirectory users, LineageAncestryPort lineage) {
         this.clans = clans;
         this.users = users;
+        this.lineage = lineage;
     }
 
     List<GrantView> decorate(ClanId clanId, List<PermissionGrant> rows) {
@@ -50,14 +54,28 @@ public class GrantDecorator {
         Map<BranchId, String> branchNames = new HashMap<>();
         clans.branches(clanId).forEach(branch -> branchNames.put(branch.id(), branch.name()));
 
+        // Subtree scopes name a person, and a permissions screen showing a UUID is a screen nobody
+        // can audit. Collected across the whole page and resolved in one call, like the profiles
+        // above — the point of this class is that a page costs a fixed number of lookups.
+        Set<UUID> subtreePersonIds = new LinkedHashSet<>();
+        for (PermissionGrant grant : rows) {
+            if (grant.scope().type() == ScopeType.SUBTREE) {
+                subtreePersonIds.add(grant.scope().refId());
+            }
+        }
+        Map<UUID, String> personNames = lineage.displayNames(clanId, subtreePersonIds);
+
         List<GrantView> views = new ArrayList<>(rows.size());
         for (PermissionGrant grant : rows) {
             UserProfile grantee = profiles.get(grant.granteeUserId());
             UserProfile granter = grant.grantedBy() == null ? null : profiles.get(grant.grantedBy());
             String scopeLabel =
-                    grant.scope().type() == ScopeType.BRANCH
-                            ? branchNames.get(grant.scope().branchId())
-                            : null;
+                    switch (grant.scope().type()) {
+                        case BRANCH -> branchNames.get(grant.scope().branchId());
+                        case SUBTREE -> personNames.get(grant.scope().refId());
+                        // Clan scope needs no label; "the whole clan" is what the scope type says.
+                        case CLAN -> null;
+                    };
             views.add(
                     GrantView.of(
                             grant,

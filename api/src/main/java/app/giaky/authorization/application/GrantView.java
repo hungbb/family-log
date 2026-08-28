@@ -11,7 +11,8 @@ import java.util.UUID;
  * "TREE_EDIT / BRANCH / 8f0e…" is a row only a developer can read; a family arguing about who may
  * change what needs "Nguyễn Văn An can edit Chi Hai, granted by Nguyễn Thị Bích".
  *
- * @param scopeLabel the branch's name, or null for a clan-wide grant, which needs no label
+ * @param scopeLabel the branch's name for a BRANCH scope, the person's name for a SUBTREE one,
+ *     or null for a clan-wide grant, which needs no label
  * @param expiresAt null for a grant that stands until somebody revokes it
  */
 public record GrantView(

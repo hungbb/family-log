@@ -36,6 +36,13 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   MEMBERSHIP_EXISTS: 'errors.membershipExists',
   VERSION_CONFLICT: 'errors.versionConflict',
   CYCLE_DETECTED: 'errors.cycleDetected',
+
+  // Lineage. INVALID_RELATIONSHIP covers the guards a family meets while transcribing a real book —
+  // a marriage between two people the tree already relates, a union that still has children under
+  // it — so it names the check rather than saying the request failed.
+  PERSON_NOT_FOUND: 'errors.personNotFound',
+  INVALID_RELATIONSHIP: 'errors.invalidRelationship',
+  DATE_RANGE_INVALID: 'errors.dateRangeInvalid',
   LAST_ADMIN_PROTECTED: 'errors.lastAdminProtected',
 
   // Authorization. These three are the refusals a person meets while doing something reasonable,

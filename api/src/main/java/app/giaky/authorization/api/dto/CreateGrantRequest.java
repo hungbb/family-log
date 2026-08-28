@@ -28,12 +28,15 @@ public record CreateGrantRequest(
                 String permission,
         @Schema(
                         description =
-                                "CLAN or BRANCH. SUBTREE is understood by the resolver and"
-                                    + " returns 422 SUBTREE_SCOPE_UNAVAILABLE until the family"
-                                    + " tree exists.",
+                                "CLAN, BRANCH or SUBTREE. A BRANCH scope names a branch in"
+                                    + " scopeRefId and a SUBTREE scope names a person; both are"
+                                    + " resolved before the grant is stored.",
                         example = "BRANCH")
                 @NotBlank
                 String scopeType,
-        @Schema(description = "The branch, for a BRANCH scope. Omitted for CLAN.")
+        @Schema(
+                        description =
+                                "The branch for a BRANCH scope, or the person for a SUBTREE scope."
+                                    + " Omitted for CLAN.")
                 UUID scopeRefId,
         @Future Instant expiresAt) {}

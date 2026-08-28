@@ -16,6 +16,7 @@ import app.giaky.common.error.ErrorCode;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.UserId;
 import app.giaky.identity.application.UserDirectory;
 import app.giaky.identity.application.UserProfile;

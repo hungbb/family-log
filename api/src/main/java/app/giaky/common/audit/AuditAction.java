@@ -85,5 +85,32 @@ public enum AuditAction {
      * system issued this" and "somebody issued this" are different facts and the audit view filters
      * on exactly this distinction.
      */
-    PERMISSION_BOOTSTRAPPED
+    PERMISSION_BOOTSTRAPPED,
+
+    // --- Lineage (Phase 4) ---------------------------------------------------------------------
+
+    PERSON_CREATED,
+    PERSON_UPDATED,
+    /** Soft delete. The node, its edges and its closure rows all stay (FR-P10). */
+    PERSON_DELETED,
+    PERSON_RESTORED,
+    /**
+     * A node changed branch. Its own action because placement decides which grants reach the node
+     * (doc 04 §3) — a move is an access change as much as an organizational one.
+     */
+    PERSON_MOVED_TO_BRANCH,
+
+    /**
+     * A parent-child edge was created.
+     *
+     * <p>The most consequential lineage entry there is: edges are what the ancestry closure, the
+     * generation numbers and every {@code SUBTREE} grant are derived from. The before/after JSON
+     * carries the whole edge, so a mis-linked branch can be reconstructed rather than guessed at.
+     */
+    PARENTAGE_ADDED,
+    PARENTAGE_REMOVED,
+
+    UNION_CREATED,
+    UNION_UPDATED,
+    UNION_REMOVED
 }
