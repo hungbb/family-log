@@ -67,7 +67,9 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 
 ### 3.3 `PersonSummary` / `PersonDetail`
 
-`PersonSummary` (tree nodes, search results): `id, fullName, alias, gender, lifeStatus, birth, death, generation, birthOrder, avatarUrl, branchId, linkedUserId, canEdit`.
+`PersonSummary` (tree nodes, search results): `id, clanId, fullName, alias, gender, lifeStatus, birth, death, generation, birthOrder, avatarMediaId, branchId, linkedUserId, foundingAncestor, canEdit`.
+
+`avatarMediaId` is the media row rather than a URL: Phase 7 owns media and resolves these to URLs, and until then the field is always null (phase 4 §1). `generation` is null when unknown — never 0 — and clients render the difference.
 
 `PersonDetail` adds: `familyName, givenName, posthumousName, burialPlace, notesHtml, isFoundingAncestor, parents[], unions[], children[], siblings[], linkedUser, version, createdAt, updatedAt`.
 
@@ -159,6 +161,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 | POST | `/persons/{personId}/avatar` | `TREE_EDIT` or self-linked | multipart |
 | POST | `/persons/{personId}/move-branch` | `TREE_EDIT` on person **and** destination branch | `{ branchId }` |
 | GET | `/persons` | `CLAN_VIEW` | Search: `?q=&generation=&lifeStatus=&branchId=&linked=true|false`, paged, diacritic-insensitive |
+| GET | `/persons/deleted` | `CLAN_ADMIN` | Soft-deleted within the 30-day recovery window, most recent first — what the restore screen lists |
 
 **Create person — request**
 ```json

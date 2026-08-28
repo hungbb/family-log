@@ -183,6 +183,39 @@ public record Branch(
     }
 
     /**
+     * Names the person this branch descends from (I-C5).
+     *
+     * <p>Deferred from Phase 2 because {@code persons} did not exist; V10 adds the foreign key and
+     * Phase 4's {@code BRANCH_ROOT} placement is what fills it in. It is not decoration: doc 04 §5.4
+     * decides whether a {@code SUBTREE} grant covers a whole branch by asking whether that branch's
+     * root person is inside the grant, so an unset root person is a branch no subtree grant reaches.
+     *
+     * @param personId the person, or null to clear the association
+     */
+    public Branch withRootPerson(UUID personId, UserId editor, Instant now) {
+        if (Objects.equals(branchRootPersonId, personId)) {
+            return this;
+        }
+        return new Branch(
+                id,
+                clanId,
+                parentBranchId,
+                branchCode,
+                name,
+                description,
+                personId,
+                path,
+                depth,
+                archivedAt,
+                version,
+                createdBy,
+                editor,
+                createdAt,
+                now,
+                deletedAt);
+    }
+
+    /**
      * This branch, moved under {@code newParent} (FR-C6).
      *
      * <p>Returns only the moved branch. Its descendants keep paths that are now wrong until the

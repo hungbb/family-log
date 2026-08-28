@@ -63,6 +63,12 @@ const MembersPage = lazy(async () => ({
 const PermissionsPage = lazy(async () => ({
   default: (await import('../features/permissions')).PermissionsPage,
 }));
+const TreePage = lazy(async () => ({
+  default: (await import('../features/tree')).TreePage,
+}));
+const PersonSearchPage = lazy(async () => ({
+  default: (await import('../features/tree')).PersonSearchPage,
+}));
 
 /** Every lazy route renders through the same fallback, so a slow chunk never blanks the page. */
 function withSuspense(element: ReactNode): ReactNode {
@@ -105,13 +111,16 @@ export const router = createBrowserRouter([
             path: 'clans/:clanId',
             element: <RequireClan />,
             children: [
-              { index: true, element: <Navigate to="members" replace /> },
+              { index: true, element: <Navigate to="tree" replace /> },
+              { path: 'tree', element: withSuspense(<TreePage />) },
+              { path: 'search', element: withSuspense(<PersonSearchPage />) },
               { path: 'members', element: withSuspense(<MembersPage />) },
               { path: 'branches', element: withSuspense(<BranchesPage />) },
               { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'settings', element: withSuspense(<ClanSettingsPage />) },
-              // The tree and claims arrive with the phases that build them.
-              { path: '*', element: <Navigate to="members" replace /> },
+              // Claims arrive with Phase 6; the graphical tree canvas with Phase 5, alongside the
+              // list view that stays as the accessible route (NFR-7).
+              { path: '*', element: <Navigate to="tree" replace /> },
             ],
           },
           { path: '*', element: <Navigate to="/" replace /> },

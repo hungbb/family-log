@@ -98,3 +98,87 @@
 - **R4 (lineage modelling).** Validate the model against a real *gia phả* before Phase 5 — especially multiple wives, adopted children (con nuôi), and sons-in-law recorded in the book. Model gaps found later are expensive.
 - **Generation numbers are advisory.** They are recomputed from edges but may be unknown for imported or fragmentary records; the UI must tolerate `null` rather than defaulting to 0.
 - **Placement decides authorization.** A person created "unplaced" has no branch and therefore no scope — restrict creation of unplaced nodes to `TREE_EDIT@CLAN` holders, or the branch-isolation guarantee has a hole.
+
+---
+
+## 9. Phase Report
+
+> Appended on completion, per doc 09 §5.
+
+### What shipped
+
+**Backend.** All of B4.1–B4.15. `common.types.PartialDate` with three-valued comparison; the
+`Person`, `Parentage` and `Union` aggregates with I-P1…I-P8, I-R1…I-R5 and I-N1…I-N4 enforced in a
+framework-free domain; `LineageGraphService` (cycle detection, generation cascade) and
+`AncestryProjection` over the `person_ancestry` closure; `PersonService` with placement-driven
+create, `PUT`/`PATCH`, soft delete, restore and move-branch; `RelationshipService` with the
+multi-target checks of doc 04 §5.2; `TreeQueryService` for the flat master view, subtree reads,
+ancestor chains and stats; diacritic-insensitive search over `tsvector` + trigram; a per-clan
+`treeVersion` behind the tree `ETag`; OWASP-sanitized notes with a plain-text projection; audit
+entries with before/after JSONB on every mutation.
+
+**`SUBTREE` scope is live** (B4.8). Phase 3's `DeferredLineageAncestryAdapter` is deleted and
+`ClosureLineageAncestryAdapter` reads the closure through `LineageDirectory`. The Phase-3 `422
+SUBTREE_SCOPE_UNAVAILABLE` is gone from the happy path; a subtree scope naming a person the clan does
+not have now answers `404 PERSON_NOT_FOUND`, the same rule branch scope always had.
+`PermissionResolver` and `ScopeCoverage` were **not modified** — which is what Phase 3's port design
+was buying.
+
+**Frontend.** All of F4.1–F4.10: `PartialDateInput` (precision first, then only the fields that
+follow from it, plus a lunar text field); the create form with a placement picker and `PersonPicker`;
+the edit form with a version-conflict dialog that offers a reload rather than a retry; the person
+detail drawer; relationship editors; the list view of the tree; the search page with filters;
+`canEdit`-driven read-only rendering that names the branch the caller *can* edit; soft-delete
+confirmation naming affected children and a restore list for administrators; en/vi strings including
+the kinship vocabulary (cha, mẹ, con, vợ, chồng, đời).
+
+**Migrations.** `V7` (persons, generated `name_search`, `clan_tree_versions`), `V8` (parentages,
+unions), `V9` (closure table, `rebuild_person_ancestry`, `recompute_person_ancestry_from`), `V10`
+(the `branches.branch_root_person_id` foreign key deferred from Phase 2).
+
+### Measured
+
+| | |
+|---|---|
+| Backend unit tests | **526 pass** (439 before this phase) |
+| Frontend | `eslint --max-warnings=0`, constraint script, `tsc --noEmit`, `vite build` all clean |
+| Tree chunk | 275 KB raw / 84 KB gzipped, lazily loaded per route |
+
+**Integration tests were written but not executed in the authoring environment** — it has no Docker
+daemon, and every `*IT` needs Testcontainers. `LineageSchemaIT`, `LineageCoreIT`,
+`AncestryProjectionPropertyIT`, `SubtreeIsolationIT` and `LargeTreePerformanceIT` are complete and
+must be run (`./mvnw verify`) on a machine with Docker before this phase is called done. Until then
+the NFR-1 numbers in §7's exit criteria are **unmeasured**, and so is the closure property test that
+§8 names as the release gate.
+
+### Deviations from the design docs
+
+1. **`clan_tree_versions` is its own table**, not a column on `clans`. Bumping `clans.version` on
+   every person insert would answer a concurrent settings edit with `409 VERSION_CONFLICT`. Recorded
+   in doc 03 §3.7.1.
+2. **`recompute_person_ancestry_from(clan_id, person_id)`** joins the one function doc 03 §3.10 named.
+   Doc 03 described removal as "a recursive CTE"; this is that, as a named function so the SQL lives
+   in one place. Recorded in doc 03 §3.10.
+3. **`AncestryProjectionPropertyTest` is an `IT`.** The subject is the maintenance SQL. Doc 09 §4.5
+   updated with the reason.
+4. **`PersonSummary.avatarUrl` is `avatarMediaId`.** §1 of this phase puts avatar upload in Phase 7
+   and says `avatarMediaId` is accepted but unset; doc 05 §3.3 updated to match.
+5. **`GET /clans/{clanId}/persons/deleted`** added to doc 05 §4.7 — F4.9 needs a list to restore from
+   and the spec had only the restore endpoint.
+6. **`Paged` moved** from `clanorg.application` to `common.types`, so Lineage can page without
+   depending on ClanOrg. No behaviour change.
+7. **`LineageAncestryPort` grew two methods** — `personExists` and `displayNames`. The first is what
+   resolves a subtree scope before it is stored; the second puts a person's name on a subtree grant
+   in the permissions screen instead of a UUID. Both go through the one port Authorization already
+   had rather than a second one.
+
+### Notes for the next phase
+
+- **Placement is the only way into a branch.** `BRANCH_ROOT` places one person per chi and is refused
+  for a second; everything else hangs off somebody. That is the model working as intended, but it
+  means seeding an empty chi is a two-step (`UNPLACED`, then move-branch) that needs clan-wide
+  `TREE_EDIT`. Worth revisiting with a real *gia phả* in hand — it is the same conversation as R4.
+- **Generation takes the shortest path to the founding ancestor** when two parents disagree, matching
+  how the closure measures depth. Documented on `LineageGraphService.recomputeGenerationsFrom`.
+- **`PartialDate.CIRCA_TOLERANCE_YEARS` is 5.** It decides which records I-P2 refuses; named rather
+  than inlined so the argument about it is an argument about one constant.

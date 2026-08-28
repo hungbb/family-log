@@ -2,6 +2,7 @@ package app.giaky.authorization.application;
 
 import app.giaky.authorization.domain.AccessDecision;
 import app.giaky.authorization.domain.GrantPort;
+import app.giaky.authorization.domain.LineageAncestryPort;
 import app.giaky.authorization.domain.Permission;
 import app.giaky.authorization.domain.PermissionGrant;
 import app.giaky.authorization.domain.PermissionGrantRepository;
@@ -69,6 +70,7 @@ public class GrantService {
     private final PermissionResolver resolver;
     private final GrantPort grantCache;
     private final ClanDirectory clans;
+    private final LineageAncestryPort ancestry;
     private final GrantDecorator decorator;
     private final AuditWriter auditWriter;
     private final IdGenerator ids;
@@ -79,6 +81,7 @@ public class GrantService {
             PermissionResolver resolver,
             GrantPort grantCache,
             ClanDirectory clans,
+            LineageAncestryPort ancestry,
             GrantDecorator decorator,
             AuditWriter auditWriter,
             IdGenerator ids,
@@ -88,6 +91,7 @@ public class GrantService {
         this.resolver = resolver;
         this.grantCache = grantCache;
         this.clans = clans;
+        this.ancestry = ancestry;
         this.decorator = decorator;
         this.auditWriter = auditWriter;
         this.ids = ids;
@@ -100,8 +104,7 @@ public class GrantService {
      * @throws PermissionDeniedException {@code PERMISSION_ESCALATION_BLOCKED} when any of the four
      *     conditions fails — deliberately one code for all four, because distinguishing them tells a
      *     prober which of the four they are closest to satisfying
-     * @throws DomainRuleViolation the permission cannot be held at that scope, or the scope is
-     *     {@code SUBTREE}, which Phase 4 turns on
+     * @throws DomainRuleViolation the permission cannot be held at that scope
      * @throws ConflictException an identical live grant already exists (I-G5)
      */
     @Transactional
@@ -320,10 +323,11 @@ public class GrantService {
                 offered.add(new GrantableView.GrantablePermission(permission.name(), scopes));
             }
         }
-        // Subtree scope is understood by the resolver and refused by grant(); the picker shows it
-        // disabled rather than hiding it, so the capability the docs describe is visible as
-        // "not yet" rather than as "missing" (F3.6).
-        return new GrantableView(offered, false);
+        // Subtree scopes are deliberately not enumerated above. The candidate list is clan scope
+        // plus the clan's branches — tens of entries — while a subtree scope names a person, and a
+        // clan has thousands. The picker offers a person search instead and this flag is what tells
+        // it the option is live (F3.6, F4.2); grant() resolves whichever person comes back.
+        return new GrantableView(offered, ancestry.isAvailable());
     }
 
     /**
@@ -501,18 +505,28 @@ public class GrantService {
             throw new DomainRuleViolation(
                     ErrorCode.VALIDATION_FAILED, "No such scope: " + command.scopeType());
         }
-        if (type == ScopeType.SUBTREE) {
-            throw new DomainRuleViolation(
-                    ErrorCode.SUBTREE_SCOPE_UNAVAILABLE,
-                    "Scoping a permission to one person's descendants becomes available once the"
-                            + " family tree exists.");
-        }
         if (type.requiresReference() == (command.scopeRefId() == null)) {
             throw new DomainRuleViolation(
                     ErrorCode.VALIDATION_FAILED,
                     type == ScopeType.CLAN
                             ? "A clan-wide permission names no branch."
                             : "Choose a branch for this permission.");
+        }
+        if (type == ScopeType.SUBTREE) {
+            // Live from Phase 4 (B4.8). The guard that used to answer 422 SUBTREE_SCOPE_UNAVAILABLE
+            // is gone; what replaces it is the same rule branch scope has always had — resolve the
+            // reference before storing it, because a grant pointing at nobody covers nobody and is a
+            // row an administrator cannot explain.
+            if (!ancestry.isAvailable()) {
+                throw new DomainRuleViolation(
+                        ErrorCode.SUBTREE_SCOPE_UNAVAILABLE,
+                        "Scoping a permission to one person's descendants needs the family tree,"
+                                + " which this deployment cannot reach.");
+            }
+            if (!ancestry.personExists(clanId, command.scopeRefId())) {
+                throw new NotFoundException(ErrorCode.PERSON_NOT_FOUND, "No such person.");
+            }
+            return PermissionScope.subtree(command.scopeRefId());
         }
         if (type == ScopeType.BRANCH) {
             BranchId branchId = BranchId.of(command.scopeRefId());

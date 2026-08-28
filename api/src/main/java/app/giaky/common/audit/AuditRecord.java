@@ -68,6 +68,15 @@ public record AuditRecord(
     /** The {@code targetType} for a permission grant. */
     public static final String TARGET_PERMISSION_GRANT = "PERMISSION_GRANT";
 
+    /** The {@code targetType} for a person node. */
+    public static final String TARGET_PERSON = "PERSON";
+
+    /** The {@code targetType} for a parent-child edge. */
+    public static final String TARGET_PARENTAGE = "PARENTAGE";
+
+    /** The {@code targetType} for a marriage. */
+    public static final String TARGET_UNION = "UNION";
+
     /**
      * An action inside a clan.
      *

@@ -11,7 +11,7 @@ import app.giaky.authorization.infrastructure.AuthorizationRequestCache;
 import app.giaky.authorization.infrastructure.CachingGrantAdapter;
 import app.giaky.authorization.infrastructure.ClanOrgBranchHierarchyAdapter;
 import app.giaky.authorization.infrastructure.ClanOrgMembershipAdapter;
-import app.giaky.authorization.infrastructure.DeferredLineageAncestryAdapter;
+import app.giaky.authorization.support.InMemoryLineageAncestryPort;
 import app.giaky.authorization.support.InMemoryPermissionGrantRepository;
 import app.giaky.clanorg.application.BranchService;
 import app.giaky.clanorg.application.ClanDirectory;
@@ -94,15 +94,25 @@ public final class ClanOrgTestFixtures {
     public final AuthorizationRequestCache requestCache = new AuthorizationRequestCache();
     public final CachingGrantAdapter grantPort = new CachingGrantAdapter(grants, requestCache, clock);
 
+    /**
+     * The lineage closure, in a map.
+     *
+     * <p>Phase 3 wired the deferred adapter here, which answered "no lineage yet". Phase 4 turns
+     * {@code SUBTREE} scope on, so these fixtures need something that answers — tests that care
+     * about subtree scope add people and edges to it, and the rest never touch it.
+     */
+    public final InMemoryLineageAncestryPort ancestry = new InMemoryLineageAncestryPort();
+
     public final PermissionResolver resolver =
             new PermissionResolver(
                     new ClanOrgMembershipAdapter(clanDirectory),
                     grantPort,
                     new ClanOrgBranchHierarchyAdapter(clanDirectory, requestCache),
-                    new DeferredLineageAncestryAdapter(),
+                    ancestry,
                     clock);
 
-    public final GrantDecorator grantDecorator = new GrantDecorator(clanDirectory, directory);
+    public final GrantDecorator grantDecorator =
+            new GrantDecorator(clanDirectory, directory, ancestry);
 
     public final GrantService grantService =
             new GrantService(
@@ -110,6 +120,7 @@ public final class ClanOrgTestFixtures {
                     resolver,
                     grantPort,
                     clanDirectory,
+                    ancestry,
                     grantDecorator,
                     audit,
                     ids,

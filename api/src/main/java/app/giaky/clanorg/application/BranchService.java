@@ -190,6 +190,55 @@ public class BranchService {
     }
 
     /**
+     * Names the person a branch descends from (I-C5).
+     *
+     * <p>Called by Lineage when a node is created with {@code placement.type = BRANCH_ROOT}, which
+     * is the only way a branch acquires one in Phase 4. A published application service rather than
+     * a shared repository, because Lineage may not touch {@code clanorg.domain} (doc 02 §7 rule 1).
+     *
+     * <p><b>{@code TREE_EDIT} on the branch, not {@code CLAN_ADMIN}.</b> Naming the ancestor a chi
+     * descends from is a statement about the family tree, and the person making it is the person who
+     * just created that ancestor — an editor of that branch, by construction. Requiring clan
+     * administration would make the placement unusable by the people it exists for.
+     *
+     * <p>Refused when the branch already has a root person: replacing one silently re-scopes every
+     * {@code SUBTREE} grant that reaches this branch through it (doc 04 §5.4), and that is not a
+     * side effect of adding a person.
+     *
+     * @throws DomainRuleViolation the branch already names a different root person
+     */
+    @Transactional
+    public BranchView assignRootPerson(
+            UserId caller, ClanId clanId, BranchId branchId, java.util.UUID personId) {
+
+        var authorizing =
+                resolver.require(caller, Permission.TREE_EDIT, Target.branch(clanId, branchId));
+        Branch branch = require(clanId, branchId);
+
+        if (branch.branchRootPersonId() != null
+                && !branch.branchRootPersonId().equals(personId)) {
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "This branch already descends from somebody. Clear that first if the book says"
+                            + " otherwise.");
+        }
+
+        Branch updated =
+                branches.save(branch.withRootPerson(personId, caller, clock.instant()));
+
+        auditWriter.write(
+                AuditRecord.inClan(
+                                AuditAction.BRANCH_UPDATED,
+                                clanId,
+                                AuditRecord.TARGET_BRANCH,
+                                branchId.value(),
+                                caller)
+                        .authorizedBy(authorizing.authorizingGrantId()));
+
+        return BranchView.of(updated, memberCounts(clanId).getOrDefault(branchId, 0L), List.of());
+    }
+
+    /**
      * Re-parents a branch and everything under it (FR-C6).
      *
      * <p>The risky one (phase 2 doc §8). {@link BranchPathService#move} does both halves inside this

@@ -26,6 +26,7 @@
     <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
     <jjwt.version>0.13.0</jjwt.version>
     <bucket4j.version>8.19.0</bucket4j.version>
+    <owasp-sanitizer.version>20240325.1</owasp-sanitizer.version>
     <jacoco.version>0.8.13</jacoco.version>
   </properties>
 
@@ -122,6 +123,16 @@
       <groupId>org.mapstruct</groupId>
       <artifactId>mapstruct</artifactId>
       <version>${mapstruct.version}</version>
+    </dependency>
+
+    <!-- HTML sanitization for person notes (B4.13). An allow-list sanitizer rather than a regex or
+         an escape-on-render rule: notes are rich text a family pastes from a document, the markup
+         has to survive, and "which tags are safe" is a question with a maintained answer we should
+         not be re-deriving. Applied on write, so the column never holds anything else. -->
+    <dependency>
+      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+      <artifactId>owasp-java-html-sanitizer</artifactId>
+      <version>${owasp-sanitizer.version}</version>
     </dependency>
 
     <!-- test -->

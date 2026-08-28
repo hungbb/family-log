@@ -1,0 +1,92 @@
+import { type TFunction } from 'i18next';
+
+import { type PartialDate, type PersonSummary } from '@/api/endpoints/persons.ts';
+
+/**
+ * Rendering the parts of a person a family recognizes.
+ *
+ * Pure and framework-free (doc 09 §4.3): no React, no AntD, so these are the first things an
+ * automated frontend suite would cover without any restructuring.
+ */
+
+/**
+ * A partial date, at the precision it actually has.
+ *
+ * Never invents the missing parts. "1901" stays "1901" rather than becoming "1 January 1901", and a
+ * `circa` year is prefixed so nobody reads a recollection as a record. The âm lịch reading, when the
+ * book has one, is appended verbatim — the product does not convert lunar dates (see `PartialDate`
+ * on the server).
+ */
+export function formatPartialDate(date: PartialDate | undefined, t: TFunction): string | undefined {
+  if (date === undefined || date.precision === 'UNKNOWN' || date.year === undefined) {
+    return undefined;
+  }
+
+  let base: string;
+  if (date.precision === 'RANGE' && date.rangeEndYear !== undefined) {
+    base = t('tree.date.format.range', { from: date.year, to: date.rangeEndYear });
+  } else if (date.precision === 'EXACT' && date.month !== undefined && date.day !== undefined) {
+    base = t('tree.date.format.exact', {
+      day: date.day,
+      month: date.month,
+      year: date.year,
+    });
+  } else if (date.precision === 'MONTH' && date.month !== undefined) {
+    base = t('tree.date.format.month', { month: date.month, year: date.year });
+  } else {
+    base = String(date.year);
+  }
+
+  const withCirca = date.circa ? t('tree.date.format.circa', { date: base }) : base;
+  return date.lunarText === undefined || date.lunarText === ''
+    ? withCirca
+    : t('tree.date.format.withLunar', { date: withCirca, lunar: date.lunarText });
+}
+
+/** "1901 – 1968", or just one end, or nothing at all. The line under a name in every tree render. */
+export function formatLifespan(person: PersonSummary, t: TFunction): string | undefined {
+  const birth = formatPartialDate(person.birth, t);
+  const death = formatPartialDate(person.death, t);
+  if (birth === undefined && death === undefined) return undefined;
+  if (birth !== undefined && death !== undefined) {
+    return t('tree.lifespan.both', { birth, death });
+  }
+  if (birth !== undefined) return t('tree.lifespan.birthOnly', { birth });
+  return t('tree.lifespan.deathOnly', { death });
+}
+
+/**
+ * <i>Đời</i>, or the honest absence of one.
+ *
+ * Generation is advisory: an imported fragment with no path to the founding ancestor genuinely has
+ * none, and rendering that as "đời 0" would put a stranger at the head of the family (phase 4 §8).
+ */
+export function formatGeneration(generation: number | undefined, t: TFunction): string {
+  return generation === undefined
+    ? t('tree.generation.unknown')
+    : t('tree.generation.value', { generation });
+}
+
+/**
+ * The Vietnamese kinship word for a parent, by gender (F4.10).
+ *
+ * Falls back to the neutral term when the book does not say, rather than guessing — the same rule
+ * the server applies when it has to pick a parent role.
+ */
+export function parentLabel(role: 'FATHER' | 'MOTHER', t: TFunction): string {
+  return role === 'FATHER' ? t('tree.kin.father') : t('tree.kin.mother');
+}
+
+/** <i>Vợ</i> or <i>chồng</i>, or the neutral word when the record does not say. */
+export function spouseLabel(person: PersonSummary, t: TFunction): string {
+  if (person.gender === 'FEMALE') return t('tree.kin.wife');
+  if (person.gender === 'MALE') return t('tree.kin.husband');
+  return t('tree.kin.spouse');
+}
+
+/** A short, human label for a person: their name, and their đời when it is known. */
+export function personLabel(person: PersonSummary, t: TFunction): string {
+  return person.generation === undefined
+    ? person.fullName
+    : t('tree.personLabel', { name: person.fullName, generation: person.generation });
+}

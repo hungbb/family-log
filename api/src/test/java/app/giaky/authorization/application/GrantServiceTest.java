@@ -302,7 +302,10 @@ class GrantServiceTest {
         void grantableMatchesWhatIsActuallyAllowed() {
             GrantableView offered = fixtures.grantService.grantable(editorC, clanId);
 
-            assertThat(offered.subtreeAvailable()).isFalse();
+            // True from Phase 4. Subtree scopes are not enumerated among the permissions below —
+            // a scope names a person and a clan has thousands — so this flag is how the dialog
+            // knows to offer a person search instead (F3.6, F4.2).
+            assertThat(offered.subtreeAvailable()).isTrue();
             assertThat(offered.permissions())
                     .extracting(GrantableView.GrantablePermission::permission)
                     .containsExactlyInAnyOrder("CLAN_VIEW", "TREE_EDIT", "ROLE_MANAGE");
@@ -358,8 +361,11 @@ class GrantServiceTest {
     class OtherRefusals {
 
         @Test
-        @DisplayName("subtree scope answers 422 until the family tree exists")
-        void subtreeIsDeferred() {
+        @DisplayName("subtree scope naming nobody is a 404, not a grant on nothing")
+        void subtreeScopeIsResolvedBeforeItIsStored() {
+            // Phase 4 turned this scope on (B4.8). What replaced the old 422 is the rule branch
+            // scope has always had: resolve the reference first, because a grant pointing at
+            // nobody covers nobody and is a row an administrator cannot explain.
             assertThatThrownBy(
                             () ->
                                     fixtures.grantService.grant(
@@ -373,7 +379,26 @@ class GrantServiceTest {
                                                     null)))
                     .isInstanceOf(ApiException.class)
                     .extracting(error -> ((ApiException) error).code())
-                    .isEqualTo(ErrorCode.SUBTREE_SCOPE_UNAVAILABLE);
+                    .isEqualTo(ErrorCode.PERSON_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("subtree scope on a person who exists is granted (B4.8)")
+        void subtreeScopeIsLive() {
+            UUID ancestor = UUID.randomUUID();
+            fixtures.ancestry.withPerson(ancestor, chiHai, "Nguyễn Văn An");
+
+            GrantView issued =
+                    fixtures.grantService.grant(
+                            admin,
+                            clanId,
+                            new GrantCommand(editorC, "TREE_EDIT", "SUBTREE", ancestor, null));
+
+            assertThat(issued.scopeType()).isEqualTo("SUBTREE");
+            assertThat(issued.scopeRefId()).isEqualTo(ancestor);
+            assertThat(issued.scopeLabel())
+                    .as("the permissions screen names the person, not a UUID")
+                    .isEqualTo("Nguyễn Văn An");
         }
 
         @Test

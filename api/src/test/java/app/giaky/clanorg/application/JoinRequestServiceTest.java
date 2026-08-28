@@ -17,6 +17,7 @@ import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.UserId;
 import java.time.Duration;
 import java.util.List;

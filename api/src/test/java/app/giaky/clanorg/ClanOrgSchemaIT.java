@@ -177,8 +177,11 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("branch_root_person_id exists but has no foreign key until Phase 4")
-    void branchRootPersonHasNoForeignKeyYet() {
+    @DisplayName("branch_root_person_id got the foreign key V4 promised, once persons existed")
+    void branchRootPersonForeignKeyArrived() {
+        // Phase 2 created the column unconstrained because `persons` did not exist yet; V10 adds
+        // the constraint alongside it (I-C5). This test asserted its absence for two phases and
+        // now asserts its presence — the promise, kept.
         Integer column =
                 jdbcTemplate.queryForObject(
                         """
@@ -196,7 +199,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
                         Integer.class);
 
         assertThat(column).isEqualTo(1);
-        assertThat(constraints).isZero();
+        assertThat(constraints).isEqualTo(1);
     }
 
     // --- raw inserts, so a state no endpoint can produce can still be attempted ----------------

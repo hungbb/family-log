@@ -92,8 +92,8 @@ public class PermissionController {
             description =
                     "Refused with 403 PERMISSION_ESCALATION_BLOCKED unless the caller manages roles"
                         + " over the scope and already holds the permission over it themselves"
-                        + " (doc 04 §5.4). SUBTREE scope answers 422 SUBTREE_SCOPE_UNAVAILABLE"
-                        + " until the family tree exists.")
+                        + " (doc 04 §5.4). A SUBTREE scope names a person and answers 404"
+                        + " PERSON_NOT_FOUND if the clan has no such node.")
     public ResponseEntity<GrantResponse> grant(
             @CurrentUser AuthenticatedUser caller,
             @PathVariable UUID clanId,

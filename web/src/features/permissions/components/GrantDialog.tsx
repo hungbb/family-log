@@ -9,9 +9,10 @@ import { type CreateGrantInput, type ScopeType } from '@/api/endpoints/permissio
 import { useCreateGrant, useGrantable } from '@/hooks/usePermissions.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
 
+import { PersonPicker } from '../../tree';
 import { FieldRow } from '../pages/styles';
 
-import { CLAN_SCOPE_VALUE, ScopePicker } from './ScopePicker';
+import { CLAN_SCOPE_VALUE, ScopePicker, SUBTREE_SCOPE_VALUE } from './ScopePicker';
 
 /**
  * Granting a permission (F3.4).
@@ -50,13 +51,25 @@ function GrantForm({ clanId, open, onClose, members, presetUserId }: GrantDialog
   const [granteeUserId, setGranteeUserId] = useState<string | undefined>(presetUserId);
   const [permission, setPermission] = useState<ClanPermission | undefined>(undefined);
   const [scopeValue, setScopeValue] = useState<string | undefined>(undefined);
+  // A subtree scope names a person, so the scope picker cannot hold the answer on its own.
+  const [subtreePersonId, setSubtreePersonId] = useState<string | undefined>(undefined);
   const [expiresAt, setExpiresAt] = useState<Dayjs | null>(null);
 
   const offered = grantable?.permissions ?? [];
   const scopes = offered.find((entry) => entry.permission === permission)?.scopes ?? [];
 
-  const scopeType: ScopeType = scopeValue === CLAN_SCOPE_VALUE ? 'CLAN' : 'BRANCH';
-  const ready = granteeUserId !== undefined && permission !== undefined && scopeValue !== undefined;
+  const scopeType: ScopeType =
+    scopeValue === CLAN_SCOPE_VALUE
+      ? 'CLAN'
+      : scopeValue === SUBTREE_SCOPE_VALUE
+        ? 'SUBTREE'
+        : 'BRANCH';
+  const scopeRefId = scopeType === 'SUBTREE' ? subtreePersonId : scopeValue;
+  const ready =
+    granteeUserId !== undefined &&
+    permission !== undefined &&
+    scopeValue !== undefined &&
+    (scopeType !== 'SUBTREE' || subtreePersonId !== undefined);
 
   const submit = async () => {
     if (!ready) return;
@@ -65,7 +78,7 @@ function GrantForm({ clanId, open, onClose, members, presetUserId }: GrantDialog
       granteeUserId,
       permission,
       scopeType,
-      ...(scopeType === 'BRANCH' ? { scopeRefId: scopeValue } : {}),
+      ...(scopeType === 'CLAN' || scopeRefId === undefined ? {} : { scopeRefId }),
       ...(expiresAt !== null ? { expiresAt: expiresAt.toISOString() } : {}),
     };
 
@@ -145,10 +158,23 @@ function GrantForm({ clanId, open, onClose, members, presetUserId }: GrantDialog
             scopes={scopes}
             subtreeAvailable={grantable?.subtreeAvailable ?? false}
             value={scopeValue}
-            onChange={setScopeValue}
+            onChange={(next) => {
+              setScopeValue(next);
+              setSubtreePersonId(undefined);
+            }}
             disabled={permission === undefined}
           />
         </Form.Item>
+
+        {scopeType === 'SUBTREE' && (
+          // The person the grant is scoped to. Searched rather than listed, because this is the one
+          // scope whose candidates number in the thousands (B4.8, F4.2).
+          <Form.Item label={t('permissions.grant.subtreePerson')} required>
+            <FieldRow>
+              <PersonPicker clanId={clanId} value={subtreePersonId} onChange={setSubtreePersonId} />
+            </FieldRow>
+          </Form.Item>
+        )}
 
         <Form.Item
           label={t('permissions.grant.expires')}
