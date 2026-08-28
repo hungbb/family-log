@@ -272,6 +272,35 @@ class LineageCoreIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("the cached tree never outlives the edit that changed it (B5.3)")
+    void cachedTreeIsBustedByAnEdit() throws Exception {
+        UUID doi1 = foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");
+
+        // Read twice: the second is the cache hit, and the one a stale entry would be served from.
+        as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persons.length()").value(1));
+        as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persons.length()").value(1));
+
+        childOf(admin, clanId, doi1, "Nguyễn Văn An", "MALE");
+
+        // No conditional header: this is the read that would show a stale tree if the cache key did
+        // not carry the tree version.
+        as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persons.length()").value(2))
+                .andExpect(jsonPath("$.parentages.length()").value(1));
+
+        // The statistics read the same snapshot, so they must move with it.
+        as(admin, get("/api/v1/clans/" + clanId + "/tree/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personCount").value(2))
+                .andExpect(jsonPath("$.maxGeneration").value(2));
+    }
+
+    @Test
     @DisplayName("partial dates round-trip at every precision (F4.1)")
     void partialDatesRoundTrip() throws Exception {
         JsonNode person =

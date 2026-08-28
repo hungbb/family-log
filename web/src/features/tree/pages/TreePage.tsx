@@ -1,15 +1,23 @@
-import { PlusOutlined, UndoOutlined } from '@ant-design/icons';
-import { App as AntApp, Alert, Button, Dropdown, Skeleton, Statistic, Tag, Tooltip } from 'antd';
-import { useMemo, useState } from 'react';
+import {
+  ApartmentOutlined,
+  PlusOutlined,
+  UnorderedListOutlined,
+  UndoOutlined,
+} from '@ant-design/icons';
+import { App as AntApp, Alert, Button, Dropdown, Segmented, Skeleton, Statistic } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { type PersonSummary, type PlacementType } from '@/api/endpoints/persons.ts';
-import { buildTreeNodes, type TreeNode } from '@/api/endpoints/tree.ts';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
+import { useAuth } from '@/hooks/useAuth.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
 
-import { useBranches } from '../../branch';
+import { type NodeAction } from '../components/canvas/PersonNode';
+import { CanvasOverlay, OverlayBody, OverlayTitle } from '../components/canvas/styles';
+import { TreeCanvas, type TreeCanvasHandle } from '../components/canvas/TreeCanvas';
+import { TreeToolbar } from '../components/canvas/TreeToolbar';
 import { PersonDrawer } from '../components/PersonDrawer';
 import { PersonFormModal, type PersonFormMode } from '../components/PersonFormModal';
 import {
@@ -17,61 +25,86 @@ import {
   PageHeader,
   PageSubtitle,
   PageTitle,
-  PersonMeta,
   PersonName,
   SectionCard,
   StatGrid,
-  TreeTable,
 } from '../components/styles';
+import { TreeListView } from '../components/TreeListView';
 import { useDeletedPersons, useRestorePerson, useTree, useTreeStats } from '../hooks/useTree';
-import { formatGeneration, formatLifespan } from '../model/format';
-
-/** One row of the table: a person, their spouses, and the rows below them. */
-interface TreeRow {
-  key: string;
-  person: PersonSummary;
-  spouses: PersonSummary[];
-  children?: TreeRow[];
-}
+import { useTreeLayout } from '../hooks/useTreeLayout';
+import { useTreeViewStore } from '../stores/useTreeViewStore';
 
 /**
- * The clan tree as a list (F4.6).
+ * The *gia phả*, as one tree (FR-T2, G6, M4).
  *
- * **The interim view and the permanent accessible one.** Phase 5 brings a canvas; this stays, because
- * NFR-7 wants a keyboard- and screen-reader-navigable route to every node and a table is that. It is
- * also the only view that works on a phone, and the only one that can be read aloud.
+ * **One payload, two views.** The canvas and the list read the same `useTree` query, so they carry
+ * the same nodes, the same `canEdit` flags and the same invalidation — a change made in one is
+ * visible in the other without a refetch, and the two can never disagree about what the family
+ * contains. The toggle is a preference, not a mode: NFR-7 makes the list the permanent accessible
+ * route, and it is also the one that works on a phone.
  *
- * Rows nest by descent and expand from the roots. Spouses appear beside the person they married
- * rather than as rows of their own — that is how the book reads, and it halves the row count.
+ * **Branch isolation is a visual fact here.** Every member sees the whole clan (doc 04 §5.5) — a
+ * *gia phả* in fragments is not a *gia phả* — and the parts they may edit are the parts that carry
+ * actions. Hovering somebody else's branch shows a card with no controls and a sentence saying which
+ * branch they *can* edit, which is the same rule the server enforces, stated where somebody will
+ * read it.
  */
 export function TreePage() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const { clanId = '' } = useParams();
   const { can } = useActiveClan();
+  const { user } = useAuth();
 
   const { data: tree, isPending, error } = useTree(clanId);
   const { data: stats } = useTreeStats(clanId);
-  const { data: branches } = useBranches(clanId);
 
   const isAdmin = can('CLAN_ADMIN');
   const { data: deleted } = useDeletedPersons(clanId, isAdmin);
   const restorePerson = useRestorePerson(clanId);
 
-  const [openPersonId, setOpenPersonId] = useState<string | null>(null);
+  const mode = useTreeViewStore((state) => state.mode);
+  const setMode = useTreeViewStore((state) => state.setMode);
+  const openClan = useTreeViewStore((state) => state.openClan);
+  const openPersonId = useTreeViewStore((state) => state.openPersonId);
+  const openPerson = useTreeViewStore((state) => state.openPerson);
+
+  const canvasRef = useRef<TreeCanvasHandle>(null);
   const [creating, setCreating] = useState<PersonFormMode | null>(null);
 
-  const branchNames = useMemo(
-    () => new Map((branches ?? []).map((branch) => [branch.id, branch.name])),
-    [branches],
-  );
+  // Panning into one family and then switching clans should not land somewhere arbitrary in
+  // another's tree; the store drops its viewport and collapsed set when the clan changes.
+  useEffect(() => {
+    if (clanId !== '') openClan(clanId);
+  }, [clanId, openClan]);
 
-  const rows = useMemo<TreeRow[]>(
-    () => (tree === undefined ? [] : buildTreeNodes(tree).map(toRow)),
-    [tree],
+  const { graph, layout } = useTreeLayout(tree);
+
+  /** The node linked to the signed-in account, if there is one — what "find me" jumps to. */
+  const myPersonId = useMemo(
+    () =>
+      user === null
+        ? undefined
+        : tree?.persons.find((person) => person.linkedUserId === user.id)?.id,
+    [tree, user],
   );
 
   const canAddAnywhere = can('TREE_EDIT');
+  const isEmpty = !isPending && (tree?.persons.length ?? 0) === 0;
+
+  const onNodeAction = (action: NodeAction, person: PersonSummary) => {
+    if (action === 'add-child') {
+      setCreating({ kind: 'create', placementType: 'CHILD_OF_PARENT', anchorPersonId: person.id });
+      return;
+    }
+    if (action === 'add-spouse') {
+      setCreating({ kind: 'create', placementType: 'SPOUSE_OF', anchorPersonId: person.id });
+      return;
+    }
+    // Editing and removing both need the full record — the version to write against, the children
+    // the confirmation has to name — so both open the drawer that already loads it.
+    openPerson(person.id);
+  };
 
   if (error !== null) {
     return (
@@ -93,25 +126,44 @@ export function TreePage() {
           <PageTitle>{t('tree.title')}</PageTitle>
           <PageSubtitle>{t('tree.subtitle')}</PageSubtitle>
         </div>
-        {canAddAnywhere && (
-          <Dropdown
-            menu={{
-              items: (
-                ['CHILD_OF_PARENT', 'SPOUSE_OF', 'BRANCH_ROOT', 'UNPLACED'] as PlacementType[]
-              ).map((placementType) => ({
-                key: placementType,
-                label: t(`tree.placement.${placementType}`),
-                onClick: () => {
-                  setCreating({ kind: 'create', placementType });
-                },
-              })),
-            }}
-          >
-            <Button type="primary" icon={<PlusOutlined />}>
-              {t('tree.action.addPerson')}
-            </Button>
-          </Dropdown>
-        )}
+
+        <div>
+          <Segmented<'canvas' | 'list'>
+            value={mode}
+            onChange={setMode}
+            options={[
+              {
+                value: 'canvas',
+                icon: <ApartmentOutlined />,
+                label: t('tree.view.canvas'),
+              },
+              {
+                value: 'list',
+                icon: <UnorderedListOutlined />,
+                label: t('tree.view.list'),
+              },
+            ]}
+          />
+          {canAddAnywhere && (
+            <Dropdown
+              menu={{
+                items: (
+                  ['CHILD_OF_PARENT', 'SPOUSE_OF', 'BRANCH_ROOT', 'UNPLACED'] as PlacementType[]
+                ).map((placementType) => ({
+                  key: placementType,
+                  label: t(`tree.placement.${placementType}`),
+                  onClick: () => {
+                    setCreating({ kind: 'create', placementType });
+                  },
+                })),
+              }}
+            >
+              <Button type="primary" icon={<PlusOutlined />}>
+                {t('tree.action.addPerson')}
+              </Button>
+            </Dropdown>
+          )}
+        </div>
       </PageHeader>
 
       {stats !== undefined && (
@@ -125,93 +177,75 @@ export function TreePage() {
         </SectionCard>
       )}
 
-      {!isPending && rows.length === 0 && (
-        <Alert type="info" showIcon message={t('tree.empty')} description={t('tree.emptyHelp')} />
+      {tree?.meta.truncated === true && (
+        <Alert type="info" showIcon message={t('tree.truncated')} />
       )}
 
-      <SectionCard>
-        <Skeleton loading={isPending} active>
-          <TreeTable<TreeRow>
-            rowKey="key"
-            dataSource={rows}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-            expandable={{ defaultExpandAllRows: false }}
-            onRow={(row) => ({
-              onClick: () => {
-                setOpenPersonId(row.person.id);
-              },
-            })}
-            columns={[
-              {
-                title: t('tree.column.name'),
-                key: 'name',
-                render: (_, row: TreeRow) => (
-                  <>
-                    <PersonName $readOnly={!row.person.canEdit}>{row.person.fullName}</PersonName>
-                    {row.spouses.length > 0 && (
-                      <PersonMeta>
-                        {t('tree.column.marriedTo', {
-                          names: row.spouses.map((spouse) => spouse.fullName).join(', '),
-                        })}
-                      </PersonMeta>
-                    )}
-                  </>
-                ),
-              },
-              {
-                title: t('tree.column.generation'),
-                key: 'generation',
-                width: 120,
-                sorter: (left: TreeRow, right: TreeRow) =>
-                  (left.person.generation ?? Number.MAX_SAFE_INTEGER) -
-                  (right.person.generation ?? Number.MAX_SAFE_INTEGER),
-                render: (_, row: TreeRow) => formatGeneration(row.person.generation, t),
-              },
-              {
-                title: t('tree.column.lifespan'),
-                key: 'lifespan',
-                width: 200,
-                render: (_, row: TreeRow) => formatLifespan(row.person, t) ?? t('tree.unknown'),
-              },
-              {
-                title: t('tree.column.branch'),
-                key: 'branch',
-                width: 160,
-                render: (_, row: TreeRow) =>
-                  row.person.branchId === undefined ? (
-                    <Tag>{t('tree.unplaced')}</Tag>
-                  ) : (
-                    (branchNames.get(row.person.branchId) ?? t('tree.unknown'))
-                  ),
-              },
-              {
-                title: t('tree.column.access'),
-                key: 'access',
-                width: 120,
-                render: (_, row: TreeRow) =>
-                  row.person.canEdit ? (
-                    <Tag color="green">{t('tree.canEdit')}</Tag>
-                  ) : (
-                    // F4.8: say which part of the tree they *can* edit rather than showing a
-                    // disabled control with no explanation.
-                    <Tooltip
-                      title={
-                        row.person.branchId === undefined
-                          ? t('tree.readOnly.noBranch')
-                          : t('tree.readOnly.branch', {
-                              branch: branchNames.get(row.person.branchId) ?? '',
-                            })
-                      }
-                    >
-                      <Tag>{t('tree.readOnlyTag')}</Tag>
-                    </Tooltip>
-                  ),
-              },
-            ]}
+      {mode === 'canvas' ? (
+        <>
+          <TreeToolbar
+            persons={tree?.persons ?? []}
+            branches={tree?.branches ?? []}
+            {...(myPersonId === undefined ? {} : { myPersonId })}
+            disabled={isPending || isEmpty}
+            onJumpToPerson={(personId) => {
+              canvasRef.current?.jumpTo(personId);
+            }}
+            onFit={() => {
+              canvasRef.current?.fit();
+            }}
           />
-        </Skeleton>
-      </SectionCard>
+
+          {graph !== null && !isEmpty ? (
+            <TreeCanvas
+              graph={graph}
+              layout={layout}
+              controlRef={canvasRef}
+              onOpenPerson={openPerson}
+              onNodeAction={onNodeAction}
+            />
+          ) : (
+            <CanvasOverlay>
+              {isPending ? (
+                <Skeleton active paragraph={{ rows: 4 }} />
+              ) : (
+                <>
+                  <OverlayTitle>{t('tree.empty')}</OverlayTitle>
+                  <OverlayBody>{t('tree.emptyHelp')}</OverlayBody>
+                  {canAddAnywhere && (
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        setCreating({ kind: 'create', placementType: 'BRANCH_ROOT' });
+                      }}
+                    >
+                      {t('tree.emptyAction')}
+                    </Button>
+                  )}
+                </>
+              )}
+            </CanvasOverlay>
+          )}
+        </>
+      ) : (
+        <SectionCard>
+          {isEmpty && (
+            <Alert
+              type="info"
+              showIcon
+              message={t('tree.empty')}
+              description={t('tree.emptyHelp')}
+            />
+          )}
+          <TreeListView
+            tree={tree}
+            loading={isPending}
+            branchNames={graph?.branchNames ?? new Map()}
+            onOpenPerson={openPerson}
+          />
+        </SectionCard>
+      )}
 
       {isAdmin && deleted !== undefined && deleted.length > 0 && (
         <SectionCard title={t('tree.deleted.title')}>
@@ -241,9 +275,9 @@ export function TreePage() {
         clanId={clanId}
         personId={openPersonId}
         onClose={() => {
-          setOpenPersonId(null);
+          openPerson(null);
         }}
-        onOpenPerson={setOpenPersonId}
+        onOpenPerson={openPerson}
       />
 
       {creating !== null && (
@@ -254,21 +288,14 @@ export function TreePage() {
           onClose={() => {
             setCreating(null);
           }}
-          onSaved={setOpenPersonId}
+          onSaved={(personId) => {
+            // The tree re-lays out around the new node; jumping to it is what keeps somebody's place
+            // instead of leaving them looking at where the family used to be (F5.11, demo step 5).
+            openPerson(personId);
+            canvasRef.current?.jumpTo(personId);
+          }}
         />
       )}
     </Page>
   );
-}
-
-function toRow(node: TreeNode): TreeRow {
-  const children = node.children.map(toRow);
-  return {
-    key: node.person.id,
-    person: node.person,
-    spouses: node.spouses,
-    // AntD renders an expander for any row with a `children` array, including an empty one — so a
-    // leaf must not have the key at all.
-    ...(children.length === 0 ? {} : { children }),
-  };
 }

@@ -658,6 +658,33 @@
       "linked": "Account",
       "linkedYes": "Has an account",
       "linkedNo": "No account"
+    },
+    "view": {
+      "canvas": "Tree",
+      "list": "List"
+    },
+    "truncated": "Only part of the tree is loaded — there are more generations below.",
+    "emptyAction": "Add the founding ancestor",
+    "canvas": {
+      "label": "Family tree diagram",
+      "hint": "Drag to pan, scroll to zoom. Arrow keys move between siblings and generations, Enter opens a person, space collapses a branch.",
+      "minimap": "Overview of the whole tree",
+      "searchPlaceholder": "Find someone and jump to them",
+      "highlightBranch": "Highlight a branch",
+      "findMe": "Find me",
+      "expandAll": "Expand {{hidden}} collapsed branches",
+      "orientation": "Switch orientation",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit to screen",
+      "collapse": "Collapse the branch below {{name}}",
+      "expand": "Expand the branch below {{name}}",
+      "action": {
+        "add-child": "Add a child to {{name}}",
+        "add-spouse": "Add a spouse for {{name}}",
+        "edit": "Edit {{name}}",
+        "delete": "Remove {{name}} from the tree"
+      }
     }
   }
 }

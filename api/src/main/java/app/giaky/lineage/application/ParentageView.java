@@ -3,6 +3,7 @@ package app.giaky.lineage.application;
 import app.giaky.lineage.domain.Parentage;
 import app.giaky.lineage.domain.ParentRole;
 import app.giaky.lineage.domain.ParentageNature;
+import app.giaky.lineage.domain.TreeSnapshotRepository.EdgeRow;
 import java.util.UUID;
 
 /**
@@ -27,5 +28,16 @@ public record ParentageView(
                 parentage.parentRole(),
                 parentage.nature(),
                 parentage.unionId());
+    }
+
+    /** The same edge, from the flat tree read (B5.2). */
+    static ParentageView of(EdgeRow row) {
+        return new ParentageView(
+                row.id(),
+                row.parentPersonId(),
+                row.childPersonId(),
+                row.parentRole(),
+                row.nature(),
+                row.unionId());
     }
 }

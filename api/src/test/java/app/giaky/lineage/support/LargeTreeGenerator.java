@@ -88,6 +88,7 @@ public final class LargeTreeGenerator {
 
         List<Object[]> people = new ArrayList<>();
         List<Object[]> edges = new ArrayList<>();
+        List<Object[]> marriages = new ArrayList<>();
 
         PersonId founder = PersonId.of(UUID.randomUUID());
         people.add(personRow(clanId, founder, rootBranch, "Nguyễn Phúc Tổ", 1, 1, true));
@@ -137,6 +138,10 @@ public final class LargeTreeGenerator {
                                         null,
                                         false));
                         everyone.add(spouse);
+                        // The marriage itself, not just the two people. Phase 5 draws couples as one
+                        // layout slot and secondary unions distinctly, so a fixture with wives but no
+                        // union rows would measure a tree the canvas never renders.
+                        marriages.add(unionRow(clanId, child, spouse, "PRIMARY"));
                     }
                 }
             }
@@ -148,9 +153,11 @@ public final class LargeTreeGenerator {
 
         insertPeople(people);
         insertEdges(edges);
+        insertUnions(marriages);
         jdbc.queryForObject("SELECT rebuild_person_ancestry(?)", Long.class, clanId.value());
 
-        return new LargeTree(clanId, rootBranch, founder, deepest, everyone.size());
+        return new LargeTree(
+                clanId, rootBranch, founder, deepest, everyone.size(), marriages.size());
     }
 
     /**
@@ -160,7 +167,12 @@ public final class LargeTreeGenerator {
      *     the worst case for an ancestry walk
      */
     public record LargeTree(
-            ClanId clanId, UUID rootBranchId, PersonId founder, PersonId deepest, int personCount) {}
+            ClanId clanId,
+            UUID rootBranchId,
+            PersonId founder,
+            PersonId deepest,
+            int personCount,
+            int unionCount) {}
 
     private void insertPeople(List<Object[]> rows) {
         for (int from = 0; from < rows.size(); from += BATCH) {
@@ -170,6 +182,18 @@ public final class LargeTreeGenerator {
                       (id, clan_id, branch_id, full_name, gender, life_status, generation,
                        birth_order, is_founding_ancestor)
                     VALUES (?, ?, ?, ?, ?, 'DECEASED', ?, ?, ?)
+                    """,
+                    rows.subList(from, Math.min(from + BATCH, rows.size())));
+        }
+    }
+
+    private void insertUnions(List<Object[]> rows) {
+        for (int from = 0; from < rows.size(); from += BATCH) {
+            jdbc.batchUpdate(
+                    """
+                    INSERT INTO unions
+                      (id, clan_id, partner_a_id, partner_b_id, union_type, status)
+                    VALUES (?, ?, ?, ?, ?, 'UNKNOWN')
                     """,
                     rows.subList(from, Math.min(from + BATCH, rows.size())));
         }
@@ -205,6 +229,18 @@ public final class LargeTreeGenerator {
             (short) generation,
             birthOrder == null ? null : birthOrder.shortValue(),
             founding
+        };
+    }
+
+    /** Partners in the canonical order {@code ck_union_canonical_order} insists on. */
+    private Object[] unionRow(ClanId clanId, PersonId one, PersonId other, String type) {
+        boolean ordered = one.value().compareTo(other.value()) < 0;
+        return new Object[] {
+            UUID.randomUUID(),
+            clanId.value(),
+            ordered ? one.value() : other.value(),
+            ordered ? other.value() : one.value(),
+            type
         };
     }
 

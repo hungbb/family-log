@@ -2,11 +2,15 @@ package app.giaky.lineage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.giaky.authorization.domain.EditableSet;
+import app.giaky.authorization.domain.PermissionResolver;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
 import app.giaky.lineage.application.TreeQueryService;
 import app.giaky.lineage.application.TreeView;
 import app.giaky.lineage.domain.AncestryProjection;
+import app.giaky.lineage.domain.TreeSnapshotCache;
+import app.giaky.lineage.domain.TreeVersionRepository;
 import app.giaky.lineage.support.LargeTreeGenerator;
 import app.giaky.support.AbstractIntegrationTest;
 import java.time.Duration;
@@ -50,12 +54,34 @@ class LargeTreePerformanceIT extends AbstractIntegrationTest {
      */
     private static final Duration CLOSURE_BUDGET = Duration.ofMillis(150);
 
+    /**
+     * A cache hit's budget (B5.3).
+     *
+     * <p>Two orders of magnitude below the scan, which is the point of the cache: a hit is a map
+     * lookup, one batch resolver call and the loop that stamps {@code canEdit}. If this ever
+     * approaches the read budget, the cache has stopped being hit and the key is wrong.
+     */
+    private static final Duration CACHED_READ_BUDGET = Duration.ofMillis(120);
+
+    /**
+     * The batch {@code EditableSet} for one grant (B5.6).
+     *
+     * <p>Not in NFR-1 either, and the one number in the tree read that could plausibly grow with the
+     * clan rather than with the caller's grants. A subtree grant expands through the closure, so
+     * "one query" is not the same as "one row" — but it is one query, and this is where a per-node
+     * regression would show up as seconds.
+     */
+    private static final Duration EDITABLE_SET_BUDGET = Duration.ofMillis(150);
+
     /** Runs before each measurement so the first one is not paying for a cold plan cache. */
     private static final int WARMUP_READS = 2;
 
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private TreeQueryService trees;
     @Autowired private AncestryProjection projection;
+    @Autowired private TreeVersionRepository treeVersions;
+    @Autowired private TreeSnapshotCache snapshotCache;
+    @Autowired private PermissionResolver resolver;
 
     @Test
     @DisplayName("a full tree read of 5,000 people stays inside the NFR-1 budget")
@@ -64,6 +90,10 @@ class LargeTreePerformanceIT extends AbstractIntegrationTest {
 
         for (int index = 0; index < WARMUP_READS; index++) {
             trees.tree(world.member, world.tree.clanId(), null, null);
+            // Each warmup would otherwise leave the snapshot cached, and the measurement below would
+            // be timing a map lookup. Bumping the version makes the next read miss — which is the
+            // read this budget is about (B5.2).
+            treeVersions.bump(world.tree.clanId());
         }
 
         long startedAt = System.nanoTime();
@@ -71,14 +101,68 @@ class LargeTreePerformanceIT extends AbstractIntegrationTest {
         Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
 
         log.info(
-                "NFR-1 tree read: {} people, {} edges, {} unions in {} ms",
+                "NFR-1 tree read (uncached): {} people, {} edges, {} unions in {} ms",
                 tree.persons().size(),
                 tree.parentages().size(),
                 tree.unions().size(),
                 elapsed.toMillis());
 
         assertThat(tree.persons()).hasSizeGreaterThan(4_000);
+        assertThat(tree.unions())
+                .as("the fixture records marriages, which the canvas draws as couples")
+                .isNotEmpty();
         assertThat(elapsed).isLessThan(TREE_READ_BUDGET);
+    }
+
+    @Test
+    @DisplayName("the second reader of an unchanged tree pays for no scan at all (B5.3)")
+    void cachedTreeRead() {
+        Fixture world = new Fixture();
+
+        TreeView first = trees.tree(world.member, world.tree.clanId(), null, null);
+
+        long startedAt = System.nanoTime();
+        TreeView second = trees.tree(world.member, world.tree.clanId(), null, null);
+        Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
+
+        log.info("Cached tree read: {} people in {} ms", second.persons().size(), elapsed.toMillis());
+
+        assertThat(second.persons()).hasSameSizeAs(first.persons());
+        assertThat(second.treeVersion()).isEqualTo(first.treeVersion());
+        assertThat(snapshotCache.size()).isPositive();
+        assertThat(elapsed).isLessThan(CACHED_READ_BUDGET);
+
+        // Fast and stale is not a pass. The version is what makes the entry unreachable, so a bump
+        // has to change what comes back.
+        treeVersions.bump(world.tree.clanId());
+        assertThat(trees.tree(world.member, world.tree.clanId(), null, null).treeVersion())
+                .isGreaterThan(first.treeVersion());
+    }
+
+    @Test
+    @DisplayName("the batch EditableSet costs the caller's grants, not the clan's size (B5.6)")
+    void editableSetIsBoundedByGrants() {
+        Fixture world = new Fixture();
+
+        resolver.editableSet(world.member, world.tree.clanId());
+
+        long startedAt = System.nanoTime();
+        EditableSet editable = resolver.editableSet(world.member, world.tree.clanId());
+        Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
+
+        log.info(
+                "EditableSet for a clan-wide admin over {} people: {} ms",
+                world.tree.personCount(),
+                elapsed.toMillis());
+
+        assertThat(editable.clanWide())
+                .as("one CLAN grant short-circuits the whole computation — no branch or person sets")
+                .isTrue();
+        assertThat(editable.branches()).isEmpty();
+        assertThat(editable.persons())
+                .as("a clan-wide answer never enumerates the clan, which is the whole point")
+                .isEmpty();
+        assertThat(elapsed).isLessThan(EDITABLE_SET_BUDGET);
     }
 
     @Test

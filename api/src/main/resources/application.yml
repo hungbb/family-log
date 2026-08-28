@@ -114,6 +114,15 @@ app:
   cors:
     # Comma-separated. Empty by default: a profile must opt in.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  lineage:
+    tree-cache:
+      # The assembled tree, held per (clan, tree version) — B5.3. Bounded in *people* rather than in
+      # entries, because one entry is one clan and clans differ by three orders of magnitude. The
+      # default holds roughly forty clans the size of the NFR-1 fixture.
+      max-people: ${TREE_CACHE_MAX_PEOPLE:200000}
+      # On idle, not on write: the key carries the tree version, so an entry is either current or
+      # already unreachable. This only evicts trees nobody is looking at.
+      expire-after-access: ${TREE_CACHE_TTL:10m}
   media:
     # Where LocalFsMediaStorage writes uploads (Phase 7). Local directory in v1 — object storage
     # is a post-v1 adapter swap behind the same MediaStorage port.

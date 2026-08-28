@@ -655,6 +655,33 @@
       "linked": "Tài khoản",
       "linkedYes": "Đã có tài khoản",
       "linkedNo": "Chưa có tài khoản"
+    },
+    "view": {
+      "canvas": "Sơ đồ",
+      "list": "Danh sách"
+    },
+    "truncated": "Chỉ hiển thị một phần cây — vẫn còn đời bên dưới chưa tải.",
+    "emptyAction": "Thêm thủy tổ",
+    "canvas": {
+      "label": "Sơ đồ cây gia phả",
+      "hint": "Kéo để di chuyển, lăn chuột để phóng to thu nhỏ. Dùng phím mũi tên để đi giữa anh chị em và các đời, Enter để mở một người, phím cách để thu gọn nhánh.",
+      "minimap": "Bản đồ thu nhỏ của cả cây",
+      "searchPlaceholder": "Tìm và nhảy tới một người",
+      "highlightBranch": "Làm nổi một chi",
+      "findMe": "Tìm tôi",
+      "expandAll": "Mở lại {{hidden}} nhánh đã thu",
+      "orientation": "Đổi chiều sơ đồ",
+      "zoomIn": "Phóng to",
+      "zoomOut": "Thu nhỏ",
+      "fit": "Vừa màn hình",
+      "collapse": "Thu gọn nhánh của {{name}}",
+      "expand": "Mở lại nhánh của {{name}}",
+      "action": {
+        "add-child": "Thêm con cho {{name}}",
+        "add-spouse": "Thêm vợ/chồng cho {{name}}",
+        "edit": "Sửa thông tin {{name}}",
+        "delete": "Gỡ {{name}} khỏi cây"
+      }
     }
   }
 }
