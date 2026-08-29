@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { LocaleTag } from '@/api/endpoints/auth.ts';
 import { logoutAll } from '@/api/endpoints/auth.ts';
+import { MyClaims } from '@/features/claims';
 import { MyJoinRequests } from '@/features/members';
 import { useAuth } from '@/hooks/useAuth.ts';
 import { applyApiError, toMessage } from '@/lib/apiErrors.ts';
@@ -156,6 +157,11 @@ export function ProfilePage() {
       <SectionCard title={t('members.myRequests.title')}>
         <PageSubtitle>{t('members.myRequests.subtitle')}</PageSubtitle>
         <MyJoinRequests />
+      </SectionCard>
+
+      <SectionCard title={t('claims.mine.title')}>
+        <PageSubtitle>{t('claims.mine.subtitle')}</PageSubtitle>
+        <MyClaims />
       </SectionCard>
 
       <SectionCard title={t('account.sessions.title')}>

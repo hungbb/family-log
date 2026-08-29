@@ -87,7 +87,7 @@ public final class ClanOrgTestFixtures {
     public final CodeGenerator codes = new CodeGenerator(new Random(20260101L));
 
     public final UserDirectory directory = new UserDirectory(users);
-    public final ClanDirectory clanDirectory = new ClanDirectory(memberships, branches);
+    public final ClanDirectory clanDirectory = new ClanDirectory(memberships, branches, clans);
 
     // The real adapters. Outside a request the cache simply is not there and every lookup goes to
     // the repository, which is exactly what AuthorizationRequestCache promises.

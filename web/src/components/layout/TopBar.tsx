@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { SUPPORTED_LOCALES } from '../../i18n';
 
 import { ClanSwitcher } from './ClanSwitcher';
+import { NotificationBell } from './NotificationBell';
 import { AccountButton, TopBar as Bar, TopBarSpacer, UserName } from './styles';
 
 interface TopBarProps {
@@ -23,8 +24,9 @@ interface TopBarProps {
  * The top bar.
  *
  * The account menu is real from Phase 1: it shows who is signed in and offers the two things a
- * person wants from it — their profile, and the way out. The clan switcher is still a placeholder,
- * because there are no clans until Phase 2.
+ * person wants from it — their profile, and the way out. The clan switcher is real from Phase 2,
+ * and the bell from Phase 6: claim decisions are the first thing that happens to somebody while
+ * they are looking at another screen.
  */
 export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
   const { t, i18n } = useTranslation();
@@ -44,6 +46,8 @@ export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
       <ClanSwitcher />
 
       <TopBarSpacer />
+
+      <NotificationBell />
 
       <Segmented
         size="small"

@@ -77,6 +77,9 @@ public record AuditRecord(
     /** The {@code targetType} for a marriage. */
     public static final String TARGET_UNION = "UNION";
 
+    /** The {@code targetType} for a node claim request. */
+    public static final String TARGET_CLAIM = "CLAIM";
+
     /**
      * An action inside a clan.
      *

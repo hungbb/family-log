@@ -1,8 +1,11 @@
 package app.giaky.lineage.infrastructure;
 
+import app.giaky.common.error.ConflictException;
+import app.giaky.common.error.ErrorCode;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
+import app.giaky.common.types.UserId;
 import app.giaky.lineage.domain.Person;
 import app.giaky.lineage.domain.PersonRepository;
 import java.time.Instant;
@@ -11,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
@@ -127,5 +131,94 @@ public class PersonRepositoryAdapter implements PersonRepository {
         }
         return repository.updateGenerations(
                 clanId.value(), ids.toString(), generations.toString(), now);
+    }
+
+    @Override
+    public Optional<Person> findByLinkedUser(ClanId clanId, UserId linkedUserId) {
+        return repository
+                .findByClanIdAndLinkedUserIdAndDeletedAtIsNull(clanId, linkedUserId)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Person> findAllByLinkedUser(UserId linkedUserId) {
+        return repository.findByLinkedUserIdAndDeletedAtIsNull(linkedUserId).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public boolean linkUserIfUnlinked(
+            ClanId clanId, PersonId personId, UserId userId, UserId actor, Instant now) {
+
+        try {
+            return repository.linkUserIfUnlinked(
+                            clanId.value(),
+                            personId.value(),
+                            userId.value(),
+                            actor == null ? null : actor.value(),
+                            now)
+                    == 1;
+        } catch (DataIntegrityViolationException collision) {
+            // ux_persons_linked_user (I-P4). The service checked first; this is the race where two
+            // requests linked the same account to two different nodes at once.
+            throw new ConflictException(
+                    ErrorCode.USER_ALREADY_LINKED_IN_CLAN,
+                    "That account was linked to another node in this clan a moment ago.");
+        }
+    }
+
+    @Override
+    public boolean unlinkUser(ClanId clanId, PersonId personId, UserId actor, Instant now) {
+        return repository.unlinkUser(
+                        clanId.value(),
+                        personId.value(),
+                        actor == null ? null : actor.value(),
+                        now)
+                == 1;
+    }
+
+    @Override
+    public boolean updateSelfServiceFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            UUID avatarMediaId,
+            String notesHtml,
+            String notesText,
+            Instant now) {
+
+        return repository.updateSelfServiceFields(
+                        clanId.value(),
+                        personId.value(),
+                        linkedUserId.value(),
+                        avatarMediaId,
+                        notesHtml,
+                        notesText,
+                        now)
+                == 1;
+    }
+
+    @Override
+    public boolean updatePropagatedFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            boolean avatar,
+            UUID avatarMediaId,
+            boolean displayName,
+            String alias,
+            Instant now) {
+
+        return repository.updatePropagatedFields(
+                        clanId.value(),
+                        personId.value(),
+                        linkedUserId.value(),
+                        avatar,
+                        avatarMediaId,
+                        displayName,
+                        alias,
+                        now)
+                == 1;
     }
 }

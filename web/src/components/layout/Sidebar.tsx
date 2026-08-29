@@ -23,8 +23,9 @@ interface SidebarProps {
  * Navigation.
  *
  * Items are enabled as the phases that own them land. Members and Branches are real from Phase 2,
- * Permissions from Phase 3, and the tree and the search from Phase 4; claims stay disabled rather
- * than linking to a screen that does not exist — a dead end is worse than a greyed-out label.
+ * Permissions from Phase 3, the tree and the search from Phase 4, and claims from Phase 6. An item
+ * whose screen does not exist yet stays disabled rather than linking nowhere — a dead end is worse
+ * than a greyed-out label.
  *
  * With no clan selected, every clan-scoped item is disabled: there is nothing for them to point at
  * until the person creates or joins one.
@@ -89,7 +90,14 @@ export function Sidebar({ collapsed }: SidebarProps) {
             // more use than a greyed-out label.
             disabled: clanBase === null,
           },
-          { key: 'claims', icon: <IdcardOutlined />, label: t('nav.claims'), disabled: true },
+          {
+            key: 'claims',
+            icon: <IdcardOutlined />,
+            label: t('nav.claims'),
+            // Enabled for every member, not just approvers: the page's first tab is how somebody
+            // finds themselves in the tree (F6.1), which is the reason most people open it.
+            disabled: clanBase === null,
+          },
           {
             key: 'settings',
             icon: <SettingOutlined />,

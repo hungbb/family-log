@@ -15,6 +15,7 @@ import {
   BranchPill,
   BranchPillText,
   GenderRail,
+  LinkRing,
   NodeCard,
   NodeGroup,
   NodeMeta,
@@ -46,6 +47,8 @@ interface PersonNodeProps {
   branchName?: string;
   /** True when the branch filter names this person's branch. */
   branchHighlighted: boolean;
+  /** True when this node is the signed-in account's own — the ring is drawn in the accent (F6.7). */
+  isSelf: boolean;
   onOpen: (personId: string) => void;
   onAction: (action: NodeAction, person: PersonSummary) => void;
 }
@@ -66,6 +69,7 @@ function PersonNodeComponent({
   selected,
   branchName,
   branchHighlighted,
+  isSelf,
   onOpen,
   onAction,
 }: PersonNodeProps) {
@@ -80,7 +84,7 @@ function PersonNodeComponent({
       $dimmed={dimmed}
       role="button"
       tabIndex={-1}
-      aria-label={describe(person, branchName, t)}
+      aria-label={describe(person, branchName, isSelf, t)}
       onClick={() => {
         onOpen(person.id);
       }}
@@ -91,7 +95,7 @@ function PersonNodeComponent({
         }
       }}
     >
-      <title>{describe(person, branchName, t)}</title>
+      <title>{describe(person, branchName, isSelf, t)}</title>
 
       <NodeCard
         width={card.width}
@@ -110,6 +114,7 @@ function PersonNodeComponent({
       />
 
       <AvatarCircle cx={30} cy={26} r={14} $deceased={deceased} />
+      {person.linkedUserId !== undefined && <LinkRing cx={30} cy={26} r={16.5} $self={isSelf} />}
       <AvatarInitials x={30} y={26}>
         {initialsOf(person.fullName)}
       </AvatarInitials>
@@ -177,8 +182,15 @@ export const PersonNode = memo(PersonNodeComponent);
  * not, why. A screen reader on the canvas should learn what a sighted person learns from a muted
  * card and a tooltip — that is the whole of F5.12 for somebody who cannot see the dimming.
  */
-function describe(person: PersonSummary, branchName: string | undefined, t: TFunction): string {
+function describe(
+  person: PersonSummary,
+  branchName: string | undefined,
+  isSelf: boolean,
+  t: TFunction,
+): string {
   const parts = [person.fullName, formatGeneration(person.generation, t)];
+  // The ring is a colour; this is the same fact in words, for somebody who cannot see it.
+  if (isSelf) parts.push(t('claims.thisIsYou'));
   const lifespan = formatLifespan(person, t);
   if (lifespan !== undefined) parts.push(lifespan);
   if (branchName !== undefined) parts.push(branchName);

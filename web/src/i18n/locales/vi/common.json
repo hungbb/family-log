@@ -138,7 +138,7 @@
     "branchNotFound": "Chi này không có trong dòng họ.",
     "requestNotFound": "Yêu cầu này không còn nữa.",
     "invalidClanCode": "Đây không giống một mã tham gia.",
-    "duplicatePendingRequest": "Bạn đã gửi yêu cầu rồi. Hãy chờ trả lời, hoặc rút yêu cầu cũ trước.",
+    "duplicatePendingRequest": "Bạn đã có một yêu cầu đang chờ. Hãy đợi trả lời, hoặc rút yêu cầu đó trước.",
     "membershipExists": "Bạn đã là thành viên của dòng họ này.",
     "versionConflict": "Có người vừa sửa trong lúc bạn đang chỉnh. Hãy tải lại rồi thử lại.",
     "cycleDetected": "Như vậy sẽ khiến một người trở thành tổ tiên của chính mình, hoặc đưa một chi xuống dưới chính nó.",
@@ -149,7 +149,9 @@
     "subtreeUnavailable": "Giới hạn quyền theo một người và con cháu sẽ dùng được khi gia phả đã dựng xong.",
     "personNotFound": "Không có người này trong họ.",
     "invalidRelationship": "Quan hệ này chưa ghi được. Kiểm tra lại những người bạn đã chọn.",
-    "dateRangeInvalid": "Hai mốc thời gian này không thể cùng đúng. Kiểm tra lại năm bạn nhập."
+    "dateRangeInvalid": "Hai mốc thời gian này không thể cùng đúng. Kiểm tra lại năm bạn nhập.",
+    "nodeAlreadyLinked": "Đã có người được ghi là người đó. Nếu thấy chưa đúng, hãy hỏi người biên tập.",
+    "userAlreadyLinkedInClan": "Tài khoản đó đã được ghi là một người khác trong họ này. Hãy gỡ liên kết trước."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -682,6 +684,116 @@
         "edit": "Sửa thông tin {{name}}",
         "delete": "Gỡ {{name}} khỏi cây"
       }
+    }
+  },
+  "claims": {
+    "title": "Vị trí của bạn trong gia phả",
+    "subtitle": "Tìm người trong gia phả chính là bạn và nhờ người biên tập xác nhận. Được gắn với một mục không cho phép bạn sửa gia phả.",
+    "thisIsYou": "Đây là bạn",
+    "tab": {
+      "browse": "Tìm chính mình",
+      "inbox": "Yêu cầu chờ duyệt"
+    },
+    "status": {
+      "PENDING": "Đang chờ",
+      "APPROVED": "Đã xác nhận",
+      "REJECTED": "Bị từ chối",
+      "CANCELLED": "Đã rút"
+    },
+    "candidate": {
+      "parents": "Cha mẹ",
+      "children": "Con",
+      "noFamily": "Chưa ghi cha mẹ hay con"
+    },
+    "browse": {
+      "searchPlaceholder": "Tìm theo tên",
+      "allGenerations": "Mọi đời",
+      "allBranches": "Mọi chi",
+      "generationOption": "Đời {{n}}",
+      "generationUnknown": "Chưa rõ đời",
+      "empty": "Không có ai trong gia phả trùng khớp. Thử tên ngắn hơn, hoặc hỏi người biên tập — có thể bạn chưa được thêm vào.",
+      "thisIsMe": "Đây là tôi",
+      "alreadyYours": "Bạn đang được ghi là {{name}}",
+      "alreadyYoursHelp": "Mỗi tài khoản chỉ nhận một vị trí trong gia phả. Muốn đổi sang người khác, hãy nhờ người biên tập gỡ liên kết trước.",
+      "openMyNode": "Mở gia phả"
+    },
+    "submit": {
+      "title": "Bạn có phải là {{name}} không?",
+      "confirm": "Gửi yêu cầu",
+      "done": "Đã gửi yêu cầu. Người biên tập sẽ xem xét.",
+      "alreadyLinked": "Bạn đã được ghi là {{name}} trong họ này. Hãy nhờ người biên tập gỡ liên kết trước khi nhận vị trí khác.",
+      "reviewed": "Người biên tập sẽ đối chiếu với gia phả trước khi xác nhận. Việc này cho họ hàng biết bạn là ai, chứ không cho phép bạn sửa gia phả.",
+      "evidenceLabel": "Điều gì giúp nhận ra bạn (không bắt buộc)",
+      "evidencePlaceholder": "Ví dụ: cha tôi là Nguyễn Văn An, tôi là con út trong bốn anh em."
+    },
+    "inbox": {
+      "empty": "Không có yêu cầu nào.",
+      "rowTitle": "{{name}} nhận mình là {{person}}",
+      "approve": "Xác nhận",
+      "reject": "Từ chối",
+      "approved": "{{name}} nay được ghi là {{person}}.",
+      "rejected": "Đã từ chối yêu cầu.",
+      "approveTitle": "Xác nhận đây là {{person}}?",
+      "approveBody": "{{name}} sẽ hiện trên gia phả là {{person}}, và có thể sửa ảnh cùng ghi chú của chính mình.",
+      "approveNoEditRights": "Việc này không cho họ quyền sửa gia phả. Quyền được cấp riêng ở trang Phân quyền.",
+      "rejectTitle": "Từ chối yêu cầu",
+      "rejectBody": "Hãy nêu lý do để họ gửi lại cho đúng. Họ sẽ đọc được điều này."
+    },
+    "mine": {
+      "title": "Yêu cầu của bạn",
+      "subtitle": "Những vị trí trong gia phả mà bạn xin được công nhận.",
+      "empty": "Bạn chưa xin nhận vị trí nào.",
+      "cancel": "Rút lại",
+      "cancelled": "Đã rút yêu cầu.",
+      "sentOn": "Gửi ngày {{date}}"
+    },
+    "assign": {
+      "action": "Gắn một thành viên",
+      "title": "Ai là {{person}}?",
+      "confirm": "Gắn vào",
+      "done": "Đã gắn với {{person}}.",
+      "memberLabel": "Thành viên",
+      "memberPlaceholder": "Tìm thành viên theo tên",
+      "alreadyHolds": "{{name}} — đã gắn với một mục trong gia phả",
+      "confirmBody": "{{name}} sẽ hiện trên gia phả là {{person}}.",
+      "noEditRights": "Việc này không cho họ quyền sửa gia phả."
+    },
+    "unlink": {
+      "action": "Gỡ liên kết",
+      "title": "Gỡ liên kết {{person}}?",
+      "bodySelf": "Bạn sẽ không còn hiện là người này. Không có gì bị xoá khỏi gia phả, và bạn có thể xin nhận lại.",
+      "bodyOther": "Tài khoản này sẽ không còn hiện là người đó. Không có gì bị xoá khỏi gia phả.",
+      "confirm": "Gỡ liên kết",
+      "done": "Đã gỡ liên kết."
+    },
+    "self": {
+      "title": "Những gì bạn được sửa ở đây",
+      "scope": "Vì đây là mục của chính bạn, bạn được đổi ảnh và ghi chú. Tên, đời, ngày tháng và quan hệ là phần gia phả ghi về bạn — muốn sửa hãy nhờ người biên tập.",
+      "notesLabel": "Ghi chú của bạn",
+      "notesHelp": "Mọi người trong họ đều đọc được.",
+      "propagateAvatar": "Dùng ảnh tài khoản của tôi ở đây",
+      "propagateAvatarHelp": "Ảnh tài khoản sẽ được chép sang mục này và tự cập nhật mỗi khi bạn đổi.",
+      "propagateDisplayName": "Hiện tên tài khoản của tôi như tên gọi khác",
+      "propagateDisplayNameHelp": "Chỉ thêm vào phần tên gọi khác. Tên ghi trong gia phả không bao giờ bị đổi.",
+      "saved": "Đã lưu."
+    },
+    "banner": {
+      "title": "Bạn có trong gia phả này không?",
+      "body": "Hãy tìm mục chính là bạn và nhờ người biên tập xác nhận, để họ hàng biết bạn là ai.",
+      "action": "Tìm chính mình"
+    }
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "empty": "Chưa có gì.",
+    "message": {
+      "CLAIM_SUBMITTED": "{{name}} nhận mình là {{person}} và đang chờ trả lời.",
+      "CLAIM_DECIDED_APPROVED": "Bạn nay được ghi là {{person}}.",
+      "CLAIM_DECIDED_REJECTED": "Yêu cầu nhận vị trí {{person}} của bạn bị từ chối. {{reason}}",
+      "CLAIM_DECIDED_CANCELLED": "Yêu cầu của bạn về {{person}} đã được rút.",
+      "NODE_LINKED": "{{name}} đã ghi bạn là {{person}}.",
+      "NODE_UNLINKED": "{{name}} đã gỡ liên kết của bạn với {{person}}.",
+      "unknown": "Có việc vừa xảy ra trong một dòng họ của bạn."
     }
   }
 }
