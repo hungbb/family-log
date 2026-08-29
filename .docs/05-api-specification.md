@@ -100,6 +100,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 | POST | `/me/avatar` | multipart upload → `MediaRef` |
 | GET | `/me/notifications` | Paged notifications; `?unreadOnly=true` |
 | POST | `/me/notifications/{id}/read` | `204` |
+| GET | `/me/notifications/unread-count` | `{ unread }`. Its own route because this is what the badge polls every 60 s — one indexed count against the partial unread index, rather than a page of rows nobody is reading |
 | GET | `/me/join-requests` | The user's own outbound join requests |
 | GET | `/me/claims` | The user's own node claims |
 
@@ -223,7 +224,11 @@ Responses are `ETag`-tagged; clients send `If-None-Match` and get `304` when the
 | POST | `/claims/{id}/reject` | `NODE_CLAIM_APPROVE` | `{ reason }` |
 | POST | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` covering node | Direct assignment: `{ userId }` (FR-N4) |
 | DELETE | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` or the linked user | Unlink (FR-N5) |
-| GET | `/persons/unlinked` | `CLAN_VIEW` | Candidate nodes for claiming; `?q=` |
+| GET | `/persons/unlinked` | `CLAN_VIEW` | Candidate nodes for claiming; `?q=`, `?generation=`, `?branchId=` |
+| GET | `/persons/linked-to-me` | active member | The caller's own node in this clan, or `204` when they hold none. The `204` is the answer the "find yourself in the tree" banner is waiting for, not an error |
+| GET | `/persons/{personId}/link-user` | active member | Who this node is linked to, and whether that is the caller |
+| GET | `/persons/{personId}/self-profile` | the linked user | The FR-N6 propagation flags |
+| PATCH | `/persons/{personId}/self-profile` | the linked user | The doc 04 §6 self-service exception: `{ avatarMediaId?, notesHtml?, propagateAvatar, propagateDisplayName }` and **nothing else**. A separate route rather than a special case inside `PATCH /persons/{id}`, so the whitelist is a request shape rather than a branch in the person update |
 
 ### 4.11 Audit & operations
 

@@ -126,6 +126,20 @@ export const AvatarCircle = styled.circle<{ $deceased: boolean }>`
   stroke-width: 1;
 `;
 
+/**
+ * The ring around the avatar of a node an account is linked to (F6.7).
+ *
+ * A ring rather than a badge, because it has to survive being read at half scale on a phone: at
+ * that size a 6px icon is a smudge, but a coloured outline around a circle is still a coloured
+ * outline. The caller's own node gets the accent colour and a thicker stroke — "where am I" is a
+ * question people ask of a tree constantly, and the answer should be findable while panning.
+ */
+export const LinkRing = styled.circle<{ $self: boolean }>`
+  fill: none;
+  stroke: ${({ theme, $self }) => ($self ? theme.color.primary : theme.color.success)};
+  stroke-width: ${({ $self }) => ($self ? 2 : 1.5)};
+`;
+
 export const AvatarInitials = styled.text`
   fill: ${({ theme }) => theme.color.inkMuted};
   font-family: ${({ theme }) => theme.font.body};

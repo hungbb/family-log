@@ -138,7 +138,7 @@
     "branchNotFound": "That branch does not exist in this clan.",
     "requestNotFound": "That request no longer exists.",
     "invalidClanCode": "That does not look like a join code.",
-    "duplicatePendingRequest": "You have already asked to join. Wait for an answer, or withdraw that request first.",
+    "duplicatePendingRequest": "You already have a request waiting. Wait for an answer, or withdraw it first.",
     "membershipExists": "You are already a member of this clan.",
     "versionConflict": "Somebody else changed this while you were editing. Reload and try again.",
     "cycleDetected": "That would make somebody their own ancestor, or move a branch underneath itself.",
@@ -149,7 +149,9 @@
     "subtreeUnavailable": "Limiting a permission to one person and their descendants becomes available once the family tree exists.",
     "personNotFound": "That person does not exist in this clan.",
     "invalidRelationship": "That relationship cannot be recorded as it stands. Check the people you chose.",
-    "dateRangeInvalid": "Those dates cannot both be right. Check the year you entered."
+    "dateRangeInvalid": "Those dates cannot both be right. Check the year you entered.",
+    "nodeAlreadyLinked": "Somebody is already recorded as that person. Ask an editor if you think that is wrong.",
+    "userAlreadyLinkedInClan": "That account is already recorded as somebody else in this family. Unlink them first."
   },
   "health": {
     "title": "System health",
@@ -685,6 +687,116 @@
         "edit": "Edit {{name}}",
         "delete": "Remove {{name}} from the tree"
       }
+    }
+  },
+  "claims": {
+    "title": "Your place in the family tree",
+    "subtitle": "Find the person in the record who is you, and ask an editor to confirm it. Being linked to an entry does not let you edit the tree.",
+    "thisIsYou": "This is you",
+    "tab": {
+      "browse": "Find yourself",
+      "inbox": "Requests to review"
+    },
+    "status": {
+      "PENDING": "Waiting",
+      "APPROVED": "Confirmed",
+      "REJECTED": "Declined",
+      "CANCELLED": "Withdrawn"
+    },
+    "candidate": {
+      "parents": "Parents",
+      "children": "Children",
+      "noFamily": "No parents or children recorded yet"
+    },
+    "browse": {
+      "searchPlaceholder": "Search by name",
+      "allGenerations": "Any generation",
+      "allBranches": "Any branch",
+      "generationOption": "Generation {{n}}",
+      "generationUnknown": "Generation not recorded",
+      "empty": "Nobody in the record matches. Try a shorter name, or ask an editor — you may not have been added yet.",
+      "thisIsMe": "This is me",
+      "alreadyYours": "You are recorded as {{name}}",
+      "alreadyYoursHelp": "One entry per account in each family. To be linked to somebody else instead, ask an editor to unlink you first.",
+      "openMyNode": "Open the tree"
+    },
+    "submit": {
+      "title": "Are you {{name}}?",
+      "confirm": "Send request",
+      "done": "Request sent. An editor will review it.",
+      "alreadyLinked": "You are already recorded as {{name}} in this family. Ask an editor to unlink you before claiming another entry.",
+      "reviewed": "An editor will check this against the record before it is confirmed. Being linked shows relatives who you are; it does not let you edit the tree.",
+      "evidenceLabel": "Anything that helps them recognise you (optional)",
+      "evidencePlaceholder": "For example: my father is Nguyễn Văn An, I am the youngest of four."
+    },
+    "inbox": {
+      "empty": "Nothing waiting.",
+      "rowTitle": "{{name}} says they are {{person}}",
+      "approve": "Confirm",
+      "reject": "Decline",
+      "approved": "{{name}} is now recorded as {{person}}.",
+      "rejected": "Request declined.",
+      "approveTitle": "Confirm this is {{person}}?",
+      "approveBody": "{{name}} will be shown on the tree as {{person}}, and can edit their own photo and notes.",
+      "approveNoEditRights": "This does not give them permission to edit the family tree. Permissions are granted separately, on the Permissions page.",
+      "rejectTitle": "Decline this request",
+      "rejectBody": "Say why, so they can send a better one. They will see this."
+    },
+    "mine": {
+      "title": "Your claims",
+      "subtitle": "Entries in a family record you have asked to be recognised as.",
+      "empty": "You have not asked to be linked to anybody.",
+      "cancel": "Withdraw",
+      "cancelled": "Request withdrawn.",
+      "sentOn": "Sent {{date}}"
+    },
+    "assign": {
+      "action": "Link a member",
+      "title": "Who is {{person}}?",
+      "confirm": "Link them",
+      "done": "Linked to {{person}}.",
+      "memberLabel": "Member",
+      "memberPlaceholder": "Search members by name",
+      "alreadyHolds": "{{name}} — already linked to an entry",
+      "confirmBody": "{{name}} will be shown on the tree as {{person}}.",
+      "noEditRights": "This does not give them permission to edit the family tree."
+    },
+    "unlink": {
+      "action": "Unlink",
+      "title": "Unlink {{person}}?",
+      "bodySelf": "You will no longer be shown as this person. Nothing is removed from the family record, and you can ask to be linked again.",
+      "bodyOther": "This account will no longer be shown as this person. Nothing is removed from the family record.",
+      "confirm": "Unlink",
+      "done": "Unlinked."
+    },
+    "self": {
+      "title": "What you can change here",
+      "scope": "Because this is your own entry you can change your photo and your notes. Your name, generation, dates and family links are the family's record of you — ask an editor to change those.",
+      "notesLabel": "Your notes",
+      "notesHelp": "Shown to everybody in the family.",
+      "propagateAvatar": "Use my account photo here",
+      "propagateAvatarHelp": "Your account photo is copied onto this entry, and updated whenever you change it.",
+      "propagateDisplayName": "Show my account name as an alias",
+      "propagateDisplayNameHelp": "Added as an alias only. The name recorded in the book is never changed.",
+      "saved": "Saved."
+    },
+    "banner": {
+      "title": "Are you in this family tree?",
+      "body": "Find the entry that is you and ask an editor to confirm it, so relatives know who you are.",
+      "action": "Find yourself"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Nothing yet.",
+    "message": {
+      "CLAIM_SUBMITTED": "{{name}} says they are {{person}}, and is waiting for an answer.",
+      "CLAIM_DECIDED_APPROVED": "You are now recorded as {{person}}.",
+      "CLAIM_DECIDED_REJECTED": "Your request to be recorded as {{person}} was declined. {{reason}}",
+      "CLAIM_DECIDED_CANCELLED": "Your request about {{person}} was withdrawn.",
+      "NODE_LINKED": "{{name}} recorded you as {{person}}.",
+      "NODE_UNLINKED": "{{name}} unlinked you from {{person}}.",
+      "unknown": "Something happened in one of your families."
     }
   }
 }

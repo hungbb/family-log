@@ -77,6 +77,32 @@ class AuthorizationCoverageTest {
                 "Leaving is a member's own business. Guarded by requireMembership and by"
                     + " LastAdminProtection, which is the rule that actually applies here (I-M3).");
         allowed.put(
+                "app.giaky.linking.application.ClaimService.submit",
+                "Claiming a node is what a member does before they hold anything (FR-N1). Gated by"
+                    + " requireMembership; requiring a permission would make the feature unreachable"
+                    + " by exactly the people it exists for.");
+        allowed.put(
+                "app.giaky.linking.application.ClaimService.cancel",
+                "Withdrawing one's own claim. The repository lookup is scoped to the requester's own"
+                    + " id, so the row cannot belong to anyone else.");
+        allowed.put(
+                "app.giaky.linking.application.SelfProfileService.update",
+                "The self-service exception of doc 04 6: a linked user edits two whitelisted fields"
+                    + " on their own node without TREE_EDIT. The check is identity rather than"
+                    + " permission — the node must already be linked to the caller — and the SQL"
+                    + " statement carries the same predicate, so no argument reaches another node.");
+        allowed.put(
+                "app.giaky.notification.application.NotificationService.raise",
+                "Delivery, not a decision. Reachable only from listeners acting on an action that"
+                    + " was already authorized, never from an endpoint.");
+        allowed.put(
+                "app.giaky.notification.application.NotificationService.raiseAll",
+                "The same as raise, for the several people an approver group is.");
+        allowed.put(
+                "app.giaky.notification.application.NotificationService.markRead",
+                "Marking one's own notification read. Looked up by id and recipient, so a row"
+                    + " belonging to somebody else is a 404 rather than an authorization question.");
+        allowed.put(
                 "app.giaky.authorization.application.GrantService.markExpiredRevoked",
                 "The grant expiry sweep (B3.14). Hygiene, not enforcement: every read path already"
                     + " filters on expires_at, so this changes tidiness rather than access.");

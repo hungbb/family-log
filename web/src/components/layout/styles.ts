@@ -189,3 +189,49 @@ export const SwitcherCode = styled.span`
     display: none;
   }
 `;
+
+/* --- The notification panel (F6.10). --- */
+
+export const NotificationList = styled.div`
+  width: min(360px, calc(100vw - ${({ theme }) => theme.space(8)}));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: ${({ theme }) => theme.space(2)};
+  border: 1px solid ${({ theme }) => theme.color.border};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.surface};
+  box-shadow: ${({ theme }) => theme.shadow.float};
+`;
+
+/**
+ * One notification.
+ *
+ * A `<button>` rather than a row with a click handler, because opening it marks it read — that is
+ * an action, and a keyboard should reach it the same way a mouse does.
+ */
+export const NotificationItem = styled.button<{ $unread: boolean }>`
+  display: block;
+  width: 100%;
+  padding: ${({ theme }) => `${theme.space(2)} ${theme.space(3)}`};
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  text-align: left;
+  cursor: pointer;
+  background: ${({ theme, $unread }) => ($unread ? theme.color.primarySubtle : 'transparent')};
+
+  &:hover {
+    background: ${({ theme }) => theme.color.surfaceAlt};
+  }
+`;
+
+export const NotificationText = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.color.ink};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  line-height: ${({ theme }) => theme.lineHeight.normal};
+`;
+
+export const NotificationTime = styled.span`
+  color: ${({ theme }) => theme.color.inkSubtle};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+`;

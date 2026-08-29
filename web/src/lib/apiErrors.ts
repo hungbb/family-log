@@ -52,6 +52,12 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   PERMISSION_ESCALATION_BLOCKED: 'errors.escalationBlocked',
   GRANT_ALREADY_EXISTS: 'errors.grantAlreadyExists',
   SUBTREE_SCOPE_UNAVAILABLE: 'errors.subtreeUnavailable',
+
+  // Linking. Both conflicts are the same invariant seen from either end — one node per account per
+  // clan (I-P4), one account per node (I-K1) — and a person meeting either has done something
+  // reasonable, so each says which of the two happened rather than "conflict".
+  NODE_ALREADY_LINKED: 'errors.nodeAlreadyLinked',
+  USER_ALREADY_LINKED_IN_CLAN: 'errors.userAlreadyLinkedInClan',
 };
 
 /**

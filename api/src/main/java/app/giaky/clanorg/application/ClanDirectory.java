@@ -2,12 +2,17 @@ package app.giaky.clanorg.application;
 
 import app.giaky.clanorg.domain.Branch;
 import app.giaky.clanorg.domain.BranchRepository;
+import app.giaky.clanorg.domain.Clan;
 import app.giaky.clanorg.domain.ClanMembership;
 import app.giaky.clanorg.domain.ClanMembershipRepository;
+import app.giaky.clanorg.domain.ClanRepository;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.UserId;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +38,38 @@ public class ClanDirectory {
 
     private final ClanMembershipRepository memberships;
     private final BranchRepository branches;
+    private final ClanRepository clans;
 
-    public ClanDirectory(ClanMembershipRepository memberships, BranchRepository branches) {
+    public ClanDirectory(
+            ClanMembershipRepository memberships,
+            BranchRepository branches,
+            ClanRepository clans) {
+
         this.memberships = memberships;
         this.branches = branches;
+        this.clans = clans;
+    }
+
+    /**
+     * Clan names by id, for lists that span clans.
+     *
+     * <p>"My claims" on {@code /me} (F6.4) is the caller: it shows what somebody asked for across
+     * every family they belong to, and a row that named only a UUID would be unreadable. Names only
+     * — a label is not a licence to read the clan.
+     *
+     * @return the names by id; ids with no clan are simply absent, which is the right answer for a
+     *     request whose clan has since been deleted
+     */
+    @Transactional(readOnly = true)
+    public Map<ClanId, String> namesOf(Collection<ClanId> clanIds) {
+        if (clanIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<ClanId, String> names = new LinkedHashMap<>();
+        for (Clan clan : clans.findAllById(List.copyOf(clanIds))) {
+            names.put(clan.id(), clan.name());
+        }
+        return names;
     }
 
     /** Whether the user holds an {@code ACTIVE} membership — the gate on every grant (doc 04 §1.6). */

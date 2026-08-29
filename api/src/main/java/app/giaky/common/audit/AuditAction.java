@@ -112,5 +112,32 @@ public enum AuditAction {
 
     UNION_CREATED,
     UNION_UPDATED,
-    UNION_REMOVED
+    UNION_REMOVED,
+
+    // --- Linking (Phase 6) ---------------------------------------------------------------------
+
+    /** A member asked to be recognised as a node (FR-N1). */
+    CLAIM_SUBMITTED,
+    /**
+     * A claim was answered.
+     *
+     * <p>One action for approve, reject and withdraw, with the outcome in the after-JSON. An
+     * operator reading the log wants "what happened to this claim" as one filter, and three actions
+     * would make the common question a three-way OR.
+     */
+    CLAIM_DECIDED,
+
+    /**
+     * An account was attached to a person node (FR-N3, FR-N4).
+     *
+     * <p>Its own action rather than a {@code PERSON_UPDATED}, because it is the one field on the row
+     * that says who somebody <i>is</i> rather than what the book records about them — and because
+     * "who was linked to this node, and who allowed it" is a question a family will ask.
+     */
+    PERSON_LINKED,
+    /** A link was removed, by an approver or by the linked person themselves (FR-N5). */
+    PERSON_UNLINKED,
+
+    /** A linked member changed which profile fields propagate onto their node (FR-N6). */
+    PROFILE_PROPAGATION_UPDATED
 }

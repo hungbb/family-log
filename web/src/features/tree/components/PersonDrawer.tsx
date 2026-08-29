@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
+import { AssignMemberDialog, SelfProfileForm, useUnlinkUser } from '@/features/claims';
+import { useActiveClan } from '@/hooks/useActiveClan.ts';
+import { useAuth } from '@/hooks/useAuth.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
 
 import { useBranches } from '../../branch';
@@ -47,8 +50,36 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
   const { data: person, isPending, error } = usePerson(clanId, personId);
   const { data: branches } = useBranches(clanId);
   const deletePerson = useDeletePerson(clanId);
+  const unlinkUser = useUnlinkUser(clanId);
+  const { user } = useAuth();
+  const { can } = useActiveClan();
 
   const [editing, setEditing] = useState<PersonFormMode | null>(null);
+  const [assigning, setAssigning] = useState<{ id: string; fullName: string } | null>(null);
+
+  /** Whether this node is the caller's own — what "this is you" and the self-service form need. */
+  const isSelf = user !== null && person?.linkedUserId === user.id;
+  const canApproveClaims = can('NODE_CLAIM_APPROVE');
+
+  const onUnlink = (target: { id: string; fullName: string }, self: boolean) => {
+    modal.confirm({
+      title: t('claims.unlink.title', { person: target.fullName }),
+      // Two different sentences, because they are two different acts: giving up your own place in
+      // the book, and removing somebody else's. Neither deletes the node.
+      content: self ? t('claims.unlink.bodySelf') : t('claims.unlink.bodyOther'),
+      okText: t('claims.unlink.confirm'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await unlinkUser.mutateAsync(target.id);
+          void message.success(t('claims.unlink.done'));
+        } catch (failure) {
+          void message.error(toMessage(failure, t));
+        }
+      },
+    });
+  };
 
   const branchName =
     person?.branchId === undefined
@@ -157,11 +188,41 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
                 {branchName ?? t('tree.unplaced')}
               </Descriptions.Item>
               <Descriptions.Item label={t('tree.field.linkedUser')}>
-                {person.linkedUserId === undefined ? (
-                  <Tag>{t('tree.notLinked')}</Tag>
-                ) : (
-                  <Tag color="green">{t('tree.linked')}</Tag>
-                )}
+                <Space wrap>
+                  {person.linkedUserId === undefined ? (
+                    <Tag>{t('tree.notLinked')}</Tag>
+                  ) : isSelf ? (
+                    // F6.7. Said as plainly as the tree canvas says it, and in the same words.
+                    <Tag color="green">{t('claims.thisIsYou')}</Tag>
+                  ) : (
+                    <Tag color="green">{t('tree.linked')}</Tag>
+                  )}
+
+                  {person.linkedUserId === undefined && canApproveClaims && (
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() => {
+                        setAssigning({ id: person.id, fullName: person.fullName });
+                      }}
+                    >
+                      {t('claims.assign.action')}
+                    </Button>
+                  )}
+
+                  {person.linkedUserId !== undefined && (isSelf || canApproveClaims) && (
+                    <Button
+                      size="small"
+                      type="link"
+                      danger
+                      onClick={() => {
+                        onUnlink({ id: person.id, fullName: person.fullName }, isSelf);
+                      }}
+                    >
+                      {t('claims.unlink.action')}
+                    </Button>
+                  )}
+                </Space>
               </Descriptions.Item>
             </Descriptions>
 
@@ -172,6 +233,19 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
                     safe to render — the client never re-sanitizes, because a second sanitizer is a
                     second set of parsing bugs. */}
                 <NoteBody dangerouslySetInnerHTML={{ __html: person.notesHtml }} />
+              </RelationGroup>
+            )}
+
+            {isSelf && (
+              <RelationGroup>
+                <RelationTitle>{t('claims.self.title')}</RelationTitle>
+                <SelfProfileForm
+                  clanId={clanId}
+                  person={{
+                    id: person.id,
+                    ...(person.notesHtml === undefined ? {} : { notesHtml: person.notesHtml }),
+                  }}
+                />
               </RelationGroup>
             )}
 
@@ -253,6 +327,14 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
           </>
         )}
       </Skeleton>
+
+      <AssignMemberDialog
+        clanId={clanId}
+        person={assigning}
+        onClose={() => {
+          setAssigning(null);
+        }}
+      />
 
       {editing !== null && (
         <PersonFormModal

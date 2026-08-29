@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { type PersonSummary, type PlacementType } from '@/api/endpoints/persons.ts';
+import { FindYourselfBanner } from '@/features/claims';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
 import { useAuth } from '@/hooks/useAuth.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
@@ -181,6 +182,10 @@ export function TreePage() {
         <Alert type="info" showIcon message={t('tree.truncated')} />
       )}
 
+      {/* F6.1. Shown only to a member who holds no node and has no claim waiting, so it stops
+          appearing the moment it has been acted on. */}
+      <FindYourselfBanner clanId={clanId} />
+
       {mode === 'canvas' ? (
         <>
           <TreeToolbar
@@ -201,6 +206,7 @@ export function TreePage() {
               graph={graph}
               layout={layout}
               controlRef={canvasRef}
+              {...(myPersonId === undefined ? {} : { myPersonId })}
               onOpenPerson={openPerson}
               onNodeAction={onNodeAction}
             />

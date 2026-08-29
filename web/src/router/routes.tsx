@@ -69,6 +69,9 @@ const TreePage = lazy(async () => ({
 const PersonSearchPage = lazy(async () => ({
   default: (await import('../features/tree')).PersonSearchPage,
 }));
+const ClaimsPage = lazy(async () => ({
+  default: (await import('../features/claims')).ClaimsPage,
+}));
 
 /** Every lazy route renders through the same fallback, so a slow chunk never blanks the page. */
 function withSuspense(element: ReactNode): ReactNode {
@@ -118,8 +121,7 @@ export const router = createBrowserRouter([
               { path: 'branches', element: withSuspense(<BranchesPage />) },
               { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'settings', element: withSuspense(<ClanSettingsPage />) },
-              // Claims arrive with Phase 6; the graphical tree canvas with Phase 5, alongside the
-              // list view that stays as the accessible route (NFR-7).
+              { path: 'claims', element: withSuspense(<ClaimsPage />) },
               { path: '*', element: <Navigate to="tree" replace /> },
             ],
           },

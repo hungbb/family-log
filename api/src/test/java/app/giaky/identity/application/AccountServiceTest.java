@@ -44,7 +44,7 @@ class AccountServiceTest {
                         IdentityTestFixtures.idGenerator(),
                         clock,
                         IdentityTestFixtures.securityProperties());
-        accountService = new AccountService(users, refreshTokenService, audit, clock);
+        accountService = new AccountService(users, refreshTokenService, audit, event -> {}, clock);
 
         an =
                 users.save(

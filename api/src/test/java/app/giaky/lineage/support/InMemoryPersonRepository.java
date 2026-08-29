@@ -3,6 +3,7 @@ package app.giaky.lineage.support;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
+import app.giaky.common.types.UserId;
 import app.giaky.lineage.domain.Person;
 import app.giaky.lineage.domain.PersonRepository;
 import java.time.Instant;
@@ -154,6 +155,184 @@ public final class InMemoryPersonRepository implements PersonRepository {
             changed++;
         }
         return changed;
+    }
+
+    // --- the link column (Phase 6) --------------------------------------------------------------
+
+    @Override
+    public Optional<Person> findByLinkedUser(ClanId clanId, UserId linkedUserId) {
+        return rows.values().stream()
+                .filter(person -> person.clanId().equals(clanId))
+                .filter(person -> !person.isDeleted())
+                .filter(person -> linkedUserId.equals(person.linkedUserId()))
+                .findFirst();
+    }
+
+    @Override
+    public List<Person> findAllByLinkedUser(UserId linkedUserId) {
+        return rows.values().stream()
+                .filter(person -> !person.isDeleted())
+                .filter(person -> linkedUserId.equals(person.linkedUserId()))
+                .toList();
+    }
+
+    /**
+     * The compare-and-set of B6.11, single-threaded.
+     *
+     * <p>A double cannot reproduce the race the real statement resolves — nothing here runs
+     * concurrently — but it reproduces the <i>rule</i>: a node that is already linked refuses the
+     * write. The race itself is covered by an integration test against real Postgres, which is the
+     * only place it can be covered honestly.
+     */
+    @Override
+    public boolean linkUserIfUnlinked(
+            ClanId clanId, PersonId personId, UserId userId, UserId actor, Instant now) {
+
+        Person person = live(clanId, personId);
+        if (person == null || person.linkedUserId() != null) {
+            return false;
+        }
+        rows.put(personId, withLink(person, userId, actor, now));
+        return true;
+    }
+
+    @Override
+    public boolean unlinkUser(ClanId clanId, PersonId personId, UserId actor, Instant now) {
+        Person person = live(clanId, personId);
+        if (person == null || person.linkedUserId() == null) {
+            return false;
+        }
+        rows.put(personId, withLink(person, null, actor, now));
+        return true;
+    }
+
+    @Override
+    public boolean updateSelfServiceFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            java.util.UUID avatarMediaId,
+            String notesHtml,
+            String notesText,
+            Instant now) {
+
+        Person person = live(clanId, personId);
+        if (person == null || !linkedUserId.equals(person.linkedUserId())) {
+            return false;
+        }
+        rows.put(
+                personId,
+                copy(person, avatarMediaId, person.name().alias(), notesHtml, notesText, linkedUserId, now));
+        return true;
+    }
+
+    @Override
+    public boolean updatePropagatedFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            boolean avatar,
+            java.util.UUID avatarMediaId,
+            boolean displayName,
+            String alias,
+            Instant now) {
+
+        Person person = live(clanId, personId);
+        if (person == null || !linkedUserId.equals(person.linkedUserId())) {
+            return false;
+        }
+        rows.put(
+                personId,
+                copy(
+                        person,
+                        avatar ? avatarMediaId : person.avatarMediaId(),
+                        displayName ? alias : person.name().alias(),
+                        person.notesHtml(),
+                        person.notesText(),
+                        linkedUserId,
+                        now));
+        return true;
+    }
+
+    private Person live(ClanId clanId, PersonId personId) {
+        Person person = rows.get(personId);
+        if (person == null || !person.clanId().equals(clanId) || person.isDeleted()) {
+            return null;
+        }
+        return person;
+    }
+
+    private static Person withLink(Person person, UserId userId, UserId actor, Instant now) {
+        return rebuild(
+                person,
+                person.avatarMediaId(),
+                person.name().alias(),
+                person.notesHtml(),
+                person.notesText(),
+                userId,
+                actor,
+                now);
+    }
+
+    private static Person copy(
+            Person person,
+            java.util.UUID avatarMediaId,
+            String alias,
+            String notesHtml,
+            String notesText,
+            UserId actor,
+            Instant now) {
+
+        return rebuild(
+                person,
+                avatarMediaId,
+                alias,
+                notesHtml,
+                notesText,
+                person.linkedUserId(),
+                actor,
+                now);
+    }
+
+    /** Like the native statements, this leaves {@code version} alone. */
+    private static Person rebuild(
+            Person person,
+            java.util.UUID avatarMediaId,
+            String alias,
+            String notesHtml,
+            String notesText,
+            UserId linkedUserId,
+            UserId actor,
+            Instant now) {
+
+        return new Person(
+                person.id(),
+                person.clanId(),
+                person.branchId(),
+                new app.giaky.lineage.domain.PersonName(
+                        person.name().fullName(),
+                        person.name().familyName(),
+                        person.name().givenName(),
+                        alias,
+                        person.name().posthumousName()),
+                person.gender(),
+                person.lifeStatus(),
+                person.birth(),
+                person.death(),
+                person.burialPlace(),
+                person.generation(),
+                person.birthOrder(),
+                avatarMediaId,
+                notesHtml,
+                notesText,
+                linkedUserId,
+                person.foundingAncestor(),
+                person.version(),
+                person.createdBy(),
+                actor,
+                person.createdAt(),
+                now,
+                person.deletedAt());
     }
 
     /** Everything currently stored, deleted rows included — for assertions, never for the code. */

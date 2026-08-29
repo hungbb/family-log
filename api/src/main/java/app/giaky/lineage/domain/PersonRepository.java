@@ -3,10 +3,13 @@ package app.giaky.lineage.domain;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
+import app.giaky.common.types.TenantExempt;
+import app.giaky.common.types.UserId;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Storage for {@link Person} nodes.
@@ -46,6 +49,23 @@ public interface PersonRepository {
     /** I-P6, checked before a create that claims the title. */
     Optional<Person> findFoundingAncestor(ClanId clanId);
 
+    /** I-P4: the node this account holds in this clan, if it holds one (Phase 6). */
+    Optional<Person> findByLinkedUser(ClanId clanId, UserId linkedUserId);
+
+    /**
+     * Every node this account holds, across every clan (FR-N6).
+     *
+     * <p>The one read here with no {@link ClanId}, and it cannot have one: a profile edit is not a
+     * clan-scoped act, and the whole question is which families the person is recorded in. The
+     * account id is the scope, and it comes from the access token.
+     */
+    @TenantExempt(
+            justification =
+                    "Profile propagation spans every clan the account is linked in (FR-N6), so no"
+                        + " ClanId exists to scope by. Scoped instead by the account id, which"
+                        + " comes from the access token rather than from the request.")
+    List<Person> findAllByLinkedUser(UserId linkedUserId);
+
     /** Search (B4.11, FR-P11). Diacritic-insensitive; see {@link PersonQuery}. */
     PersonPage search(ClanId clanId, PersonQuery query);
 
@@ -67,6 +87,69 @@ public interface PersonRepository {
 
     /** One person's new <i>đời</i>, for {@link #updateGenerations}. */
     record GenerationAssignment(PersonId personId, Integer generation) {}
+
+    // --- the link column (Phase 6) --------------------------------------------------------------
+
+    /**
+     * Attaches an account to a node, but only while the node is still unattached (B6.11).
+     *
+     * <p>A single conditional statement rather than a read followed by {@link #save}, and that is
+     * the point: two approvers deciding the same claim at the same moment both pass the check above
+     * them, and this is where exactly one of them wins. A read-modify-write through the aggregate
+     * would let the second overwrite the first, silently.
+     *
+     * <p>Reached only through {@code PersonUserLinker} — {@code architecture.LinkWriterTest} fails
+     * the build for a second caller, which is what makes the phase-6 exit criterion structural.
+     *
+     * @return false when the node was linked, deleted or gone by the time the statement ran
+     */
+    boolean linkUserIfUnlinked(
+            ClanId clanId, PersonId personId, UserId userId, UserId actor, Instant now);
+
+    /**
+     * Detaches whatever account is on the node (FR-N5).
+     *
+     * @return false when there was nothing attached, which is not an error
+     */
+    boolean unlinkUser(ClanId clanId, PersonId personId, UserId actor, Instant now);
+
+    /**
+     * The self-service field whitelist of doc 04 §6, as a statement.
+     *
+     * <p>The {@code WHERE linked_user_id = :userId} predicate <i>is</i> the authorization: no
+     * argument this method can be given reaches a node that is not the caller's own, and no column
+     * outside the two named here can be written through it. That is a narrower guarantee than a
+     * permission check, and a cheaper one to keep true.
+     *
+     * @return false when the caller is not the node's linked user
+     */
+    boolean updateSelfServiceFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            UUID avatarMediaId,
+            String notesHtml,
+            String notesText,
+            Instant now);
+
+    /**
+     * Copies opted-in account fields onto a linked node (FR-N6).
+     *
+     * <p>Separate from {@link #updateSelfServiceFields} because the fields differ and the trigger
+     * does: this one runs from a profile edit, writes {@code alias} rather than notes, and touches
+     * only the columns whose flag is on.
+     *
+     * @return false when the caller is not the node's linked user
+     */
+    boolean updatePropagatedFields(
+            ClanId clanId,
+            PersonId personId,
+            UserId linkedUserId,
+            boolean avatar,
+            UUID avatarMediaId,
+            boolean displayName,
+            String alias,
+            Instant now);
 
     /**
      * A page of search results.

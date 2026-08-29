@@ -95,3 +95,103 @@
 - **Being in the tree ≠ being able to edit it.** The most likely design mistake in this phase is quietly granting `TREE_EDIT` on approval because it feels helpful. Keep them separate; an admin can always grant a subtree scope afterwards.
 - **The self-service exception is a real hole if it drifts.** Keep the whitelist in one constant, test both directions, and require an ADR to extend it.
 - **Duplicate-person risk.** Members whose node does not exist yet will be tempted to create one. Route that through a claim-adjacent flow ("request to be added") rather than open creation, or the tree accumulates duplicates. If that flow is deferred, say so explicitly in the UI copy.
+
+## 9. Phase Report
+
+> Appended on completion, per doc 09 §5.
+
+### What shipped
+
+**Backend.** All of B6.1–B6.11, as a new `linking` bounded context plus a small `notification` one.
+
+- **B6.2 — `PersonUserLinker` is the only writer of `linked_user_id`, and that is a build failure
+  rather than a grep.** `LinkWriterTest` (ArchUnit) asserts two things: only `PersonUserLinker` calls
+  the `PersonLinkPort` write methods, and only `lineage.application.PersonLinkGateway` calls the
+  repository ones. The linker is pure domain with no `PermissionResolver` and no grant service in
+  reach — it *cannot* grant `TREE_EDIT`, which is §8's named risk made structural rather than
+  remembered.
+- **The Linking↔Lineage seam.** Doc 06 §2 puts the linker in Linking; the ArchUnit rule from Phase 0
+  forbids any context importing another's `domain` or `infrastructure`. So Lineage publishes
+  `PersonLinkGateway` (an application service), Linking declares `PersonLinkPort` / `ClanMemberPort`
+  in its own domain, and two adapters in `linking.infrastructure` join them. The gateway's write
+  methods are deliberately **not** `@Transactional`: they join the caller's transaction, so the
+  compare-and-set, the claim decision and the audit row commit together or not at all.
+- **B6.11 — the guard is the row, not the read.** `linkUserIfUnlinked` is a native
+  `UPDATE … WHERE linked_user_id IS NULL AND deleted_at IS NULL` returning its affected-row count;
+  the read before it exists only to produce a good error message. The partial unique index from V11
+  and the per-clan uniqueness of `linked_user_id` catch the other side of the race. No in-memory
+  double can prove this, which is why `LinkConcurrencyIT` fires two approvals through a
+  `CyclicBarrier` on a real Postgres and asserts `containsExactlyInAnyOrder(200, 409)` plus exactly
+  one linked row and one `APPROVED` claim.
+- **B6.7 — the whitelist is a type and a two-column statement.** `updateSelfServiceFields` writes
+  `avatar_media_id` and `notes_*` and nothing else, and its `WHERE linked_user_id = :userId` *is* the
+  authorization — a caller who is not the linked person updates zero rows. `SelfProfileServiceTest`
+  tests both directions. Extending it means editing a SQL statement with a comment above it saying
+  an ADR is required, which is the closest thing to a lock a whitelist can have.
+- **B6.8 — propagation lands on `alias`, never on `full_name`.** An account's display name is what
+  somebody calls themselves this year; the recorded name is what the book says. The flags live in a
+  side table (`person_profile_propagation`) because they are Linking's data about a Lineage row.
+- **B6.9/B6.10** — `LinkingNotificationListener` routes `CLAIM_SUBMITTED` through
+  `PermissionQueryService.holdersCovering(...)`, so an approver is notified only about claims they
+  could actually decide. It stays silent on cancellations, on the link that a claim approval already
+  notified about, and on self-unlinks. Audit gained `CLAIM_SUBMITTED`, `CLAIM_DECIDED`,
+  `PERSON_LINKED`, `PERSON_UNLINKED`, `PROFILE_PROPAGATION_UPDATED`.
+
+**Frontend.** All of F6.1–F6.11.
+
+- `ClaimsPage` (two tabs), `UnlinkedNodeBrowser` (F6.2), `ClaimDialog` (F6.3), `MyClaims` on `/me`
+  (F6.4), `ClaimInbox` (F6.5), `AssignMemberDialog` (F6.6), the avatar `LinkRing` and "This is you"
+  in both the canvas and the drawer (F6.7), unlink with two different confirmations depending on
+  whose link it is (F6.8), `SelfProfileForm` (F6.9), `NotificationBell` (F6.10), and the full en/vi
+  vocabulary (F6.11).
+- The bell lives in `components/layout`, not in a feature: the shell renders it and the shell may not
+  import a feature (doc 07 §2), and its list spans every clan anyway.
+- The badge polls a dedicated `unread-count` endpoint every 60 s and not in a background tab; the
+  list is fetched when the bell opens.
+
+**Migrations.** `V11__create_node_claim_requests.sql`, `V11_1__add_profile_propagation_flags.sql`,
+`V13__create_notifications.sql`.
+
+### Measured
+
+| | |
+|---|---|
+| Backend unit tests | **607 pass** (531 before this phase) |
+| Frontend | `eslint --max-warnings=0`, constraint script, `tsc --noEmit`, `vite build` all clean |
+| Claims chunk | 377 KB raw / 110 KB gzipped, lazily loaded per route |
+
+**Integration tests were written but not executed in the authoring environment** — it has no Docker
+daemon and every `*IT` needs Testcontainers. `NodeClaimingIT`, `LinkConcurrencyIT` and
+`LinkingSchemaIT` cover §5's integration list and must be run (`./mvnw verify`) on a machine with
+Docker. Until that happens, §7's "race conditions provably resolve to a single winner" is
+**argued but not demonstrated**, and the exit criteria are not met. The same applies to §5's manual
+frontend checks and §6's demo script, neither of which was walked through against a running stack.
+
+### Deviations from the design docs
+
+1. **`V11_1` rather than `V11b`.** Flyway cannot parse a letter suffix in a version; `V3_1` set the
+   precedent in this repo. The contents are §4's, unchanged.
+2. **The propagation flags are a side table, not columns on `persons`.** §4 allowed either. A side
+   table keeps a Linking concern out of the Lineage aggregate, and keeps `persons` from growing two
+   columns that are null for all but a handful of rows.
+3. **Three endpoints beyond doc 05.** `GET /clans/{id}/persons/linked-to-me` (204 when there is
+   none — what the F6.1 banner asks), `GET|PATCH /clans/{id}/persons/{personId}/self-profile`
+   (B6.7's own service method needed its own route rather than a special case inside
+   `PATCH /persons/{id}`), and `GET /me/notifications/unread-count`. Doc 05 §4.10 and §4.2 have been
+   updated to match.
+4. **No `EXPIRED` claim status.** The state machine is exactly §2's four states. Expiry would need a
+   scheduler nothing else in v1 has.
+
+### Notes for the next phase
+
+- **Avatars are still initials.** `SelfProfileInput.avatarMediaId` and the `propagate_avatar` flag
+  are wired end to end, but there is no upload yet, so the self-service form offers notes and the two
+  toggles and nothing to pick a photograph with. Phase 7 adds the picker; no backend change is
+  needed for it.
+- **"Request to be added" is not built.** §8's duplicate-person risk is real and the flow it asks for
+  was not in §2 or §3. The browser's empty state says so in both languages ("ask an editor — you may
+  not have been added yet") rather than pretending the search simply failed. If the flow is still
+  deferred at M5, that copy is the only thing standing between a member and a duplicate node.
+- **The claim inbox filters in memory after a paged read**, exactly as `JoinRequestService` does. At
+  a few hundred pending claims that is fine; at a few thousand the page would need a scope-aware
+  query. Nothing in v1 gets near it.

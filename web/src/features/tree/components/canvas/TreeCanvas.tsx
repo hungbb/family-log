@@ -77,6 +77,8 @@ interface TreeCanvasProps {
   graph: TreeGraph;
   layout: TreeLayout;
   controlRef: RefObject<TreeCanvasHandle | null>;
+  /** The node the signed-in account is linked to, if any — drawn with an accent ring (F6.7). */
+  myPersonId?: string;
   onOpenPerson: (personId: string) => void;
   onNodeAction: (action: NodeAction, person: PersonSummary) => void;
 }
@@ -91,6 +93,7 @@ export function TreeCanvas({
   graph,
   layout,
   controlRef,
+  myPersonId,
   onOpenPerson,
   onNodeAction,
 }: TreeCanvasProps) {
@@ -433,6 +436,7 @@ export function TreeCanvas({
                   branchHighlighted={
                     highlightBranchId !== null && card.person.branchId === highlightBranchId
                   }
+                  isSelf={card.personId === myPersonId}
                   onOpen={(personId) => {
                     focusSlot(slot.key);
                     onOpenPerson(personId);

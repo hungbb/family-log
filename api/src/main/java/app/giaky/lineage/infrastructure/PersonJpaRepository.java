@@ -3,6 +3,7 @@ package app.giaky.lineage.infrastructure;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.TenantExempt;
+import app.giaky.common.types.UserId;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +42,17 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
 
     Optional<PersonJpaEntity> findByClanIdAndFoundingAncestorTrueAndDeletedAtIsNull(
             ClanId clanId);
+
+    /** I-P4: the one node this account may hold in this clan (Phase 6). */
+    Optional<PersonJpaEntity> findByClanIdAndLinkedUserIdAndDeletedAtIsNull(
+            ClanId clanId, UserId linkedUserId);
+
+    @TenantExempt(
+            justification =
+                    "Profile propagation spans every clan the account is linked in (FR-N6), so no"
+                        + " ClanId exists to scope by. Scoped instead by the account id, which"
+                        + " comes from the access token rather than from the request.")
+    List<PersonJpaEntity> findByLinkedUserIdAndDeletedAtIsNull(UserId linkedUserId);
 
     long countByClanIdAndDeletedAtIsNull(ClanId clanId);
 
@@ -145,5 +157,132 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
             @Param("clanId") UUID clanId,
             @Param("ids") String ids,
             @Param("generations") String generations,
+            @Param("now") Instant now);
+
+    // --- the link column (Phase 6) --------------------------------------------------------------
+
+    /**
+     * The compare-and-set behind {@code PersonUserLinker.link} (B6.11).
+     *
+     * <p>{@code linked_user_id IS NULL} in the {@code WHERE} clause is the entire concurrency
+     * guarantee: whichever of two concurrent approvals reaches the row second updates nothing and
+     * gets a zero back, which the service turns into {@code 409 NODE_ALREADY_LINKED}. Postgres
+     * serializes the two statements on the row lock; nothing in the application has to.
+     *
+     * <p>Does not touch {@code version}, for the same reason {@link #updateGenerations} does not:
+     * linking is not an edit to the genealogical record, and answering somebody's in-flight person
+     * edit with a {@code 409 VERSION_CONFLICT} because a cousin created an account would be a
+     * conflict about nothing.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
+                    UPDATE persons
+                    SET linked_user_id = :userId,
+                        updated_by = :actor,
+                        updated_at = :now
+                    WHERE id = :personId
+                      AND clan_id = :clanId
+                      AND linked_user_id IS NULL
+                      AND deleted_at IS NULL
+                    """)
+    int linkUserIfUnlinked(
+            @Param("clanId") UUID clanId,
+            @Param("personId") UUID personId,
+            @Param("userId") UUID userId,
+            @Param("actor") UUID actor,
+            @Param("now") Instant now);
+
+    /** The other half (FR-N5). Unconditional except for the tenancy and soft-delete predicates. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
+                    UPDATE persons
+                    SET linked_user_id = NULL,
+                        updated_by = :actor,
+                        updated_at = :now
+                    WHERE id = :personId
+                      AND clan_id = :clanId
+                      AND linked_user_id IS NOT NULL
+                      AND deleted_at IS NULL
+                    """)
+    int unlinkUser(
+            @Param("clanId") UUID clanId,
+            @Param("personId") UUID personId,
+            @Param("actor") UUID actor,
+            @Param("now") Instant now);
+
+    /**
+     * The self-service whitelist of doc 04 §6, expressed as columns (B6.7).
+     *
+     * <p>Two columns, named here and nowhere else. {@code linked_user_id = :linkedUserId} is what
+     * makes this safe without a permission check: the statement can only reach the caller's own
+     * node, and it can only write the two fields the whitelist names. Extending it is a schema-level
+     * change somebody has to make on purpose — which is what phase 6 §8 asks for.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
+                    UPDATE persons
+                    SET avatar_media_id = CAST(:avatarMediaId AS UUID),
+                        notes_html      = CAST(:notesHtml AS TEXT),
+                        notes_text      = CAST(:notesText AS TEXT),
+                        updated_by      = :linkedUserId,
+                        updated_at      = :now
+                    WHERE id = :personId
+                      AND clan_id = :clanId
+                      AND linked_user_id = :linkedUserId
+                      AND deleted_at IS NULL
+                    """)
+    int updateSelfServiceFields(
+            @Param("clanId") UUID clanId,
+            @Param("personId") UUID personId,
+            @Param("linkedUserId") UUID linkedUserId,
+            @Param("avatarMediaId") UUID avatarMediaId,
+            @Param("notesHtml") String notesHtml,
+            @Param("notesText") String notesText,
+            @Param("now") Instant now);
+
+    /**
+     * Opt-in propagation from the account profile (FR-N6, B6.8).
+     *
+     * <p>Each column is written only when its flag is on, so a member who opted in to their photo
+     * and not to their name gets exactly that. The flags arrive as booleans rather than as two
+     * statements because the alternative is two round trips for one profile save.
+     *
+     * <p>{@code alias} — <i>tên thường gọi</i> — never {@code full_name}. The book's name is what
+     * the book says; an account display name is not a genealogical fact.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
+                    UPDATE persons
+                    SET avatar_media_id = CASE WHEN :avatar THEN CAST(:avatarMediaId AS UUID)
+                                               ELSE avatar_media_id END,
+                        alias           = CASE WHEN :displayName THEN CAST(:alias AS TEXT)
+                                               ELSE alias END,
+                        updated_by      = :linkedUserId,
+                        updated_at      = :now
+                    WHERE id = :personId
+                      AND clan_id = :clanId
+                      AND linked_user_id = :linkedUserId
+                      AND deleted_at IS NULL
+                    """)
+    int updatePropagatedFields(
+            @Param("clanId") UUID clanId,
+            @Param("personId") UUID personId,
+            @Param("linkedUserId") UUID linkedUserId,
+            @Param("avatar") boolean avatar,
+            @Param("avatarMediaId") UUID avatarMediaId,
+            @Param("displayName") boolean displayName,
+            @Param("alias") String alias,
             @Param("now") Instant now);
 }

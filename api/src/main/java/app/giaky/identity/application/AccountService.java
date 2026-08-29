@@ -7,9 +7,11 @@ import app.giaky.common.error.ErrorCode;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.types.UserId;
 import app.giaky.identity.domain.User;
+import app.giaky.identity.application.event.ProfileUpdated;
 import app.giaky.identity.domain.UserRepository;
 import java.time.Clock;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,16 +29,19 @@ public class AccountService {
     private final UserRepository users;
     private final RefreshTokenService refreshTokenService;
     private final AuditWriter auditWriter;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     public AccountService(
             UserRepository users,
             RefreshTokenService refreshTokenService,
             AuditWriter auditWriter,
+            ApplicationEventPublisher events,
             Clock clock) {
         this.users = users;
         this.refreshTokenService = refreshTokenService;
         this.auditWriter = auditWriter;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -63,6 +68,14 @@ public class AccountService {
             auditWriter.write(
                     AuditRecord.ofUser(AuditAction.PROFILE_UPDATED, userId)
                             .withChange(describe(existing), describe(updated)));
+            // Phase 6 subscribes to copy the opted-in fields onto this person's linked nodes
+            // (FR-N6). Published only on a real change, so saving a form unchanged rewrites nothing.
+            events.publishEvent(
+                    new ProfileUpdated(
+                            userId,
+                            updated.displayName(),
+                            updated.avatarMediaId(),
+                            clock.instant()));
         }
         return UserProfile.of(updated);
     }

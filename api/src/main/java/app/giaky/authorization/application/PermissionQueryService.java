@@ -3,10 +3,13 @@ package app.giaky.authorization.application;
 import app.giaky.authorization.domain.Permission;
 import app.giaky.authorization.domain.PermissionGrantRepository;
 import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.authorization.domain.Target;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.UserId;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -84,6 +87,41 @@ public class PermissionQueryService {
                 .stream()
                 .map(grant -> grant.granteeUserId())
                 .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * Who may exercise {@code permission} over <i>this</i> target (FR-N2, B6.9).
+     *
+     * <p>Routing a claim to its approvers is a scope question, not a membership one: an approver for
+     * Chi Hai should hear about a Chi Hai node and about nothing else. Answering it by loading every
+     * grant of the permission and then asking {@link PermissionResolver#can} per holder keeps one
+     * decision point — a second scope-containment query in SQL would be a second policy, and the
+     * direction it would drift in is the one that tells the wrong people.
+     *
+     * <p>{@code CLAN_ADMIN} holders are candidates too, because {@code CLAN_ADMIN} confers
+     * everything (FR-Z6) without a row naming the permission. Expanding it here rather than storing
+     * the closure is the same choice {@code Permission.implies} makes.
+     *
+     * @return the accounts that would be allowed to act, in no particular order; empty when nobody
+     *     covers the target, which is a real answer for an unplaced node in a clan whose only
+     *     approvers are branch-scoped
+     */
+    @Transactional(readOnly = true)
+    public Set<UserId> holdersCovering(ClanId clanId, Permission permission, Target target) {
+        Instant now = clock.instant();
+        Set<UserId> candidates = new LinkedHashSet<>();
+        grants.findEffectiveByPermission(clanId, permission, now)
+                .forEach(grant -> candidates.add(grant.granteeUserId()));
+        grants.findEffectiveByPermission(clanId, Permission.CLAN_ADMIN, now)
+                .forEach(grant -> candidates.add(grant.granteeUserId()));
+
+        Set<UserId> covering = new LinkedHashSet<>();
+        for (UserId candidate : candidates) {
+            if (resolver.can(candidate, permission, target)) {
+                covering.add(candidate);
+            }
+        }
+        return covering;
     }
 
     /**
