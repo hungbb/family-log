@@ -1,6 +1,7 @@
 package app.giaky.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
@@ -9,7 +10,9 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -131,6 +134,25 @@ class ConventionsTest {
                 .because(
                         "the naming keeps a persistence class from being mistaken for a domain object in a"
                                 + " review, and the placement keeps the domain persistence-ignorant")
+                .check(productionClasses);
+    }
+
+    @Test
+    @DisplayName("@Id fields are raw UUIDs — Hibernate never converts an identifier")
+    void identifiersAreRawUuids() {
+        fields()
+                .that()
+                .areAnnotatedWith(Id.class)
+                .should()
+                .haveRawType(UUID.class)
+                .because(
+                        "Hibernate does not run an AttributeConverter over an identifier — not by"
+                            + " autoApply, which JPA §3.7 excludes ids from, and not by an explicit"
+                            + " @Convert either. A typed id in app.giaky.common.types compiles"
+                            + " cleanly and then fails the EntityManagerFactory at startup with"
+                            + " \"Could not determine recommended JdbcType\", which no test without"
+                            + " Docker would otherwise catch. Reference columns still get the"
+                            + " wrapper; the primary key does not")
                 .check(productionClasses);
     }
 }
