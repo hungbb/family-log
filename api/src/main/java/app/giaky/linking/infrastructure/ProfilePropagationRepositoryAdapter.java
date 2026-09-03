@@ -23,7 +23,7 @@ public class ProfilePropagationRepositoryAdapter implements ProfilePropagationRe
     @Override
     public PropagationFlags find(ClanId clanId, PersonId personId) {
         return repository
-                .findByClanIdAndPersonId(clanId, personId)
+                .findByClanIdAndPersonId(clanId, personId.value())
                 .map(row -> new PropagationFlags(row.isPropagateAvatar(), row.isPropagateDisplayName()))
                 // An absent row and a row with both flags off are the same answer, and the absent
                 // one is what almost every node has.
@@ -34,9 +34,9 @@ public class ProfilePropagationRepositoryAdapter implements ProfilePropagationRe
     public void save(ClanId clanId, PersonId personId, PropagationFlags flags) {
         ProfilePropagationJpaEntity row =
                 repository
-                        .findByClanIdAndPersonId(clanId, personId)
+                        .findByClanIdAndPersonId(clanId, personId.value())
                         .orElseGet(ProfilePropagationJpaEntity::new);
-        row.setPersonId(personId);
+        row.setPersonId(personId.value());
         row.setClanId(clanId);
         row.setPropagateAvatar(flags.avatar());
         row.setPropagateDisplayName(flags.displayName());
@@ -46,6 +46,6 @@ public class ProfilePropagationRepositoryAdapter implements ProfilePropagationRe
 
     @Override
     public void clear(ClanId clanId, PersonId personId) {
-        repository.deleteByClanIdAndPersonId(clanId, personId);
+        repository.deleteByClanIdAndPersonId(clanId, personId.value());
     }
 }
