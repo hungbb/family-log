@@ -86,8 +86,42 @@ interface TreeCanvasProps {
 /** Rendered beyond the viewport on every side, so a fast pan never shows an empty band. */
 const OVERSCAN = 400;
 
+/**
+ * How far a pointer must travel before the press counts as a pan rather than a click, in CSS px.
+ *
+ * A press with a hand behind it is never perfectly still, so a threshold of zero would turn every
+ * click into a one-pixel drag. Four is the usual slop — small enough that a deliberate drag feels
+ * immediate, large enough to absorb the wobble of a click or a tap.
+ */
+const DRAG_SLOP = 4;
+
 /** Leaves the tree a little room inside the frame when fitting. */
 const FIT_PADDING = 48;
+
+/**
+ * A press in progress, and whether it has become a pan.
+ *
+ * **Pointer capture cannot be taken on `pointerdown`.** A captured pointer retargets more than the
+ * pointer events: the spec sends the compatibility `click` to the capture element too, so capturing
+ * the surface the moment a button goes down hands every click on the canvas to the `<svg>` and none
+ * to the card, the action button or the collapse handle underneath the cursor — their `onClick`
+ * never runs and the node's four icons do nothing (#18).
+ *
+ * So capture waits for movement. Below `DRAG_SLOP` the press is left entirely alone and its click
+ * lands where it was aimed; past it the pointer is captured and the press is a pan, which also means
+ * a drag released over a card no longer opens that person's drawer on the way out.
+ */
+interface Drag {
+  pointerId: number;
+  /** The previous position, for this frame's delta. */
+  x: number;
+  y: number;
+  /** Where the press started, for the distance that decides pan-or-click. */
+  originX: number;
+  originY: number;
+  /** True once the slop was crossed — the pointer is captured and the tree is moving. */
+  panning: boolean;
+}
 
 export function TreeCanvas({
   graph,
@@ -102,7 +136,7 @@ export function TreeCanvas({
 
   const frameRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<SVGSVGElement>(null);
-  const dragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const dragRef = useRef<Drag | null>(null);
   const frameRef2 = useRef<number | null>(null);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -230,9 +264,16 @@ export function TreeCanvas({
 
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return;
-    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setPanning(true);
+    // Not captured yet, and not a pan yet: this press may still turn out to be a click on a card or
+    // one of its actions, and capturing here would take that click away from them (see `Drag`).
+    dragRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      originX: event.clientX,
+      originY: event.clientY,
+      panning: false,
+    };
   };
 
   const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -240,6 +281,21 @@ export function TreeCanvas({
     if (drag === null) return;
     // A second pointer — a two-finger gesture, or a stylus arriving mid-drag — is not this drag.
     if (drag.pointerId !== event.pointerId) return;
+
+    if (!drag.panning) {
+      // Inside the slop the press is still a candidate click, so nothing moves and nothing is
+      // captured. The origin is the anchor rather than the last position: a slow drift across the
+      // threshold is a drag, and comparing consecutive events would never notice it.
+      if (Math.hypot(event.clientX - drag.originX, event.clientY - drag.originY) < DRAG_SLOP) {
+        drag.x = event.clientX;
+        drag.y = event.clientY;
+        return;
+      }
+      drag.panning = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setPanning(true);
+    }
+
     // Accumulate onto the *pending* translate, not the committed one. Several pointer events land
     // between two frames, and reading the store each time would throw away every delta but the last
     // — a fast drag would move the tree a fraction of the distance the finger travelled.
@@ -248,7 +304,8 @@ export function TreeCanvas({
       x: base.x + (event.clientX - drag.x),
       y: base.y + (event.clientY - drag.y),
     };
-    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    drag.x = event.clientX;
+    drag.y = event.clientY;
     pendingRef.current = next;
     // One commit per frame however many pointer events arrive (F5.15).
     frameRef2.current ??= window.requestAnimationFrame(commitPan);
