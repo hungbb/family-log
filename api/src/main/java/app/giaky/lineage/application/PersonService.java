@@ -336,6 +336,14 @@ public class PersonService {
      * <p>Nothing has to be rebuilt: the edges and the closure rows were never removed, so this is a
      * timestamp. That is the property soft delete was designed for, and the reason the closure
      * describes the edge graph rather than what is visible (V9).
+     *
+     * <p><b>With one exception: the account that was on the node.</b> A deleted node keeps its link,
+     * so that undoing a mistaken delete undoes all of it. But a deleted node is also invisible to
+     * I-P4 — its index covers live rows only — so while it was gone the same account may have been
+     * given another node, or have left the clan altogether. Restoring it as it was would then put
+     * two nodes on one account (the unique index refuses, which used to surface as a {@code 500})
+     * or a non-member on the tree (I-P5). In both cases the node comes back unlinked, and the audit
+     * trail says so; the account loses nothing it still had.
      */
     @Transactional
     public PersonDetailView restore(UserId caller, ClanId clanId, PersonId personId) {
@@ -358,7 +366,9 @@ public class PersonService {
         }
 
         String before = snapshots.of(person);
-        Person restored = persons.save(person.restore(caller, now));
+        boolean linkLapsed = linkLapsedWhileDeleted(clanId, person);
+        Person revived = person.restore(caller, now);
+        Person restored = persons.save(linkLapsed ? revived.withoutLink() : revived);
         treeVersions.bump(clanId);
 
         auditWriter.write(
@@ -370,9 +380,42 @@ public class PersonService {
                                 caller)
                         .withChange(before, snapshots.of(restored))
                         .authorizedBy(authorizing.authorizingGrantId()));
+        if (linkLapsed) {
+            // Its own entry: the snapshots above leave the link out on purpose, so without this
+            // nothing would record that the node came back without the account it left with.
+            auditWriter.write(
+                    AuditRecord.inClan(
+                                    AuditAction.PERSON_UNLINKED,
+                                    clanId,
+                                    AuditRecord.TARGET_PERSON,
+                                    personId.value(),
+                                    caller)
+                            .authorizedBy(authorizing.authorizingGrantId()));
+            log.info(
+                    "Person restored without its former link clanId={} personId={} previousUser={}",
+                    clanId,
+                    personId,
+                    person.linkedUserId());
+        }
         events.publishEvent(new PersonRestored(clanId, personId, caller, now));
 
         return assembleDetail(caller, clanId, restored);
+    }
+
+    /**
+     * Whether the account on a deleted node can no longer be on it (I-P4, I-P5).
+     *
+     * <p>Two things can have happened while the node was out of sight: the account was linked to
+     * another node of this clan, or its membership ended. Either makes the old link one that {@code
+     * PersonUserLinker} would refuse to create today, so restore does not recreate it.
+     */
+    private boolean linkLapsedWhileDeleted(ClanId clanId, Person deleted) {
+        UserId account = deleted.linkedUserId();
+        if (account == null) {
+            return false;
+        }
+        return !clans.isActiveMember(clanId, account)
+                || persons.findByLinkedUser(clanId, account).isPresent();
     }
 
     /**

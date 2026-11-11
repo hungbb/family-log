@@ -7,11 +7,13 @@ import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.UserId;
 import app.giaky.lineage.application.PersonLinkGateway;
+import app.giaky.lineage.application.event.PersonRestored;
 import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.ClaimService;
 import app.giaky.linking.application.LinkLifecycleListener;
 import app.giaky.linking.application.PersonLinkService;
 import app.giaky.linking.application.ProfilePropagationListener;
+import app.giaky.linking.application.RestoredNodeListener;
 import app.giaky.linking.application.SelfProfileService;
 import app.giaky.linking.domain.ClanMemberPort;
 import app.giaky.linking.domain.PersonLinkPort;
@@ -54,6 +56,7 @@ public final class LinkingTestFixtures {
     public final ClaimService claimService;
     public final PersonLinkService personLinkService;
     public final SelfProfileService selfProfileService;
+    public final RestoredNodeListener restoredNodes;
     public final ProfilePropagationListener propagationListener;
     public final LinkLifecycleListener linkLifecycle;
 
@@ -97,6 +100,11 @@ public final class LinkingTestFixtures {
                         lineage.clanOrg.audit,
                         lineage.clanOrg.events,
                         lineage.clanOrg.clock);
+
+        // Spring does this by annotation; a restored node that comes back unlinked must not keep
+        // the propagation choices of whoever used to be on it.
+        restoredNodes = new RestoredNodeListener(gateway, propagation);
+        lineage.clanOrg.events.subscribe(PersonRestored.class, restoredNodes::onPersonRestored);
 
         selfProfileService =
                 new SelfProfileService(
