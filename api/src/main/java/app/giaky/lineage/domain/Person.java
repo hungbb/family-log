@@ -341,6 +341,41 @@ public record Person(
                 null);
     }
 
+    /**
+     * The same node with no account on it.
+     *
+     * <p>Linking owns this field and is the only context that <i>sets</i> it (doc 02 §5). This is
+     * for the one moment Lineage has to let go of it itself: bringing back a deleted node whose
+     * account has, in the meantime, been given another node or left the clan. That row cannot come
+     * back to life still pointing at them — I-P4 and I-P5 are about live nodes, and it is about to
+     * be one. See {@code PersonService.restore}.
+     */
+    public Person withoutLink() {
+        return new Person(
+                id,
+                clanId,
+                branchId,
+                name,
+                gender,
+                lifeStatus,
+                birth,
+                death,
+                burialPlace,
+                generation,
+                birthOrder,
+                avatarMediaId,
+                notesHtml,
+                notesText,
+                null,
+                foundingAncestor,
+                version,
+                createdBy,
+                updatedBy,
+                createdAt,
+                updatedAt,
+                deletedAt);
+    }
+
     /** A new avatar (Phase 7 uploads it; the column and the setter exist from here). */
     public Person withAvatar(UUID mediaId, UserId editor, Instant now) {
         return new Person(

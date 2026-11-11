@@ -259,6 +259,58 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("restoring a node whose account has since been linked elsewhere is not a 500 (I-P4)")
+    void restoreAfterTheAccountMovedOn() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        // The deleted node still carries the link, and ux_persons_linked_user does not see it.
+        as(founder, post(linkPath(sonInChiBa)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personId").value(sonInChiBa.toString()));
+    }
+
+    @Test
+    @DisplayName("a mistaken delete, undone, gives the member their node back (FR-P10)")
+    void restoreKeepsALinkThatStillHolds() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isNoContent());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personId").value(sonInChiHai.toString()));
+    }
+
+    @Test
+    @DisplayName("a node restored after its account left the clan comes back unlinked (I-P5)")
+    void restoreAfterTheAccountLeft() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+    }
+
+    @Test
     @DisplayName("a decision notifies the requester, and a claim notifies the approvers (B6.9)")
     void notifications() throws Exception {
         String claimId = claim(member, sonInChiHai, null);
@@ -283,6 +335,10 @@ class NodeClaimingIT extends LineageApiSupport {
 
     private String claimPath(String claimId) {
         return claimsPath() + "/" + claimId;
+    }
+
+    private String personPath(UUID personId) {
+        return "/api/v1/clans/" + clanId + "/persons/" + personId;
     }
 
     private String linkPath(UUID personId) {
