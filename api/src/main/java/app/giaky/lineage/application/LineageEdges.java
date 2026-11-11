@@ -112,6 +112,19 @@ public class LineageEdges {
                             : "This person already has a mother recorded. Remove that link first.");
         }
 
+        // One edge per parent and child. The role index above cannot see this: the same person
+        // entered once as father and once as mother breaks no rule about roles, and leaves a child
+        // with two parents who are one person.
+        boolean alreadyTheirParent =
+                parentages.findByChild(clanId, childId).stream()
+                        .anyMatch(edge -> edge.parentPersonId().equals(parentId));
+        if (alreadyTheirParent) {
+            throw new ConflictException(
+                    ErrorCode.VERSION_CONFLICT,
+                    "This person is already recorded as that child's parent. Correct the existing"
+                            + " link rather than adding a second one.");
+        }
+
         Instant now = clock.instant();
         Parentage saved =
                 parentages.save(

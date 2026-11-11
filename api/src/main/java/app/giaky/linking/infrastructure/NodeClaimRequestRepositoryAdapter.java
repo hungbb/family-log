@@ -56,6 +56,15 @@ public class NodeClaimRequestRepositoryAdapter implements NodeClaimRequestReposi
     }
 
     @Override
+    public List<NodeClaimRequest> findPendingByRequester(ClanId clanId, UserId requesterUserId) {
+        return repository
+                .findByClanIdAndRequesterUserIdAndStatus(clanId, requesterUserId, PENDING)
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<NodeClaimRequest> findByClanAndStatus(
             ClanId clanId, ClaimStatus status, int offset, int limit) {
 

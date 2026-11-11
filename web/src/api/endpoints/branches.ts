@@ -79,3 +79,34 @@ export function archiveBranch(clanId: string, branchId: string): Promise<Branch>
 export function flattenBranches(branches: Branch[]): Branch[] {
   return branches.flatMap((branch) => [branch, ...flattenBranches(branch.children)]);
 }
+
+/**
+ * Every branch's name by id, however deep it sits.
+ *
+ * The list endpoint answers with **one** top-level entry — the clan's root branch — and everything
+ * else nested under `children`. A lookup built from the top level alone therefore knows the root
+ * and nothing else: everybody placed in a chi came out as "in no branch", which is what the person
+ * drawer and the search results said until they were given this.
+ */
+export function branchNamesById(branches: Branch[]): Map<string, string> {
+  return new Map(flattenBranches(branches).map((branch) => [branch.id, branch.name]));
+}
+
+/**
+ * The whole hierarchy as options for a flat select, parents before children.
+ *
+ * The indent makes the nesting legible without a tree component. Archived branches are left out
+ * unless asked for: a picker that places something new should not offer a branch that is closed,
+ * while a filter over existing records still has to reach the people who were placed there.
+ */
+export function branchSelectOptions(
+  branches: Branch[],
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): { value: string; label: string }[] {
+  return flattenBranches(branches)
+    .filter((branch) => includeArchived || !branch.archived)
+    .map((branch) => ({
+      value: branch.id,
+      label: `${'  '.repeat(branch.depth)}${branch.name}`,
+    }));
+}

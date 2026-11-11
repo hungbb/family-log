@@ -17,6 +17,8 @@ import java.util.UUID;
  * {@code partnerA}/{@code partnerB} as an implementation detail and never as a role; the UI decides
  * who to show first from gender and dates, not from this.
  *
+ * <p>"Sorted" means sorted the way the database sorts them — see {@link #precedes}.
+ *
  * <p>Unions carry no structural weight. Removing one does not detach anybody from the tree: children
  * hang from {@link Parentage} edges, which merely <i>reference</i> the union they were attached
  * through. That separation is what lets a family correct a marriage record without the tree moving.
@@ -59,7 +61,7 @@ public record Union(
         }
         // The canonical ordering ck_union_canonical_order depends on. Enforced rather than applied
         // here so that a caller who builds one by hand cannot create the second row for a pair.
-        if (partnerAId.value().compareTo(partnerBId.value()) >= 0) {
+        if (!precedes(partnerAId, partnerBId)) {
             throw new IllegalArgumentException(
                     "partners must be stored in canonical order; use Union.create");
         }
@@ -84,7 +86,7 @@ public record Union(
 
         Objects.requireNonNull(onePartner, "onePartner must not be null");
         Objects.requireNonNull(otherPartner, "otherPartner must not be null");
-        boolean ordered = onePartner.value().compareTo(otherPartner.value()) < 0;
+        boolean ordered = precedes(onePartner, otherPartner);
 
         return new Union(
                 id,
@@ -101,6 +103,34 @@ public record Union(
                 now,
                 now,
                 null);
+    }
+
+    /**
+     * Whether {@code one} is stored before {@code other}: the order PostgreSQL gives two {@code
+     * uuid} values, which is the order {@code ck_union_canonical_order} is written in.
+     *
+     * <p><b>Not {@link UUID#compareTo}.</b> That compares each half as a <i>signed</i> long, so every
+     * id whose first hex digit is 8–f sorts before every id that starts 0–7. PostgreSQL compares the
+     * sixteen bytes unsigned. The two orders agree unless exactly one of the ids has its top bit
+     * set — which, for random ids, is half of all pairs, and every one of those was a marriage the
+     * check constraint refused with a 500. The sequential ids of the {@code test} profile never set
+     * that bit, which is why no test saw it.
+     *
+     * <p>Everything that needs the canonical form of a pair asks here, so there is one definition
+     * of it and it is the database's.
+     */
+    public static boolean precedes(PersonId one, PersonId other) {
+        UUID left = one.value();
+        UUID right = other.value();
+        int high =
+                Long.compareUnsigned(
+                        left.getMostSignificantBits(), right.getMostSignificantBits());
+        int order =
+                high != 0
+                        ? high
+                        : Long.compareUnsigned(
+                                left.getLeastSignificantBits(), right.getLeastSignificantBits());
+        return order < 0;
     }
 
     public boolean isDeleted() {

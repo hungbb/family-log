@@ -76,6 +76,20 @@ public class PermissionGrantRepositoryAdapter implements PermissionGrantReposito
     }
 
     @Override
+    public Optional<PermissionGrant> findLapsedDuplicate(
+            ClanId clanId,
+            UserId grantee,
+            Permission permission,
+            PermissionScope scope,
+            Instant now) {
+        return repository.findLapsedFor(clanId, grantee, now).stream()
+                .map(mapper::toDomain)
+                .filter(grant -> grant.permission() == permission)
+                .filter(grant -> grant.scope().equals(scope))
+                .findFirst();
+    }
+
+    @Override
     public PermissionGrant save(PermissionGrant grant) {
         return repository
                 .findById(grant.id())

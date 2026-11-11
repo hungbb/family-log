@@ -14,6 +14,7 @@ import app.giaky.common.error.PermissionDeniedException;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.Paged;
+import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,40 @@ class MembershipServiceTest {
         // The founder holds the clan's bootstrap CLAN_ADMIN and the new member holds only
         // CLAN_VIEW, so the list names exactly one person to ask.
         assertThat(page.content()).filteredOn(MemberView::isAdministrator).hasSize(1);
-        // Phase 6 fills this in.
+        // Nobody has been placed in the tree yet.
+        assertThat(page.content()).allSatisfy(view -> assertThat(view.linkedPersonId()).isNull());
+    }
+
+    @Test
+    @DisplayName("the list says who is already in the tree, and as which node (doc 05 §4.5)")
+    void listCarriesTheLinkedNode() {
+        join(member, null);
+        PersonId node = PersonId.of(fixtures.ids.newId());
+        fixtures.memberNodes.link(clanId, member, node);
+
+        Paged<MemberView> page = fixtures.membershipService.list(founder, clanId, null, null, 0, 20);
+
+        assertThat(page.content())
+                .filteredOn(view -> view.userId().equals(member.value()))
+                .singleElement()
+                .extracting(MemberView::linkedPersonId)
+                .isEqualTo(node.value());
+        assertThat(page.content())
+                .filteredOn(view -> view.userId().equals(founder.value()))
+                .singleElement()
+                .extracting(MemberView::linkedPersonId)
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("a node held in another clan says nothing about this one")
+    void linkedNodeIsPerClan() {
+        join(member, null);
+        ClanId elsewhere = fixtures.newClan(member, "Trần Văn");
+        fixtures.memberNodes.link(elsewhere, member, PersonId.of(fixtures.ids.newId()));
+
+        Paged<MemberView> page = fixtures.membershipService.list(founder, clanId, null, null, 0, 20);
+
         assertThat(page.content()).allSatisfy(view -> assertThat(view.linkedPersonId()).isNull());
     }
 

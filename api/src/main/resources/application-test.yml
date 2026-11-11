@@ -40,6 +40,13 @@ app:
     # the thing FR-A2 actually specifies.
     bcrypt-cost: 12
 
+management:
+  endpoint:
+    health:
+      # HealthIT asserts components.db.status, which only exists when details are shown — the
+      # default is `never`, and only the `dev` profile had turned it on.
+      show-details: always
+
 logging:
   level:
     app.giaky: DEBUG

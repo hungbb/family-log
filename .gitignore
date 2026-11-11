@@ -21,6 +21,8 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+# Development defaults, not secrets: what `npm run dev` needs to find a local API (see the file).
+!.env.development
 *.local
 
 # === Local media storage (uploaded avatars/images live outside git) ===

@@ -7,6 +7,7 @@ import { useParams } from 'react-router';
 import { flattenBranches, type Branch } from '@/api/endpoints/branches.ts';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
+import { validatedValues } from '@/lib/forms.ts';
 
 import {
   useArchiveBranch,
@@ -84,8 +85,8 @@ export function BranchesPage() {
   };
 
   const onSubmitDialog = async () => {
-    const values = await form.validateFields();
-    if (editing === null) return;
+    const values = await validatedValues(form);
+    if (values === null || editing === null) return;
     try {
       if (editing.mode === 'create') {
         await createBranch.mutateAsync({

@@ -53,6 +53,12 @@ public interface PersonRepository {
     Optional<Person> findByLinkedUser(ClanId clanId, UserId linkedUserId);
 
     /**
+     * The live nodes these accounts hold in this clan — at most one each (I-P4). What the member
+     * list reads to say who is already in the tree (doc 05 §4.5).
+     */
+    List<Person> findLinkedTo(ClanId clanId, Collection<UserId> linkedUserIds);
+
+    /**
      * Every node this account holds, across every clan (FR-N6).
      *
      * <p>The one read here with no {@link ClanId}, and it cannot have one: a profile edit is not a
