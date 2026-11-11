@@ -241,6 +241,53 @@ public class PersonLinkService {
         return view(linker.require(clanId, personId), caller);
     }
 
+    // --- collaborators inside the context ------------------------------------------------------
+
+    /**
+     * Takes back the node of somebody whose membership has just ended (I-P5).
+     *
+     * <p>Package-private and unguarded for the reason {@code GrantService.revokeAllFor} is: the only
+     * caller is {@link LinkLifecycleListener}, acting on a removal or a departure that was already
+     * authorized. There is no permission to ask for here — the person leaving need hold none, and
+     * the administrator removing them is not exercising {@code NODE_CLAIM_APPROVE}.
+     *
+     * <p>Everything else is {@link #unlink}: the propagation choices go with the link, the audit
+     * trail says who caused it, and the event tells the person — unless they are the one who left.
+     *
+     * @return whether there was a node to take back
+     */
+    boolean releaseNodeOf(ClanId clanId, UserId member, UserId actor, boolean selfInitiated) {
+        Optional<LinkableNode> held = linker.nodeOf(clanId, member);
+        if (held.isEmpty()) {
+            return false;
+        }
+        LinkableNode node = held.get();
+        Instant now = clock.instant();
+        linker.unlink(clanId, node.id(), actor, now);
+        propagation.clear(clanId, node.id());
+
+        auditWriter.write(
+                AuditRecord.inClan(
+                        AuditAction.PERSON_UNLINKED,
+                        clanId,
+                        AuditRecord.TARGET_PERSON,
+                        node.id().value(),
+                        actor));
+        events.publishEvent(
+                new PersonUnlinked(
+                        clanId, node.id(), node.fullName(), member, actor, selfInitiated, now));
+
+        log.info(
+                "Person unlinked on membership end clanId={} personId={} previousUser={} actor={}",
+                clanId,
+                node.id(),
+                member,
+                actor);
+        return true;
+    }
+
+    // --- internals -----------------------------------------------------------------------------
+
     private LinkedNodeView view(LinkableNode node, UserId caller) {
         UserProfile profile =
                 node.linkedUserId() == null

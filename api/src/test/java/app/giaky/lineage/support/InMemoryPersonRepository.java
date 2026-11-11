@@ -169,6 +169,16 @@ public final class InMemoryPersonRepository implements PersonRepository {
     }
 
     @Override
+    public List<Person> findLinkedTo(ClanId clanId, Collection<UserId> linkedUserIds) {
+        return rows.values().stream()
+                .filter(person -> person.clanId().equals(clanId))
+                .filter(person -> !person.isDeleted())
+                .filter(person -> person.linkedUserId() != null)
+                .filter(person -> linkedUserIds.contains(person.linkedUserId()))
+                .toList();
+    }
+
+    @Override
     public List<Person> findAllByLinkedUser(UserId linkedUserId) {
         return rows.values().stream()
                 .filter(person -> !person.isDeleted())

@@ -103,9 +103,12 @@ public class LineageSnapshots {
         return write(snapshot);
     }
 
-    /** A partial date, flattened the way the columns store it. Null when nothing is known. */
+    /**
+     * A partial date, flattened the way the columns store it. Null when nothing is recorded — which
+     * a lunar-only date is not: adding or changing one is an edit the trail has to show.
+     */
     private static Map<String, Object> date(PartialDate value) {
-        if (value == null || !value.isKnown()) {
+        if (value == null || !value.isRecorded()) {
             return null;
         }
         Map<String, Object> fields = new LinkedHashMap<>();

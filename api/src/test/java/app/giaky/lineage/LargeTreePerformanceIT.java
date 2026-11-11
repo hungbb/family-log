@@ -222,6 +222,13 @@ class LargeTreePerformanceIT extends AbstractIntegrationTest {
                         Long.class,
                         movedRoot.value());
 
+        // The same courtesy the read measurements get from WARMUP_READS: the recompute's statements
+        // are parsed and planned once before the clock starts. Recomputing a subtree whose edges
+        // have not changed leaves the closure exactly as it was.
+        for (int index = 0; index < WARMUP_READS; index++) {
+            projection.parentageRemoved(world.tree.clanId(), movedRoot);
+        }
+
         jdbcTemplate.update("UPDATE parentages SET deleted_at = now() WHERE id = ?", edgeId);
 
         long startedAt = System.nanoTime();
@@ -286,6 +293,14 @@ class LargeTreePerformanceIT extends AbstractIntegrationTest {
                     tree.clanId().value(),
                     userId,
                     userId);
+
+            // The fixture is five thousand people and their closure, bulk-loaded inside this test's
+            // own uncommitted transaction — where autovacuum cannot see them, so the planner still
+            // believes every one of these tables is empty and plans accordingly. A deployment has
+            // statistics; without this line the measurements below are of a nested loop over
+            // sequential scans (5.8 s for the tree read, 29 s for the closure recompute) rather
+            // than of the product.
+            jdbcTemplate.execute("ANALYZE");
         }
     }
 }

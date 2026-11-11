@@ -80,6 +80,31 @@ class PartialDateTest {
         }
 
         @Test
+        @DisplayName("a lunar reading with no year is recorded, though it is not known")
+        void lunarOnlyIsRecorded() {
+            PartialDate anniversary = PartialDate.unknown().withLunarText("giỗ mồng 3 tháng Chạp");
+
+            assertThat(anniversary.isKnown())
+                    .as("nothing a timeline could use, so comparison must keep ignoring it")
+                    .isFalse();
+            assertThat(anniversary.isRecorded())
+                    .as("but the family wrote it down, and a reader must not drop it")
+                    .isTrue();
+            assertThat(anniversary.compareWith(PartialDate.ofYear(1901)))
+                    .isEqualTo(DateComparison.INDETERMINATE);
+        }
+
+        @Test
+        @DisplayName("an empty date is neither, and a dated one is both")
+        void recordedFollowsContent() {
+            assertThat(PartialDate.unknown().isRecorded()).isFalse();
+            assertThat(PartialDate.unknown().withLunarText("   ").isRecorded())
+                    .as("blank text is trimmed to nothing")
+                    .isFalse();
+            assertThat(PartialDate.ofYear(1901).isRecorded()).isTrue();
+        }
+
+        @Test
         @DisplayName("an impossible calendar day is stored rather than corrected")
         void thirtyFirstOfFebruary() {
             // A book that says 31 February is a book that says 31 February. Refusing it would mean
