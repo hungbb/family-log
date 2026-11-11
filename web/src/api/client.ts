@@ -45,7 +45,15 @@ export interface RequestOptions {
   basePath?: string;
 }
 
-/** Where the API lives. Configured per environment; see `web/.env.example`. */
+/**
+ * Where the API lives.
+ *
+ * Configured per environment. In development the default comes from the committed
+ * `web/.env.development` (a fresh clone must reach a local API with no setup); `.env.local`
+ * overrides it, as `web/.env.example` describes. Unset — a production build behind a reverse proxy
+ * that serves both — means "same origin", which is why the fallback is the empty string rather than
+ * a guess at a host.
+ */
 function apiOrigin(): string {
   const configured = import.meta.env.VITE_API_BASE_URL;
   return (configured ?? '').replace(/\/+$/, '');
