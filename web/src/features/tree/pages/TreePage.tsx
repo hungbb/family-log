@@ -1,26 +1,39 @@
-import {ApartmentOutlined, PlusOutlined, UndoOutlined, UnorderedListOutlined,} from '@ant-design/icons';
-import {Alert, App as AntApp, Button, Dropdown, Segmented, Skeleton, Statistic} from 'antd';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {useTranslation} from 'react-i18next';
-import {useParams} from 'react-router';
+import {
+  ApartmentOutlined,
+  PlusOutlined,
+  UndoOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
+import { Alert, App as AntApp, Button, Dropdown, Segmented, Skeleton, Statistic } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 
-import {type PersonSummary, type PlacementType} from '@/api/endpoints/persons.ts';
-import {FindYourselfBanner} from '@/features/claims';
-import {useActiveClan} from '@/hooks/useActiveClan.ts';
-import {useAuth} from '@/hooks/useAuth.ts';
-import {toMessage} from '@/lib/apiErrors.ts';
+import { type PersonSummary, type PlacementType } from '@/api/endpoints/persons.ts';
+import { FindYourselfBanner } from '@/features/claims';
+import { useActiveClan } from '@/hooks/useActiveClan.ts';
+import { useAuth } from '@/hooks/useAuth.ts';
+import { toMessage } from '@/lib/apiErrors.ts';
 
-import {type NodeAction} from '../components/canvas/PersonNode';
-import {CanvasFrame, CanvasOverlay, OverlayBody, OverlayTitle} from '../components/canvas/styles';
-import {TreeCanvas, type TreeCanvasHandle} from '../components/canvas/TreeCanvas';
-import {TreeToolbar} from '../components/canvas/TreeToolbar';
-import {PersonDrawer} from '@/features/tree';
-import {PersonFormModal, type PersonFormMode} from '../components/PersonFormModal';
-import {Page, PageHeader, PageSubtitle, PageTitle, PersonName, SectionCard, StatGrid,} from '../components/styles';
-import {TreeListView} from '../components/TreeListView';
-import {useDeletedPersons, useRestorePerson, useTree, useTreeStats} from '../hooks/useTree';
-import {useTreeLayout} from '../hooks/useTreeLayout';
-import {useTreeViewStore} from '../stores/useTreeViewStore';
+import { type NodeAction } from '../components/canvas/PersonNode';
+import { CanvasFrame, CanvasOverlay, OverlayBody, OverlayTitle } from '../components/canvas/styles';
+import { TreeCanvas, type TreeCanvasHandle } from '../components/canvas/TreeCanvas';
+import { TreeToolbar } from '../components/canvas/TreeToolbar';
+import { PersonDrawer } from '../components/PersonDrawer';
+import { PersonFormModal, type PersonFormMode } from '../components/PersonFormModal';
+import {
+  Page,
+  PageHeader,
+  PageSubtitle,
+  PageTitle,
+  PersonName,
+  SectionCard,
+  StatGrid,
+} from '../components/styles';
+import { TreeListView } from '../components/TreeListView';
+import { useDeletedPersons, useRestorePerson, useTree, useTreeStats } from '../hooks/useTree';
+import { useTreeLayout } from '../hooks/useTreeLayout';
+import { useTreeViewStore } from '../stores/useTreeViewStore';
 
 /**
  * The *gia phả*, as one tree (FR-T2, G6, M4).
@@ -38,17 +51,17 @@ import {useTreeViewStore} from '../stores/useTreeViewStore';
  * read it.
  */
 export function TreePage() {
-  const {t} = useTranslation();
-  const {message} = AntApp.useApp();
-  const {clanId = ''} = useParams();
-  const {can} = useActiveClan();
-  const {user} = useAuth();
+  const { t } = useTranslation();
+  const { message } = AntApp.useApp();
+  const { clanId = '' } = useParams();
+  const { can } = useActiveClan();
+  const { user } = useAuth();
 
-  const {data: tree, isPending, error} = useTree(clanId);
-  const {data: stats} = useTreeStats(clanId);
+  const { data: tree, isPending, error } = useTree(clanId);
+  const { data: stats } = useTreeStats(clanId);
 
   const isAdmin = can('CLAN_ADMIN');
-  const {data: deleted} = useDeletedPersons(clanId, isAdmin);
+  const { data: deleted } = useDeletedPersons(clanId, isAdmin);
   const restorePerson = useRestorePerson(clanId);
 
   const mode = useTreeViewStore((state) => state.mode);
@@ -66,7 +79,7 @@ export function TreePage() {
     if (clanId !== '') openClan(clanId);
   }, [clanId, openClan]);
 
-  const {graph, layout} = useTreeLayout(tree);
+  const { graph, layout } = useTreeLayout(tree);
 
   /** The node linked to the signed-in account, if there is one — what "find me" jumps to. */
   const myPersonId = useMemo(
@@ -82,11 +95,11 @@ export function TreePage() {
 
   const onNodeAction = (action: NodeAction, person: PersonSummary) => {
     if (action === 'add-child') {
-      setCreating({kind: 'create', placementType: 'CHILD_OF_PARENT', anchorPersonId: person.id});
+      setCreating({ kind: 'create', placementType: 'CHILD_OF_PARENT', anchorPersonId: person.id });
       return;
     }
     if (action === 'add-spouse') {
-      setCreating({kind: 'create', placementType: 'SPOUSE_OF', anchorPersonId: person.id});
+      setCreating({ kind: 'create', placementType: 'SPOUSE_OF', anchorPersonId: person.id });
       return;
     }
     // Editing and removing both need the full record — the version to write against, the children
@@ -122,12 +135,12 @@ export function TreePage() {
             options={[
               {
                 value: 'canvas',
-                icon: <ApartmentOutlined/>,
+                icon: <ApartmentOutlined />,
                 label: t('tree.view.canvas'),
               },
               {
                 value: 'list',
-                icon: <UnorderedListOutlined/>,
+                icon: <UnorderedListOutlined />,
                 label: t('tree.view.list'),
               },
             ]}
@@ -141,12 +154,12 @@ export function TreePage() {
                   key: placementType,
                   label: t(`tree.placement.${placementType}`),
                   onClick: () => {
-                    setCreating({kind: 'create', placementType});
+                    setCreating({ kind: 'create', placementType });
                   },
                 })),
               }}
             >
-              <Button type="primary" icon={<PlusOutlined/>}>
+              <Button type="primary" icon={<PlusOutlined />}>
                 {t('tree.action.addPerson')}
               </Button>
             </Dropdown>
@@ -157,28 +170,28 @@ export function TreePage() {
       {stats !== undefined && (
         <SectionCard>
           <StatGrid>
-            <Statistic title={t('tree.stats.people')} value={stats.personCount}/>
-            <Statistic title={t('tree.stats.generations')} value={stats.maxGeneration ?? 0}/>
-            <Statistic title={t('tree.stats.living')} value={stats.livingCount}/>
-            <Statistic title={t('tree.stats.unlinked')} value={stats.unlinkedCount}/>
+            <Statistic title={t('tree.stats.people')} value={stats.personCount} />
+            <Statistic title={t('tree.stats.generations')} value={stats.maxGeneration ?? 0} />
+            <Statistic title={t('tree.stats.living')} value={stats.livingCount} />
+            <Statistic title={t('tree.stats.unlinked')} value={stats.unlinkedCount} />
           </StatGrid>
         </SectionCard>
       )}
 
       {tree?.meta.truncated === true && (
-        <Alert type="info" showIcon message={t('tree.truncated')}/>
+        <Alert type="info" showIcon message={t('tree.truncated')} />
       )}
 
       {/* F6.1. Shown only to a member who holds no node and has no claim waiting, so it stops
           appearing the moment it has been acted on. */}
-      <FindYourselfBanner clanId={clanId}/>
+      <FindYourselfBanner clanId={clanId} />
 
       {mode === 'canvas' ? (
         <>
           <TreeToolbar
             persons={tree?.persons ?? []}
             branches={tree?.branches ?? []}
-            {...(myPersonId === undefined ? {} : {myPersonId})}
+            {...(myPersonId === undefined ? {} : { myPersonId })}
             disabled={isPending || isEmpty}
             onJumpToPerson={(personId) => {
               canvasRef.current?.jumpTo(personId);
@@ -193,7 +206,7 @@ export function TreePage() {
               graph={graph}
               layout={layout}
               controlRef={canvasRef}
-              {...(myPersonId === undefined ? {} : {myPersonId})}
+              {...(myPersonId === undefined ? {} : { myPersonId })}
               onOpenPerson={openPerson}
               onNodeAction={onNodeAction}
             />
@@ -204,7 +217,7 @@ export function TreePage() {
             <CanvasFrame>
               <CanvasOverlay>
                 {isPending ? (
-                  <Skeleton active paragraph={{rows: 4}}/>
+                  <Skeleton active paragraph={{ rows: 4 }} />
                 ) : (
                   <>
                     <OverlayTitle>{t('tree.empty')}</OverlayTitle>
@@ -212,9 +225,9 @@ export function TreePage() {
                     {canAddAnywhere && (
                       <Button
                         type="primary"
-                        icon={<PlusOutlined/>}
+                        icon={<PlusOutlined />}
                         onClick={() => {
-                          setCreating({kind: 'create', placementType: 'BRANCH_ROOT'});
+                          setCreating({ kind: 'create', placementType: 'BRANCH_ROOT' });
                         }}
                       >
                         {t('tree.emptyAction')}
@@ -253,7 +266,7 @@ export function TreePage() {
               <PersonName $readOnly>{person.fullName}</PersonName>
               <Button
                 type="link"
-                icon={<UndoOutlined/>}
+                icon={<UndoOutlined />}
                 loading={restorePerson.isPending}
                 onClick={() => {
                   void restorePerson
