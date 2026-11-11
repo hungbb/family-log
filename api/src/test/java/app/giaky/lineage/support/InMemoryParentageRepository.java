@@ -52,8 +52,8 @@ public final class InMemoryParentageRepository implements ParentageRepository {
     }
 
     @Override
-    public long countByUnion(ClanId clanId, UUID unionId) {
-        return live(clanId).filter(edge -> unionId.equals(edge.unionId())).count();
+    public List<Parentage> findByUnion(ClanId clanId, UUID unionId) {
+        return live(clanId).filter(edge -> unionId.equals(edge.unionId())).toList();
     }
 
     @Override

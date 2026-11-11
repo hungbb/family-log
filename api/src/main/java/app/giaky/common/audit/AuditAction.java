@@ -109,6 +109,11 @@ public enum AuditAction {
      */
     PARENTAGE_ADDED,
     PARENTAGE_REMOVED,
+    /**
+     * An edge stopped naming a marriage because the marriage was deleted while the child was
+     * soft-deleted. The parent link itself stays, so restoring the child still restores it.
+     */
+    PARENTAGE_DETACHED_FROM_UNION,
 
     UNION_CREATED,
     UNION_UPDATED,

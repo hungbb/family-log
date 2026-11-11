@@ -29,5 +29,5 @@ public interface ParentageJpaRepository extends JpaRepository<ParentageJpaEntity
             ClanId clanId, PersonId childPersonId, String parentRole);
 
     /** The guard on deleting a union (doc 05 §4.8). */
-    long countByClanIdAndUnionIdAndDeletedAtIsNull(ClanId clanId, UUID unionId);
+    List<ParentageJpaEntity> findByClanIdAndUnionIdAndDeletedAtIsNull(ClanId clanId, UUID unionId);
 }
