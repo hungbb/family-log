@@ -8,13 +8,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.giaky.common.types.ClanId;
+import app.giaky.common.types.PartialDate;
+import app.giaky.common.types.PersonId;
+import app.giaky.common.types.UserId;
+import app.giaky.lineage.domain.Gender;
+import app.giaky.lineage.domain.LifeStatus;
+import app.giaky.lineage.domain.Person;
+import app.giaky.lineage.domain.PersonName;
+import app.giaky.lineage.domain.PersonRepository;
 import app.giaky.lineage.support.LineageApiSupport;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 
 /**
@@ -27,6 +38,8 @@ import org.springframework.http.HttpHeaders;
  * crosses three layers, and none of them can be seen from inside one.
  */
 class LineageCoreIT extends LineageApiSupport {
+
+    @Autowired private PersonRepository persons;
 
     private Actor admin;
     private UUID clanId;
@@ -172,6 +185,43 @@ class LineageCoreIT extends LineageApiSupport {
                                 "partnerBId", husband.toString(),
                                 "unionType", "SECONDARY"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("a marriage is recorded whichever side of the UUID sign bit the two ids fall on")
+    void unionAcrossTheSignBit() throws Exception {
+        // The suite's sequential ids never set the top bit, and that is the only place where
+        // java.util.UUID's signed ordering and PostgreSQL's disagree — so the pair is written
+        // directly, with the two ids production's random generator produces half the time.
+        UUID belowTheSignBit = UUID.fromString("7fffffff-ffff-4fff-bfff-ffffffffffff");
+        UUID aboveTheSignBit = UUID.fromString("80000000-0000-4000-8000-000000000000");
+        unplacedPerson(belowTheSignBit, "Nguyễn Phúc Tổ", Gender.MALE);
+        unplacedPerson(aboveTheSignBit, "Trần Thị Cả", Gender.FEMALE);
+
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/unions"),
+                        Map.of(
+                                "partnerAId", aboveTheSignBit.toString(),
+                                "partnerBId", belowTheSignBit.toString(),
+                                "unionType", "PRIMARY"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.partnerAId").value(belowTheSignBit.toString()))
+                .andExpect(jsonPath("$.partnerBId").value(aboveTheSignBit.toString()));
+
+        // Found again from either side: the duplicate is a 409, not a second row and not a 500.
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/unions"),
+                        Map.of(
+                                "partnerAId", belowTheSignBit.toString(),
+                                "partnerBId", aboveTheSignBit.toString(),
+                                "unionType", "SECONDARY"))
+                .andExpect(status().isConflict());
+        as(admin, get("/api/v1/clans/" + clanId + "/persons/" + aboveTheSignBit))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unions.length()").value(1))
+                .andExpect(jsonPath("$.unions[0].partner.id").value(belowTheSignBit.toString()));
     }
 
     @Test
@@ -379,5 +429,32 @@ class LineageCoreIT extends LineageApiSupport {
         as(other, get("/api/v1/clans/" + otherClanId + "/persons/" + mine))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PERSON_NOT_FOUND"));
+    }
+
+    /**
+     * A person with an id of the test's choosing, which no endpoint will hand out.
+     *
+     * <p>Through the repository port rather than raw SQL, so the row is exactly what {@code
+     * PersonService} would have written — minus the placement, which a union does not need.
+     */
+    private void unplacedPerson(UUID id, String fullName, Gender gender) {
+        persons.save(
+                Person.create(
+                        PersonId.of(id),
+                        ClanId.of(clanId),
+                        null,
+                        new PersonName(fullName, null, null, null, null),
+                        gender,
+                        LifeStatus.DECEASED,
+                        PartialDate.unknown(),
+                        PartialDate.unknown(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        UserId.of(admin.userId()),
+                        Instant.parse("2026-01-01T00:00:00Z")));
+        flushAndClear();
     }
 }
