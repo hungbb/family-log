@@ -400,7 +400,7 @@
       "placeholder": "Where does this apply?",
       "wholeClan": "The whole clan",
       "subtree": "One person and their descendants",
-      "subtreeUnavailable": "One person and their descendants — available once the tree exists"
+      "subtreeUnavailable": "One person and their descendants — only somebody who manages roles for the whole clan can grant this"
     },
     "column": {
       "holder": "Person",

@@ -86,6 +86,53 @@ class PermissionPropertyTest {
                 .isBetween(0, placement.size());
     }
 
+    @ParameterizedTest(name = "seed {0}")
+    @ValueSource(longs = {1L, 2L, 3L, 5L, 8L, 13L, 42L, 1234L, 20260101L, 987654321L})
+    @DisplayName("an edge is allowed exactly when both of its ends are (doc 04 §5.2)")
+    void edgesFollowTheirEndpoints(long seed) {
+        Random random = new Random(seed);
+        ResolverFixture world = new ResolverFixture();
+        UserId user = world.member();
+
+        Map<BranchId, BranchId> parentOf = growTree(world, random);
+        List<BranchId> allBranches = new ArrayList<>(parentOf.keySet());
+        Map<UUID, BranchId> placement = placePeople(random, allBranches);
+        List<PermissionScope> heldScopes = grantRandomly(world, user, random, allBranches);
+        List<Map.Entry<UUID, BranchId>> people = new ArrayList<>(placement.entrySet());
+
+        // Every pair would be 1,770 questions per seed for no more information; a few hundred
+        // random ones find a disagreement just as surely.
+        for (int i = 0; i < 300; i++) {
+            Map.Entry<UUID, BranchId> one = people.get(random.nextInt(people.size()));
+            Map.Entry<UUID, BranchId> other = people.get(random.nextInt(people.size()));
+
+            // §5.2 says "TREE_EDIT on both". Whether that is one grant or two is not something the
+            // rule mentions, and the tree's canEdit flags — the union — do not distinguish either.
+            boolean expected =
+                    referenceAllows(heldScopes, parentOf, one.getValue())
+                            && referenceAllows(heldScopes, parentOf, other.getValue());
+            boolean actual =
+                    world.resolver.can(
+                            user,
+                            Permission.TREE_EDIT,
+                            Target.relationship(
+                                    world.clanId,
+                                    List.of(
+                                            new Target.PersonTarget(
+                                                    world.clanId, one.getKey(), one.getValue()),
+                                            new Target.PersonTarget(
+                                                    world.clanId,
+                                                    other.getKey(),
+                                                    other.getValue()))));
+
+            assertThat(actual)
+                    .as(
+                            "edge between branches %s and %s, grants %s (seed %s)",
+                            one.getValue(), other.getValue(), heldScopes, seed)
+                    .isEqualTo(expected);
+        }
+    }
+
     /**
      * The reference: containment by walking parents, never by comparing paths.
      *

@@ -146,6 +146,37 @@ class GrantServiceTest {
                     .isZero();
             assertThat(fixtures.audit.actions()).contains(AuditAction.PERMISSION_EXPIRED);
         }
+
+        @Test
+        @DisplayName("a grant that has run out can be given again before the sweep has run")
+        void lapsedGrantCanBeRenewed() {
+            GrantCommand forAWeek =
+                    new GrantCommand(
+                            editorC,
+                            "TREE_EDIT",
+                            "BRANCH",
+                            chiHai.value(),
+                            ClanOrgTestFixtures.NOW.plus(Duration.ofDays(7)));
+            fixtures.grantService.grant(admin, clanId, forAWeek);
+            fixtures.advance(Duration.ofDays(8));
+
+            // The lapsed row is still unrevoked — the sweep is daily — and still in the unique
+            // index, which is what used to refuse this with a 500.
+            GrantView renewed =
+                    fixtures.grantService.grant(
+                            admin,
+                            clanId,
+                            new GrantCommand(editorC, "TREE_EDIT", "BRANCH", chiHai.value(), null));
+
+            assertThat(fixtures.permissions.permissionNames(editorC, clanId)).contains("TREE_EDIT");
+            assertThat(renewed.expiresAt()).isNull();
+            assertThat(fixtures.audit.actions())
+                    .as("the old grant is closed the way the sweep would have closed it")
+                    .contains(AuditAction.PERMISSION_EXPIRED);
+            assertThat(fixtures.grantService.markExpiredRevoked())
+                    .as("and there is nothing left for the sweep")
+                    .isZero();
+        }
     }
 
     @Nested
@@ -302,10 +333,15 @@ class GrantServiceTest {
         void grantableMatchesWhatIsActuallyAllowed() {
             GrantableView offered = fixtures.grantService.grantable(editorC, clanId);
 
-            // True from Phase 4. Subtree scopes are not enumerated among the permissions below —
-            // a scope names a person and a clan has thousands — so this flag is how the dialog
-            // knows to offer a person search instead (F3.6, F4.2).
-            assertThat(offered.subtreeAvailable()).isTrue();
+            // Subtree scopes are not enumerated among the permissions below — a scope names a
+            // person and a clan has thousands — so this flag is how the dialog knows whether to
+            // offer a person search instead (F3.6, F4.2). A branch role manager is not offered it:
+            // grant() refuses them a subtree scope even inside their own chi, and the title of
+            // this test is a promise about exactly that.
+            assertThat(offered.subtreeAvailable()).isFalse();
+            assertThat(fixtures.grantService.grantable(admin, clanId).subtreeAvailable())
+                    .as("somebody who manages roles clan-wide can, and is offered it")
+                    .isTrue();
             assertThat(offered.permissions())
                     .extracting(GrantableView.GrantablePermission::permission)
                     .containsExactlyInAnyOrder("CLAN_VIEW", "TREE_EDIT", "ROLE_MANAGE");

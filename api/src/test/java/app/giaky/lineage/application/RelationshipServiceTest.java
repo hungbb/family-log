@@ -7,6 +7,7 @@ import app.giaky.authorization.application.GrantCommand;
 import app.giaky.clanorg.application.JoinRequestView;
 import app.giaky.clanorg.application.SubmitJoinRequestCommand;
 import app.giaky.common.error.ApiException;
+import app.giaky.common.error.ConflictException;
 import app.giaky.common.error.ErrorCode;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
@@ -117,6 +118,25 @@ class RelationshipServiceTest {
                                     fixtures.relationshipService.removeParentage(
                                             editorHai, clan, edge.id()))
                     .isInstanceOf(ApiException.class);
+        }
+
+        @Test
+        @DisplayName("nobody is recorded as both parents of the same child")
+        void oneEdgePerParentAndChild() {
+            PersonId parent = personIn(chiHai, "Nguyễn Văn Hai");
+            PersonId child = personIn(chiHai, "Nguyễn Văn Con");
+            fixtures.relationshipService.addParentage(admin, clan, link(parent, child));
+
+            assertThatThrownBy(
+                            () ->
+                                    fixtures.relationshipService.addParentage(
+                                            admin,
+                                            clan,
+                                            new AddParentageCommand(
+                                                    parent, child, ParentRole.MOTHER, null, null)))
+                    .as("the mother's role is free, but the person is already this child's father")
+                    .isInstanceOf(ConflictException.class);
+            assertThat(fixtures.parentages.findByChild(clan, child)).hasSize(1);
         }
 
         @Test
@@ -285,6 +305,31 @@ class RelationshipServiceTest {
                             fixtures.relationshipService.attachChildToUnion(
                                     admin, clan, created.id(), child))
                     .isEmpty();
+        }
+
+        @Test
+        @DisplayName("attaching a child records the man as father even when his wife's gender is blank")
+        void attachChildWhenTheWifeHasNoRecordedGender() {
+            // She is created first, so hers is the smaller id and she is stored as partner A — the
+            // arrangement in which "father is A unless A is recorded as female" picked the wife.
+            PersonId wife = personIn(chiHai, "Trần Thị Hoa", Gender.UNKNOWN);
+            PersonId husband = personIn(chiHai, "Nguyễn Văn Hai", Gender.MALE);
+            UnionView created =
+                    fixtures.relationshipService.createUnion(
+                            admin, clan, union(husband, wife, UnionType.PRIMARY));
+            assertThat(created.partnerAId()).as("the precondition").isEqualTo(wife.value());
+            PersonId child = personIn(chiHai, "Nguyễn Văn Con");
+
+            fixtures.relationshipService.attachChildToUnion(admin, clan, created.id(), child);
+
+            assertThat(fixtures.parentages.findEdge(clan, child, ParentRole.FATHER))
+                    .get()
+                    .extracting(edge -> edge.parentPersonId())
+                    .isEqualTo(husband);
+            assertThat(fixtures.parentages.findEdge(clan, child, ParentRole.MOTHER))
+                    .get()
+                    .extracting(edge -> edge.parentPersonId())
+                    .isEqualTo(wife);
         }
     }
 

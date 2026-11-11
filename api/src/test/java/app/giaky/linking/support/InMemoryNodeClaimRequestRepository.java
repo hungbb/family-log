@@ -59,6 +59,15 @@ public final class InMemoryNodeClaimRequestRepository implements NodeClaimReques
     }
 
     @Override
+    public List<NodeClaimRequest> findPendingByRequester(ClanId clanId, UserId requesterUserId) {
+        return rows.values().stream()
+                .filter(claim -> claim.clanId().equals(clanId))
+                .filter(claim -> claim.requesterUserId().equals(requesterUserId))
+                .filter(NodeClaimRequest::isPending)
+                .toList();
+    }
+
+    @Override
     public List<NodeClaimRequest> findByClanAndStatus(
             ClanId clanId, ClaimStatus status, int offset, int limit) {
 

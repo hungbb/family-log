@@ -5,6 +5,7 @@ import { RouteErrorBoundary } from '../components/feedback/RouteErrorBoundary';
 import { SplashScreen } from '../components/feedback/SplashScreen';
 import { AppShell } from '../components/layout/AppShell';
 
+import { ClanHomeRedirect } from './ClanHomeRedirect';
 import { RequireAnonymous, RequireAuth, RequireClan } from './guards';
 
 /**
@@ -114,7 +115,7 @@ export const router = createBrowserRouter([
             path: 'clans/:clanId',
             element: <RequireClan />,
             children: [
-              { index: true, element: <Navigate to="tree" replace /> },
+              { index: true, element: <ClanHomeRedirect /> },
               { path: 'tree', element: withSuspense(<TreePage />) },
               { path: 'search', element: withSuspense(<PersonSearchPage />) },
               { path: 'members', element: withSuspense(<MembersPage />) },
@@ -122,7 +123,9 @@ export const router = createBrowserRouter([
               { path: 'permissions', element: withSuspense(<PermissionsPage />) },
               { path: 'settings', element: withSuspense(<ClanSettingsPage />) },
               { path: 'claims', element: withSuspense(<ClaimsPage />) },
-              { path: '*', element: <Navigate to="tree" replace /> },
+              // Not a relative `<Navigate to="tree">`: on a catch-all that resolves against
+              // the unmatched URL and redirects to itself forever.
+              { path: '*', element: <ClanHomeRedirect /> },
             ],
           },
           { path: '*', element: <Navigate to="/" replace /> },

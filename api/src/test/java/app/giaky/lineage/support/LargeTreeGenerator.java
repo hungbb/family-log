@@ -2,6 +2,7 @@ package app.giaky.lineage.support;
 
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
+import app.giaky.lineage.domain.Union;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -234,7 +235,7 @@ public final class LargeTreeGenerator {
 
     /** Partners in the canonical order {@code ck_union_canonical_order} insists on. */
     private Object[] unionRow(ClanId clanId, PersonId one, PersonId other, String type) {
-        boolean ordered = one.value().compareTo(other.value()) < 0;
+        boolean ordered = Union.precedes(one, other);
         return new Object[] {
             UUID.randomUUID(),
             clanId.value(),

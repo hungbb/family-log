@@ -86,8 +86,14 @@ public class RefreshTokenService {
      *     token: unknown, expired, already rotated, revoked. One answer for all of them, because
      *     distinguishing "never existed" from "was yours yesterday" tells a thief which of their
      *     stolen tokens are worth trying.
+     *     <p><b>The rejection does not roll this transaction back</b>, and must not. In the reuse
+     *     case the method revokes the whole chain and <i>then</i> refuses: with the default rule the
+     *     refusal undid the revocation it had just made, the log said "revoked 1 token(s)", the
+     *     audit trail (which writes in its own transaction) said the same, and the thief's token
+     *     went on working. {@code AuthService.refresh} wraps this call in its own transaction and
+     *     carries the same rule for the same reason — one without the other is still a rollback.
      */
-    @Transactional
+    @Transactional(noRollbackFor = AuthenticationRequiredException.class)
     public Issued rotate(String rawToken, ClientContext client) {
         Instant now = clock.instant();
         RefreshToken presented =

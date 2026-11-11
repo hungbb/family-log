@@ -13,6 +13,7 @@ import app.giaky.common.audit.AuditWriter;
 import app.giaky.common.error.ConflictException;
 import app.giaky.common.error.DomainRuleViolation;
 import app.giaky.common.error.ErrorCode;
+import app.giaky.common.error.FieldViolation;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
 import app.giaky.common.types.BranchId;
@@ -203,6 +204,7 @@ public class PersonService {
         if (command.foundingAncestor()) {
             requireNoFoundingAncestorYet(clanId);
         }
+        requireCoherentDates(command.lifeStatus(), command.birth(), command.death());
 
         Instant now = clock.instant();
         NoteSanitizer.SanitizedNote note = sanitizer.sanitize(command.notesHtml());
@@ -334,6 +336,14 @@ public class PersonService {
      * <p>Nothing has to be rebuilt: the edges and the closure rows were never removed, so this is a
      * timestamp. That is the property soft delete was designed for, and the reason the closure
      * describes the edge graph rather than what is visible (V9).
+     *
+     * <p><b>With one exception: the account that was on the node.</b> A deleted node keeps its link,
+     * so that undoing a mistaken delete undoes all of it. But a deleted node is also invisible to
+     * I-P4 — its index covers live rows only — so while it was gone the same account may have been
+     * given another node, or have left the clan altogether. Restoring it as it was would then put
+     * two nodes on one account (the unique index refuses, which used to surface as a {@code 500})
+     * or a non-member on the tree (I-P5). In both cases the node comes back unlinked, and the audit
+     * trail says so; the account loses nothing it still had.
      */
     @Transactional
     public PersonDetailView restore(UserId caller, ClanId clanId, PersonId personId) {
@@ -356,7 +366,9 @@ public class PersonService {
         }
 
         String before = snapshots.of(person);
-        Person restored = persons.save(person.restore(caller, now));
+        boolean linkLapsed = linkLapsedWhileDeleted(clanId, person);
+        Person revived = person.restore(caller, now);
+        Person restored = persons.save(linkLapsed ? revived.withoutLink() : revived);
         treeVersions.bump(clanId);
 
         auditWriter.write(
@@ -368,9 +380,42 @@ public class PersonService {
                                 caller)
                         .withChange(before, snapshots.of(restored))
                         .authorizedBy(authorizing.authorizingGrantId()));
+        if (linkLapsed) {
+            // Its own entry: the snapshots above leave the link out on purpose, so without this
+            // nothing would record that the node came back without the account it left with.
+            auditWriter.write(
+                    AuditRecord.inClan(
+                                    AuditAction.PERSON_UNLINKED,
+                                    clanId,
+                                    AuditRecord.TARGET_PERSON,
+                                    personId.value(),
+                                    caller)
+                            .authorizedBy(authorizing.authorizingGrantId()));
+            log.info(
+                    "Person restored without its former link clanId={} personId={} previousUser={}",
+                    clanId,
+                    personId,
+                    person.linkedUserId());
+        }
         events.publishEvent(new PersonRestored(clanId, personId, caller, now));
 
         return assembleDetail(caller, clanId, restored);
+    }
+
+    /**
+     * Whether the account on a deleted node can no longer be on it (I-P4, I-P5).
+     *
+     * <p>Two things can have happened while the node was out of sight: the account was linked to
+     * another node of this clan, or its membership ended. Either makes the old link one that {@code
+     * PersonUserLinker} would refuse to create today, so restore does not recreate it.
+     */
+    private boolean linkLapsedWhileDeleted(ClanId clanId, Person deleted) {
+        UserId account = deleted.linkedUserId();
+        if (account == null) {
+            return false;
+        }
+        return !clans.isActiveMember(clanId, account)
+                || persons.findByLinkedUser(clanId, account).isPresent();
     }
 
     /**
@@ -437,9 +482,23 @@ public class PersonService {
                         ? new NoteSanitizer.SanitizedNote(person.notesHtml(), person.notesText())
                         : sanitizer.sanitize(command.notesHtml());
 
+        String fullName = pick(command.fullName(), person.name().fullName(), merge);
+        if (fullName == null || fullName.isBlank()) {
+            // Only PUT gets here with nothing: it replaces, so a body without a name is a request
+            // to clear it — and a person without a name is not a record (I-P1).
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "A person needs a name.",
+                    List.of(new FieldViolation("fullName", "must not be blank")));
+        }
+        LifeStatus lifeStatus = pick(command.lifeStatus(), person.lifeStatus(), merge);
+        PartialDate birth = pick(command.birth(), person.birth(), merge);
+        PartialDate death = pick(command.death(), person.death(), merge);
+        requireCoherentDates(lifeStatus, birth, death);
+
         PersonName name =
                 new PersonName(
-                        pick(command.fullName(), person.name().fullName(), merge),
+                        fullName,
                         pick(command.familyName(), person.name().familyName(), merge),
                         pick(command.givenName(), person.name().givenName(), merge),
                         pick(command.alias(), person.name().alias(), merge),
@@ -450,9 +509,9 @@ public class PersonService {
                         person.update(
                                 name,
                                 pick(command.gender(), person.gender(), merge),
-                                pick(command.lifeStatus(), person.lifeStatus(), merge),
-                                pick(command.birth(), person.birth(), merge),
-                                pick(command.death(), person.death(), merge),
+                                lifeStatus,
+                                birth,
+                                death,
                                 pick(command.burialPlace(), person.burialPlace(), merge),
                                 pick(command.birthOrder(), person.birthOrder(), merge),
                                 note.html(),
@@ -473,6 +532,39 @@ public class PersonService {
         events.publishEvent(new PersonUpdated(clanId, personId, caller, now));
 
         return assembleDetail(caller, clanId, updated);
+    }
+
+    /**
+     * I-P2 and I-P3, answered in the API's vocabulary before the aggregate has to refuse them.
+     *
+     * <p>{@link Person} enforces both itself, as it must. But an aggregate refuses by throwing
+     * {@code IllegalArgumentException} — right for a domain object, and wrong for a client to
+     * receive: it surfaced as {@code 500 INTERNAL_ERROR} for what is an ordinary slip on a form, a
+     * status changed to "living" with the date of death left in. The questions asked here are the
+     * value object's own ({@code isKnown}, {@code isCertainlyAfter}), so each rule still has one
+     * definition; this only decides what the refusal is called.
+     */
+    private static void requireCoherentDates(
+            LifeStatus lifeStatus, PartialDate birth, PartialDate death) {
+
+        PartialDate born = birth == null ? PartialDate.unknown() : birth;
+        PartialDate died = death == null ? PartialDate.unknown() : death;
+
+        if (lifeStatus == LifeStatus.ALIVE && died.isKnown()) {
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "Somebody recorded as living cannot have a date of death. Change the status,"
+                            + " or clear the date.",
+                    List.of(
+                            new FieldViolation(
+                                    "death", "a living person cannot have a date of death")));
+        }
+        if (born.isCertainlyAfter(died)) {
+            throw new DomainRuleViolation(
+                    ErrorCode.DATE_RANGE_INVALID,
+                    "The date of death is before the date of birth.",
+                    List.of(new FieldViolation("death", "must not be before the date of birth")));
+        }
     }
 
     /**
@@ -602,22 +694,9 @@ public class PersonService {
         return persons.findById(clanId, person.id()).orElse(person);
     }
 
-    /**
-     * Which of two partners to record as the father.
-     *
-     * <p>Gender when the book gives it; the canonical storage order when it does not. The fallback
-     * is arbitrary and is meant to be — an edge has to name a role, both roles exist, and a wrong
-     * guess is a correction the editor can make in one click. Refusing the placement instead would
-     * block transcribing a marriage whose partners' genders the book never stated.
-     */
+    /** The couple's father — {@link ParentRole#fatherAmong}, the one definition of that rule. */
     private static Person fatherOf(Person partnerA, Person partnerB) {
-        if (partnerA.gender() == Gender.MALE || partnerB.gender() == Gender.FEMALE) {
-            return partnerA;
-        }
-        if (partnerB.gender() == Gender.MALE || partnerA.gender() == Gender.FEMALE) {
-            return partnerB;
-        }
-        return partnerA;
+        return ParentRole.fatherAmong(partnerA, partnerB);
     }
 
     private static ParentRole roleOf(ParentRole requested, Person parent) {

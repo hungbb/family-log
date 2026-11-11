@@ -17,6 +17,7 @@ import app.giaky.common.error.NotFoundException;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.Paged;
+import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
 import app.giaky.identity.application.UserDirectory;
 import app.giaky.identity.application.UserProfile;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -51,6 +53,7 @@ public class MembershipService {
     private final PermissionResolver resolver;
     private final PermissionQueryService permissions;
     private final LastAdminProtection lastAdmin;
+    private final MemberNodeLookup memberNodes;
     private final UserDirectory users;
     private final AuditWriter auditWriter;
     private final ApplicationEventPublisher events;
@@ -62,6 +65,7 @@ public class MembershipService {
             PermissionResolver resolver,
             PermissionQueryService permissions,
             LastAdminProtection lastAdmin,
+            MemberNodeLookup memberNodes,
             UserDirectory users,
             AuditWriter auditWriter,
             ApplicationEventPublisher events,
@@ -71,6 +75,7 @@ public class MembershipService {
         this.resolver = resolver;
         this.permissions = permissions;
         this.lastAdmin = lastAdmin;
+        this.memberNodes = memberNodes;
         this.users = users;
         this.auditWriter = auditWriter;
         this.events = events;
@@ -119,6 +124,12 @@ public class MembershipService {
         // One query for the whole page, so the list can say who to ask for access without a
         // per-row permission lookup.
         Set<UserId> administrators = permissions.administrators(clanId);
+        // And one for who is already in the tree, which is what the assign-a-member picker reads
+        // to show somebody as taken rather than offering them and being refused (F6.6).
+        Map<UserId, PersonId> nodes =
+                memberNodes.nodesOf(
+                        clanId,
+                        pageOfMemberships.content().stream().map(ClanMembership::userId).toList());
 
         List<MemberView> content = new ArrayList<>(pageOfMemberships.content().size());
         for (ClanMembership membership : pageOfMemberships.content()) {
@@ -137,9 +148,7 @@ public class MembershipService {
                                     : branchNames.get(membership.homeBranchId()),
                             membership.joinedAt(),
                             administrators.contains(membership.userId()),
-                            // Phase 6 fills this in; the field is in the contract from doc 05 §4.5
-                            // so the member list does not change shape when it does.
-                            null));
+                            linkedPersonOf(nodes, membership.userId())));
         }
         return new Paged<>(content, page, size, pageOfMemberships.totalElements());
     }
@@ -226,6 +235,11 @@ public class MembershipService {
                         membership.id(),
                         caller));
         events.publishEvent(new MembershipRevoked(clanId, caller, caller, true, now));
+    }
+
+    private static UUID linkedPersonOf(Map<UserId, PersonId> nodes, UserId member) {
+        PersonId node = nodes.get(member);
+        return node == null ? null : node.value();
     }
 
     private Map<BranchId, String> branchNames(ClanId clanId) {
