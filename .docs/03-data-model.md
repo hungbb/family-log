@@ -206,8 +206,12 @@ One row per clan, created lazily on the clan's first lineage mutation.
 | `tree_version` | BIGINT | incremented by every lineage mutation |
 | `updated_at` | TIMESTAMPTZ | |
 
-Rendered as the `ETag` on tree reads (doc 05 §4.9), so an unchanged tree answers `304` after one
-indexed read rather than after assembling the payload.
+Rendered into the `ETag` on tree reads (doc 05 §4.9), so an unchanged tree answers `304` after one
+indexed read rather than after assembling the payload. Only *into*: the counter identifies the
+clan's rows, which are the same for everybody, while the response's `canEdit` flags are the caller's
+own — so the tag is the counter plus the caller's `TREE_EDIT` scopes and the read's bounding
+parameters. A tag built on the counter alone answered `304` across callers and handed one member
+another's flags.
 
 **Why not a column on `clans`.** `clans.version` is the aggregate's optimistic lock, and bumping it
 whenever somebody adds a cousin would answer a concurrent settings edit with `409 VERSION_CONFLICT`

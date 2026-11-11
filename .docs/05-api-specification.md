@@ -212,6 +212,11 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 }
 ```
 Responses are `ETag`-tagged; clients send `If-None-Match` and get `304` when the tree is unchanged.
+The tag covers the whole representation, not just the clan's `tree_version`: `canEdit` is computed
+for the caller, and `rootPersonId`/`depth` select a subtree, so it also folds in the caller's
+`TREE_EDIT` scopes and those two parameters. Two callers holding the same scopes share a tag,
+because they genuinely share a body; one whose grants change gets a new tag even if nobody was
+born.
 
 ### 4.10 Node claiming — `/clans/{clanId}/claims`
 

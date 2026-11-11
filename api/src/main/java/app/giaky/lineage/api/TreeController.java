@@ -32,6 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
  * against the version first means an unchanged tree costs a lookup rather than a full read — which
  * is the whole reason B4.12 put a counter on the clan instead of hashing the response body.
  *
+ * <p><b>The tag is per representation, not per clan.</b> One version of one clan's tree is several
+ * bodies: {@code canEdit} is computed for the caller, so a branch editor and a plain member hold
+ * different payloads, and {@code rootPersonId} and {@code depth} cut a subtree out of the same
+ * rows. A validator that named only the version answered {@code 304} across all of that, handing
+ * whoever revalidated second the representation of whoever revalidated first (#49) — so the tag
+ * folds in the caller's edit scopes and the two parameters. The cost is unchanged: both come from
+ * indexed reads the request was making anyway.
+ *
  * <p>This is distinct from the {@code ShallowEtagHeaderFilter} in {@code WebConfig}, which also
  * yields a {@code 304} but only after producing the body it then throws away.
  */
@@ -53,7 +61,9 @@ public class TreeController {
             description =
                     "The master view: every branch, aggregated. Pass rootPersonId to fetch one"
                         + " subtree, and depth to bound it. Send If-None-Match with the ETag from a"
-                        + " previous response to get a 304 when nothing has changed.")
+                        + " previous response to get a 304 when nothing has changed. The tag covers"
+                        + " the caller's own edit rights and these parameters, not just the"
+                        + " clan's tree version, because the body depends on all three.")
     public ResponseEntity<TreeResponse> tree(
             @CurrentUser AuthenticatedUser caller,
             @PathVariable UUID clanId,
@@ -64,9 +74,26 @@ public class TreeController {
             @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
 
         ClanId clan = ClanId.of(clanId);
-        long version = trees.treeVersion(caller.id(), clan);
-        if (ETags.matches(ifNoneMatch, version)) {
-            return ResponseEntity.status(304).eTag(ETags.of(version)).build();
+        TreeQueryService.TreeValidator validator = trees.treeValidator(caller.id(), clan);
+
+        // Everything this URL's body depends on besides the clan's rows: who is asking — `canEdit`
+        // is theirs alone (#49) — and which part of the tree they asked for, since `rootPersonId`
+        // and `depth` select a subtree at the very same version.
+        //
+        // The two parameters go in raw, not normalised the way the service normalises them (a depth
+        // without a root is ignored; one past MAX_DEPTH is clamped). Two spellings of one request
+        // then get two tags and a revalidation misses, which costs a read. Normalising here and
+        // drifting from the service's rule would answer 304 with the wrong body instead, which
+        // costs correctness.
+        String etag =
+                ETags.ofVariant(
+                        validator.version(),
+                        validator.editRights(),
+                        rootPersonId == null ? "" : rootPersonId.toString(),
+                        depth == null ? "" : depth.toString());
+
+        if (ETags.matches(ifNoneMatch, etag)) {
+            return ResponseEntity.status(304).eTag(etag).build();
         }
 
         TreeResponse body =
@@ -77,7 +104,7 @@ public class TreeController {
                                 rootPersonId == null ? null : PersonId.of(rootPersonId),
                                 depth));
 
-        return ResponseEntity.ok().eTag(ETags.of(version)).body(body);
+        return ResponseEntity.ok().eTag(etag).body(body);
     }
 
     @GetMapping("/ancestors/{personId}")
