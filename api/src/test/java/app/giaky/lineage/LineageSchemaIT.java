@@ -1,7 +1,6 @@
 package app.giaky.lineage;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.giaky.support.AbstractIntegrationTest;
 import java.util.List;
@@ -41,7 +40,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
     void nameMustNotBeBlank() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(() -> world.insertPerson("   ", "UNKNOWN", null))
+        assertThatRefused(() -> world.insertPerson("   ", "UNKNOWN", null))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -50,7 +49,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
     void aliveHasNoDeathDate() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
@@ -70,7 +69,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
     void partialDateShapeIsChecked() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
@@ -89,7 +88,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
         Fixture world = new Fixture();
         UUID first = world.insertFoundingAncestor("Nguyễn Phúc Tổ");
 
-        assertThatThrownBy(() -> world.insertFoundingAncestor("Kẻ mạo nhận"))
+        assertThatRefused(() -> world.insertFoundingAncestor("Kẻ mạo nhận"))
                 .isInstanceOf(DataAccessException.class);
 
         jdbcTemplate.update("UPDATE persons SET deleted_at = now() WHERE id = ?", first);
@@ -104,7 +103,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
         world.linkUser(world.insertPerson("Nguyễn Văn An", "UNKNOWN", null), userId);
 
         UUID second = world.insertPerson("Nguyễn Văn Hai", "UNKNOWN", null);
-        assertThatThrownBy(() -> world.linkUser(second, userId))
+        assertThatRefused(() -> world.linkUser(second, userId))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -116,11 +115,11 @@ class LineageSchemaIT extends AbstractIntegrationTest {
         UUID father = world.insertPerson("Nguyễn Văn Cha", "UNKNOWN", null);
         UUID pretender = world.insertPerson("Nguyễn Văn Khác", "UNKNOWN", null);
 
-        assertThatThrownBy(() -> world.insertParentage(child, child, "FATHER"))
+        assertThatRefused(() -> world.insertParentage(child, child, "FATHER"))
                 .isInstanceOf(DataAccessException.class);
 
         world.insertParentage(father, child, "FATHER");
-        assertThatThrownBy(() -> world.insertParentage(pretender, child, "FATHER"))
+        assertThatRefused(() -> world.insertParentage(pretender, child, "FATHER"))
                 .isInstanceOf(DataAccessException.class);
 
         // A mother is a different role and is allowed alongside.
@@ -133,17 +132,23 @@ class LineageSchemaIT extends AbstractIntegrationTest {
         Fixture world = new Fixture();
         UUID one = world.insertPerson("Nguyễn Văn Hai", "UNKNOWN", null);
         UUID other = world.insertPerson("Trần Thị Hoa", "UNKNOWN", null);
-        UUID smaller = one.compareTo(other) < 0 ? one : other;
-        UUID larger = one.compareTo(other) < 0 ? other : one;
+        // The order the CHECK is written in is PostgreSQL's, so PostgreSQL is asked. UUID.compareTo
+        // reads each half as a signed long and disagrees with it on half of all random pairs.
+        boolean oneFirst =
+                Boolean.TRUE.equals(
+                        jdbcTemplate.queryForObject(
+                                "SELECT ?::uuid < ?::uuid", Boolean.class, one, other));
+        UUID smaller = oneFirst ? one : other;
+        UUID larger = oneFirst ? other : one;
 
-        assertThatThrownBy(() -> world.insertUnion(one, one))
+        assertThatRefused(() -> world.insertUnion(one, one))
                 .isInstanceOf(DataAccessException.class);
         // The canonical ordering the unique index depends on is itself a CHECK.
-        assertThatThrownBy(() -> world.insertUnion(larger, smaller))
+        assertThatRefused(() -> world.insertUnion(larger, smaller))
                 .isInstanceOf(DataAccessException.class);
 
         world.insertUnion(smaller, larger);
-        assertThatThrownBy(() -> world.insertUnion(smaller, larger))
+        assertThatRefused(() -> world.insertUnion(smaller, larger))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -154,7 +159,7 @@ class LineageSchemaIT extends AbstractIntegrationTest {
         UUID one = world.insertPerson("Nguyễn Văn Hai", "UNKNOWN", null);
         UUID other = world.insertPerson("Nguyễn Văn Ba", "UNKNOWN", null);
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """

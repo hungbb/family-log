@@ -1,7 +1,6 @@
 package app.giaky.authorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.giaky.support.AbstractIntegrationTest;
 import java.time.Instant;
@@ -43,14 +42,14 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void scopeReferenceMatchesScopeType() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 insertGrant(
                                         world, "TREE_EDIT", "CLAN", UUID.randomUUID(), null, null))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> insertGrant(world, "TREE_EDIT", "BRANCH", null, null, null))
+        assertThatRefused(() -> insertGrant(world, "TREE_EDIT", "BRANCH", null, null, null))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> insertGrant(world, "TREE_EDIT", "SUBTREE", null, null, null))
+        assertThatRefused(() -> insertGrant(world, "TREE_EDIT", "SUBTREE", null, null, null))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -59,7 +58,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void administratorIsClanWideOnly() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 insertGrant(
                                         world, "CLAN_ADMIN", "BRANCH", world.branchId, null, null))
@@ -71,7 +70,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void memberApproveHasNoSubtreeForm() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 insertGrant(
                                         world,
@@ -88,9 +87,9 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void permissionVocabularyIsClosed() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(() -> insertGrant(world, "PATRIARCH", "CLAN", null, null, null))
+        assertThatRefused(() -> insertGrant(world, "PATRIARCH", "CLAN", null, null, null))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> insertGrant(world, "TREE_EDIT", "HOUSEHOLD", null, null, null))
+        assertThatRefused(() -> insertGrant(world, "TREE_EDIT", "HOUSEHOLD", null, null, null))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -100,7 +99,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
         Fixture world = new Fixture();
         insertGrant(world, "TREE_EDIT", "BRANCH", world.branchId, null, null);
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () -> insertGrant(world, "TREE_EDIT", "BRANCH", world.branchId, null, null))
                 .isInstanceOf(DataAccessException.class);
 
@@ -123,7 +122,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
 
         // Two NULL scope_ref_ids never compare equal, so the index COALESCEs them to a fixed UUID.
         // Without that, "clan-wide TREE_EDIT" could be granted any number of times.
-        assertThatThrownBy(() -> insertGrant(world, "TREE_EDIT", "CLAN", null, null, null))
+        assertThatRefused(() -> insertGrant(world, "TREE_EDIT", "CLAN", null, null, null))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -132,7 +131,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void revocationColumnsAgree() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 insertGrant(
                                         world, "TREE_EDIT", "CLAN", null, null, world.userId))
@@ -156,7 +155,7 @@ class AuthorizationSchemaIT extends AbstractIntegrationTest {
     void expiryFollowsIssue() {
         Fixture world = new Fixture();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
