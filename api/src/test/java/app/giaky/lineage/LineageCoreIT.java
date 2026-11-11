@@ -443,6 +443,42 @@ class LineageCoreIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("renaming a branch invalidates the tree ETag, with no lineage edit (#54)")
+    void treeEtagCoversTheBranchBlock() throws Exception {
+        foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");
+        JsonNode chiHai = createBranch(admin, clanId, rootBranchId, "Chi Hai");
+        UUID chiHaiId = UUID.fromString(chiHai.get("id").asText());
+
+        String etag =
+                as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+
+        // A branch mutation and nothing else: tree_version counts lineage edits, so before #54 the
+        // validator could not see this and the old name stayed in every cache.
+        as(
+                admin,
+                patch("/api/v1/clans/" + clanId + "/branches/" + chiHaiId),
+                Map.of(
+                        "name",
+                        "Chi Thứ Hai",
+                        "expectedVersion",
+                        chiHai.get("version").asLong()))
+                .andExpect(status().isOk());
+
+        as(
+                        admin,
+                        get("/api/v1/clans/" + clanId + "/tree")
+                                .header(HttpHeaders.IF_NONE_MATCH, etag))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.branches[?(@.id == '" + chiHaiId + "')].name")
+                                .value("Chi Thứ Hai"));
+    }
+
+    @Test
     @DisplayName("the cached tree never outlives the edit that changed it (B5.3)")
     void cachedTreeIsBustedByAnEdit() throws Exception {
         UUID doi1 = foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");

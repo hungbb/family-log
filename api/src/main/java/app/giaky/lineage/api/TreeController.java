@@ -37,8 +37,13 @@ import org.springframework.web.bind.annotation.RestController;
  * different payloads, and {@code rootPersonId} and {@code depth} cut a subtree out of the same
  * rows. A validator that named only the version answered {@code 304} across all of that, handing
  * whoever revalidated second the representation of whoever revalidated first (#49) — so the tag
- * folds in the caller's edit scopes and the two parameters. The cost is unchanged: both come from
- * indexed reads the request was making anyway.
+ * folds in the caller's edit scopes and the two parameters.
+ *
+ * <p>And the version does not cover the whole body: it counts lineage mutations, while the payload
+ * also carries the clan's branches. Renaming a chi changed the response and nothing else, so a
+ * revalidation kept the old name until an unrelated birth moved the counter (#54). The tag folds
+ * in the branch block too. The cost stays a fixed handful of indexed reads against a payload that
+ * grows with the family, which is what B4.12 bought.
  *
  * <p>This is distinct from the {@code ShallowEtagHeaderFilter} in {@code WebConfig}, which also
  * yields a {@code 304} but only after producing the body it then throws away.
@@ -89,6 +94,7 @@ public class TreeController {
                 ETags.ofVariant(
                         validator.version(),
                         validator.editRights(),
+                        validator.branchStructure(),
                         rootPersonId == null ? "" : rootPersonId.toString(),
                         depth == null ? "" : depth.toString());
 

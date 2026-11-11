@@ -112,25 +112,90 @@ public class TreeQueryService {
      * Answering {@code 304} on the version alone hands a plain member the flags of whoever
      * populated the cache. {@link #editRights} is what separates them.
      *
+     * <p><b>Nor does the version cover the whole body.</b> It counts lineage mutations, and the
+     * payload also carries the clan's branches — their names, paths, depths and root people. A
+     * branch renamed or moved changes the response without touching the counter, so a revalidation
+     * kept the old names until some unrelated birth happened to bump it (#54). {@link
+     * #branchStructure} closes that.
+     *
      * @param version the clan's tree version, which the payload also carries
      * @param editRights a stable rendering of the scopes at which the caller holds {@code
      *     TREE_EDIT} — the whole of what {@code canEdit} is computed from
+     * @param branchStructure a stable rendering of the branch block of the payload
      */
-    public record TreeValidator(long version, String editRights) {}
+    public record TreeValidator(long version, String editRights, String branchStructure) {}
 
     /**
      * The validator for this caller's view of this clan's tree.
      *
-     * <p>Two indexed reads at most, and usually one: the tree version, and the caller's grants,
-     * which {@code GrantPort} has already cached for this request if anything has asked about
-     * permissions. Deliberately not the expanded {@link EditableSet} — that costs a branch-path
-     * load and a closure query per subtree grant, and the scopes it is expanded *from* change
-     * whenever its answer does.
+     * <p>Three indexed reads: the tree version, the caller's grants — which {@code GrantPort} has
+     * already cached for this request if anything has asked about permissions — and the clan's
+     * branches. Still a fixed, small cost against a payload that grows with the family, which is
+     * what B4.12 bought.
+     *
+     * <p>Deliberately not the expanded {@link EditableSet} — that costs a branch-path load and a
+     * closure query per subtree grant, and the scopes it is expanded *from* change whenever its
+     * answer does.
      */
     @Transactional(readOnly = true)
     public TreeValidator treeValidator(UserId caller, ClanId clanId) {
         resolver.requireMembership(caller, clanId);
-        return new TreeValidator(treeVersions.current(clanId), editRights(caller, clanId));
+        return new TreeValidator(
+                treeVersions.current(clanId),
+                editRights(caller, clanId),
+                branchStructure(clanId));
+    }
+
+    /**
+     * A rendering of exactly the branch block the payload will carry.
+     *
+     * <p><b>Derived, not counted.</b> A {@code branchVersion} counter beside {@code treeVersion}
+     * would have to be bumped by every branch mutation — and #54 exists precisely because five of
+     * them did not bump anything. This is computed from {@link #branchesOf}, the same method that
+     * fills the payload, so the fingerprint changes if and only if that block changes, and a sixth
+     * branch mutation is covered the day it is written rather than the day somebody remembers it.
+     *
+     * <p>It also leaves the snapshot cache alone. Bumping {@code treeVersion} for a rename would
+     * evict the person rows keyed on it (B5.3) and make a five-thousand-person rescan the price of
+     * correcting a typo.
+     *
+     * <p>The name goes last and length-prefixed because it is the one free-text field here: a
+     * branch called {@code "Chi|Hai"} must not be able to spell the same line as two other
+     * branches, which is the sort of collision that ends in a wrong {@code 304}.
+     */
+    private String branchStructure(ClanId clanId) {
+        return branchesOf(clanId).stream()
+                .map(
+                        branch ->
+                                branch.id()
+                                        + "|"
+                                        + branch.depth()
+                                        + "|"
+                                        + branch.rootPersonId()
+                                        + "|"
+                                        + branch.path()
+                                        + "|"
+                                        + branch.name().length()
+                                        + ":"
+                                        + branch.name())
+                // Sorted, so the order the rows arrive in cannot change the tag. The id leads, so
+                // this is an order by branch id.
+                .sorted()
+                .collect(Collectors.joining(";"));
+    }
+
+    /** The clan's branches as the tree payload carries them — see {@link #branchStructure}. */
+    private List<TreeView.TreeBranch> branchesOf(ClanId clanId) {
+        return clans.branches(clanId).stream()
+                .map(
+                        branch ->
+                                new TreeView.TreeBranch(
+                                        branch.id().value(),
+                                        branch.name(),
+                                        branch.path(),
+                                        branch.depth(),
+                                        branch.rootPersonId()))
+                .toList();
     }
 
     /**
@@ -313,17 +378,9 @@ public class TreeQueryService {
             }
         }
 
-        List<TreeView.TreeBranch> branches =
-                clans.branches(clanId).stream()
-                        .map(
-                                branch ->
-                                        new TreeView.TreeBranch(
-                                                branch.id().value(),
-                                                branch.name(),
-                                                branch.path(),
-                                                branch.depth(),
-                                                branch.rootPersonId()))
-                        .toList();
+        // The same method the validator fingerprints, so the tag and the body cannot disagree
+        // about what the branch block is (#54).
+        List<TreeView.TreeBranch> branches = branchesOf(clanId);
 
         return new TreeView(
                 clanId.value(),
