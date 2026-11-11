@@ -4,6 +4,7 @@ import { type PartialDate, type PersonSummary } from '@/api/endpoints/persons.ts
 import { translator } from '@/test/translator.ts';
 
 import {
+  formatCompactLifespan,
   formatGeneration,
   formatLifespan,
   formatPartialDate,
@@ -133,5 +134,42 @@ describe('generation and kinship words', () => {
   it('labels a person with their đời only when there is one', () => {
     expect(personLabel(person({}), vi)).toBe('Nguyễn Văn An');
     expect(personLabel(person({ generation: 4 }), vi)).toContain('4');
+  });
+});
+
+describe('formatCompactLifespan', () => {
+  const born: PartialDate = { precision: 'YEAR', circa: true, year: 1850 };
+  const died: PartialDate = {
+    precision: 'YEAR',
+    circa: false,
+    year: 1921,
+    lunarText: 'ngày rằm tháng Giêng năm Tân Dậu',
+  };
+
+  it('keeps the dates and drops the lunar reading that glosses them', () => {
+    expect(formatLifespan(person({ birth: born, death: died }), vi)).toBe(
+      'khoảng 1850 – 1921 (ngày rằm tháng Giêng năm Tân Dậu)',
+    );
+    expect(formatCompactLifespan(person({ birth: born, death: died }), vi)).toBe(
+      'khoảng 1850 – 1921',
+    );
+  });
+
+  it('is the same as the full lifespan when there is nothing to drop', () => {
+    const plain = person({ birth: born, death: { precision: 'YEAR', circa: false, year: 1921 } });
+
+    expect(formatCompactLifespan(plain, vi)).toBe(formatLifespan(plain, vi));
+    expect(formatCompactLifespan(person({}), vi)).toBeUndefined();
+  });
+
+  it('does not strip a reading that is all the date consists of', () => {
+    const anniversary: PartialDate = {
+      precision: 'UNKNOWN',
+      circa: false,
+      lunarText: 'mồng 3 tháng Chạp',
+    };
+    const lunarOnly = person({ birth: born, death: anniversary });
+
+    expect(formatCompactLifespan(lunarOnly, vi)).toBe(formatLifespan(lunarOnly, vi));
   });
 });

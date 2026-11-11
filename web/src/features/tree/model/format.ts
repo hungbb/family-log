@@ -64,6 +64,33 @@ export function formatLifespan(person: PersonSummary, t: TFunction): string | un
 }
 
 /**
+ * The lifespan without the lunar readings that accompany a Gregorian date.
+ *
+ * For the places with one short line to spend — a card on the canvas. "khoảng 1850 – 1921" is what
+ * has to survive there; "(ngày rằm tháng Giêng năm Tân Dậu)" is detail the drawer shows in full.
+ * A date that is *only* a lunar reading keeps it, because then the reading is the date.
+ */
+export function formatCompactLifespan(person: PersonSummary, t: TFunction): string | undefined {
+  return formatLifespan(
+    {
+      ...person,
+      ...(person.birth === undefined ? {} : { birth: withoutLunarGloss(person.birth) }),
+      ...(person.death === undefined ? {} : { death: withoutLunarGloss(person.death) }),
+    },
+    t,
+  );
+}
+
+/** Drops the lunar text from a date that also has a Gregorian reading; leaves any other date alone. */
+function withoutLunarGloss(date: PartialDate): PartialDate {
+  if (date.precision === 'UNKNOWN' || date.lunarText === undefined) {
+    return date;
+  }
+  const { lunarText: _gloss, ...gregorian } = date;
+  return gregorian;
+}
+
+/**
  * <i>Đời</i>, or the honest absence of one.
  *
  * Generation is advisory: an imported fragment with no path to the founding ancestor genuinely has
