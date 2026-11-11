@@ -651,22 +651,9 @@ public class PersonService {
         return persons.findById(clanId, person.id()).orElse(person);
     }
 
-    /**
-     * Which of two partners to record as the father.
-     *
-     * <p>Gender when the book gives it; the canonical storage order when it does not. The fallback
-     * is arbitrary and is meant to be — an edge has to name a role, both roles exist, and a wrong
-     * guess is a correction the editor can make in one click. Refusing the placement instead would
-     * block transcribing a marriage whose partners' genders the book never stated.
-     */
+    /** The couple's father — {@link ParentRole#fatherAmong}, the one definition of that rule. */
     private static Person fatherOf(Person partnerA, Person partnerB) {
-        if (partnerA.gender() == Gender.MALE || partnerB.gender() == Gender.FEMALE) {
-            return partnerA;
-        }
-        if (partnerB.gender() == Gender.MALE || partnerA.gender() == Gender.FEMALE) {
-            return partnerB;
-        }
-        return partnerA;
+        return ParentRole.fatherAmong(partnerA, partnerB);
     }
 
     private static ParentRole roleOf(ParentRole requested, Person parent) {

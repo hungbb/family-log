@@ -10,5 +10,29 @@ package app.giaky.lineage.domain;
  */
 public enum ParentRole {
     FATHER,
-    MOTHER
+    MOTHER;
+
+    /**
+     * Which of a couple to record as the father of their child.
+     *
+     * <p>Gender when the book gives it — of either partner, since knowing one is a wife says the
+     * other is the husband — and the canonical storage order when it gives neither. That fallback is
+     * arbitrary and is meant to be: an edge has to name a role, both roles exist, and a wrong guess
+     * is a correction an editor makes in one click, whereas refusing would block transcribing a
+     * marriage whose partners' genders the book never stated.
+     *
+     * <p>One definition, because there were two. Creating a child under a marriage asked this
+     * question; attaching an existing child to the same marriage asked a shorter one — "partner A,
+     * unless A is recorded as female" — and so recorded a man as the <i>mother</i> whenever his
+     * wife's gender was blank and she happened to be stored first.
+     */
+    public static Person fatherAmong(Person partnerA, Person partnerB) {
+        if (partnerA.gender() == Gender.MALE || partnerB.gender() == Gender.FEMALE) {
+            return partnerA;
+        }
+        if (partnerB.gender() == Gender.MALE || partnerA.gender() == Gender.FEMALE) {
+            return partnerB;
+        }
+        return partnerA;
+    }
 }

@@ -352,7 +352,7 @@ public class RelationshipService {
         Person child = require(clanId, childPersonId);
         AccessDecision authorizing = requireEditOfAll(caller, clanId, partnerA, partnerB, child);
 
-        Person father = partnerA.gender() == Gender.FEMALE ? partnerB : partnerA;
+        Person father = ParentRole.fatherAmong(partnerA, partnerB);
         Person mother = father.id().equals(partnerA.id()) ? partnerB : partnerA;
 
         Instant now = clock.instant();
