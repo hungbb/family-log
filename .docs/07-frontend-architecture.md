@@ -236,7 +236,8 @@ The canvas is `role="tree"` with keyboard navigation (arrows move between siblin
 /join                  → enter clanCode
 /clans/:clanId         → AppShell
    /tree               (default) — visualizer
-   /persons/:personId  — detail drawer over the tree
+   /tree?person={id}   — detail drawer over the tree, centred on that person
+   /search             — person search; a result deep-links into the tree
    /members            — member list + join-request inbox
    /branches           — branch structure management
    /permissions        — grant management
@@ -244,6 +245,14 @@ The canvas is `role="tree"` with keyboard navigation (arrows move between siblin
    /settings           — clan settings (CLAN_ADMIN)
 /me                    → profile, notifications, sessions
 ```
+
+The open person is a **query parameter on the tree route**, not the nested `/persons/:personId` this
+section first sketched (#48). The drawer is not a page — it is the tree with one card open over it —
+and a nested route would re-mount the canvas underneath it on every open; `?person=` keeps the tree
+one route, composes with any later view parameters, and is built in one place (`router/paths.ts`).
+It is what FR-T5 means by results that "deep-link into the tree": the URL survives a reload, can be
+sent to a relative, and because opening a card pushes a history entry, Back closes the drawer
+instead of leaving the tree.
 
 `RequireAuth` redirects unauthenticated users to `/login` with a return path. `RequireClan` validates membership in the route's `clanId` (a `404` from the API renders "clan not found or you are not a member"). `<PermissionGate permission="ROLE_MANAGE">` hides UI a user cannot use — **UI gating is a convenience, never the security boundary**; the server decides (doc 04 §5.1).
 

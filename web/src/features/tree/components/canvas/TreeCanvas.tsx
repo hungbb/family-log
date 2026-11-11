@@ -79,6 +79,8 @@ interface TreeCanvasProps {
   controlRef: RefObject<TreeCanvasHandle | null>;
   /** The node the signed-in account is linked to, if any — drawn with an accent ring (F6.7). */
   myPersonId?: string;
+  /** The person a deep link named (#48): the first view centres on them instead of fitting. */
+  focusPersonId?: string;
   onOpenPerson: (personId: string) => void;
   onNodeAction: (action: NodeAction, person: PersonSummary) => void;
 }
@@ -128,6 +130,7 @@ export function TreeCanvas({
   layout,
   controlRef,
   myPersonId,
+  focusPersonId,
   onOpenPerson,
   onNodeAction,
 }: TreeCanvasProps) {
@@ -228,29 +231,55 @@ export function TreeCanvas({
     );
   }, [size, layout, centreOn]);
 
-  const jumpTo = useCallback(
-    (personId: string) => {
+  /**
+   * Centres on a person and selects their slot, returning it — or null if they are not drawn.
+   *
+   * Separate from {@link jumpTo} because this half touches only the view store, and so may be
+   * called from an effect; `setAnnouncement` is React state, and `react-hooks/set-state-in-effect`
+   * rightly forbids that. Nobody is drawn when they are unplaced or inside a collapsed branch, and
+   * the null lets the caller decide what to do instead.
+   */
+  const centreOnPerson = useCallback(
+    (personId: string): LaidOutSlot | null => {
       const slotKey = layout.slotOfPerson.get(personId);
       const slot = layout.slots.find((candidate) => candidate.key === slotKey);
-      if (slot === undefined) return;
+      if (slot === undefined) return null;
       focusSlot(slot.key);
       centreOn({ x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 });
-      setAnnouncement(slot.node.anchor.fullName);
+      return slot;
     },
     [layout, centreOn, focusSlot],
+  );
+
+  const jumpTo = useCallback(
+    (personId: string) => {
+      const slot = centreOnPerson(personId);
+      if (slot !== null) setAnnouncement(slot.node.anchor.fullName);
+    },
+    [centreOnPerson],
   );
 
   useImperativeHandle(controlRef, () => ({ fit, jumpTo }), [fit, jumpTo]);
 
   // The first useful frame: a tree nobody has positioned yet should arrive fitted, not at the
   // origin with the founding ancestor half off the top-left corner.
-  const fittedFor = useRef<string | null>(null);
+  //
+  // A deep link (#48) names where that first frame belongs instead: `?person=` arrives centred on
+  // that person, which is the point of the URL — a fitted five-thousand-person clan does not show
+  // anybody the relative they were sent to look at. Only the first frame: the signature guard makes
+  // this run once per layout and size, and opening a card later changes neither, so clicking around
+  // the tree never yanks the viewport out from under the pointer. A person outside the layout —
+  // unplaced, or inside a collapsed branch — falls back to fitting rather than to the empty origin.
+  const positionedFor = useRef<string | null>(null);
   useEffect(() => {
     const signature = `${layout.orientation}:${layout.slots.length}:${size.width}x${size.height}`;
-    if (size.width === 0 || layout.slots.length === 0 || fittedFor.current === signature) return;
-    fittedFor.current = signature;
+    if (size.width === 0 || layout.slots.length === 0 || positionedFor.current === signature) {
+      return;
+    }
+    positionedFor.current = signature;
+    if (focusPersonId !== undefined && centreOnPerson(focusPersonId) !== null) return;
     fit();
-  }, [layout, size, fit]);
+  }, [layout, size, fit, centreOnPerson, focusPersonId]);
 
   // --- pan and zoom ------------------------------------------------------------------------------
 
