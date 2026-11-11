@@ -12,10 +12,11 @@ import java.util.UUID;
  * never the boundary (doc 07 §8) — but a person who cannot see an option does not spend an afternoon
  * wondering why it does not work.
  *
- * @param subtreeAvailable whether SUBTREE scopes may be granted — true from Phase 4, when the
- *     ancestry closure arrived. Subtree scopes are not listed among the permissions above: a scope
- *     names a person and a clan has thousands of them, so the picker offers a person search and
- *     this flag is what tells it to (F3.6, F4.2)
+ * @param subtreeAvailable whether <i>this caller</i> may grant a SUBTREE scope at all — true for
+ *     somebody who manages roles clan-wide or over a subtree, false for a branch role manager,
+ *     whom {@code grant()} would refuse. Subtree scopes are not listed among the permissions
+ *     above: a scope names a person and a clan has thousands of them, so the picker offers a
+ *     person search and this flag is what tells it to (F3.6, F4.2)
  */
 public record GrantableView(List<GrantablePermission> permissions, boolean subtreeAvailable) {
 

@@ -398,7 +398,7 @@
       "placeholder": "Áp dụng ở đâu?",
       "wholeClan": "Toàn dòng họ",
       "subtree": "Một người và con cháu",
-      "subtreeUnavailable": "Một người và con cháu — có khi gia phả đã dựng xong"
+      "subtreeUnavailable": "Một người và con cháu — chỉ người quản lý quyền của cả dòng họ mới trao được"
     },
     "column": {
       "holder": "Người giữ quyền",
@@ -573,13 +573,13 @@
       "circaLabel": "Khoảng chừng",
       "lunar": "Ngày âm lịch",
       "lunarPlaceholder": "tháng 6 năm Quý Mùi",
-      "lunarNeedsPrecision": "Chọn mức độ chi tiết của ngày trước khi ghi ngày âm lịch.",
       "format": {
         "range": "{{from}}–{{to}}",
         "exact": "{{day}}/{{month}}/{{year}}",
         "month": "{{month}}/{{year}}",
         "circa": "khoảng {{date}}",
-        "withLunar": "{{date}} ({{lunar}})"
+        "withLunar": "{{date}} ({{lunar}})",
+        "lunarOnly": "{{lunar}} (âm lịch)"
       }
     },
     "lifespan": {

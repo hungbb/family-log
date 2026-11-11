@@ -109,9 +109,45 @@ class RelationshipInvariantTest {
 
             assertThat(forwards.partnerAId()).isEqualTo(backwards.partnerAId());
             assertThat(forwards.partnerBId()).isEqualTo(backwards.partnerBId());
-            assertThat(forwards.partnerAId().value())
+            assertThat(Union.precedes(forwards.partnerAId(), forwards.partnerBId()))
                     .as("the ordering ux_union_pair depends on")
-                    .isLessThan(forwards.partnerBId().value());
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("canonical order is PostgreSQL's order of the two ids, not java.util.UUID's")
+        void canonicalOrderIsTheDatabases() {
+            // One id either side of the sign bit: the only pairs on which UUID.compareTo, which
+            // reads each half as a signed long, disagrees with PostgreSQL's byte-wise comparison.
+            // Random ids land here half the time; the sequential ids of the test profile never do.
+            PersonId belowTheSignBit =
+                    PersonId.of(UUID.fromString("7fffffff-ffff-4fff-bfff-ffffffffffff"));
+            PersonId aboveTheSignBit =
+                    PersonId.of(UUID.fromString("80000000-0000-4000-8000-000000000000"));
+
+            Union forwards = union(belowTheSignBit, aboveTheSignBit);
+            Union backwards = union(aboveTheSignBit, belowTheSignBit);
+
+            assertThat(forwards.partnerAId())
+                    .as("7f… sorts before 80… in PostgreSQL, and ck_union_canonical_order is its")
+                    .isEqualTo(belowTheSignBit);
+            assertThat(forwards.partnerBId()).isEqualTo(aboveTheSignBit);
+            assertThat(backwards.partnerAId()).isEqualTo(belowTheSignBit);
+            assertThat(backwards.partnerBId()).isEqualTo(aboveTheSignBit);
+        }
+
+        @Test
+        @DisplayName("the low half of an id is compared unsigned as well")
+        void canonicalOrderInTheLowHalf() {
+            PersonId smaller = PersonId.of(new UUID(7L, 0x7fff_ffff_ffff_ffffL));
+            PersonId larger = PersonId.of(new UUID(7L, 0x8000_0000_0000_0000L));
+
+            assertThat(Union.precedes(smaller, larger)).isTrue();
+            assertThat(Union.precedes(larger, smaller)).isFalse();
+            assertThat(Union.precedes(smaller, smaller))
+                    .as("an id does not precede itself — I-N1 refuses the pair before this matters")
+                    .isFalse();
+            assertThat(union(larger, smaller).partnerAId()).isEqualTo(smaller);
         }
 
         @Test
@@ -119,7 +155,7 @@ class RelationshipInvariantTest {
         void constructorEnforcesOrder() {
             PersonId one = PersonId.of(UUID.randomUUID());
             PersonId other = PersonId.of(UUID.randomUUID());
-            boolean oneIsSmaller = one.value().compareTo(other.value()) < 0;
+            boolean oneIsSmaller = Union.precedes(one, other);
 
             assertThatThrownBy(
                             () ->

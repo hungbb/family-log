@@ -62,6 +62,17 @@ describe('formatPartialDate', () => {
     expect(formatPartialDate(date, vi)).toBe('7/1943 (tháng 6 năm Quý Mùi)');
   });
 
+  it('shows a date that is only a lunar reading, and says that it is lunar', () => {
+    const anniversary: PartialDate = {
+      precision: 'UNKNOWN',
+      circa: false,
+      lunarText: 'mồng 3 tháng Chạp',
+    };
+
+    expect(formatPartialDate(anniversary, vi)).toBe('mồng 3 tháng Chạp (âm lịch)');
+    expect(formatPartialDate(anniversary, en)).toBe('mồng 3 tháng Chạp (lunar calendar)');
+  });
+
   it('says nothing when nothing is recorded', () => {
     expect(formatPartialDate(undefined, vi)).toBeUndefined();
     expect(formatPartialDate({ precision: 'UNKNOWN', circa: false }, vi)).toBeUndefined();
@@ -80,6 +91,21 @@ describe('formatLifespan', () => {
     expect(formatLifespan(person({ birth: born }), vi)).toBe('sinh 1901');
     expect(formatLifespan(person({ death: died }), vi)).toBe('mất 1968');
     expect(formatLifespan(person({ birth: born }), en)).toBe('b. 1901');
+  });
+
+  it('uses a lunar-only end like any other', () => {
+    const anniversary: PartialDate = {
+      precision: 'UNKNOWN',
+      circa: false,
+      lunarText: 'mồng 3 tháng Chạp',
+    };
+
+    expect(formatLifespan(person({ death: anniversary }), vi)).toBe(
+      'mất mồng 3 tháng Chạp (âm lịch)',
+    );
+    expect(formatLifespan(person({ birth: born, death: anniversary }), vi)).toBe(
+      '1901 – mồng 3 tháng Chạp (âm lịch)',
+    );
   });
 
   it('is absent, not an empty dash, when neither is known', () => {

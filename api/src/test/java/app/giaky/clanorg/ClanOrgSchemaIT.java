@@ -1,7 +1,6 @@
 package app.giaky.clanorg;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.giaky.support.AbstractIntegrationTest;
 import java.time.Instant;
@@ -41,7 +40,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID clanId = insertClan("NGUYEN-AAAA");
         insertBranch(clanId, null, "HO-AAAA", "/aaaaaaaa/", 0);
 
-        assertThatThrownBy(() -> insertBranch(clanId, null, "HO-BBBB", "/bbbbbbbb/", 0))
+        assertThatRefused(() -> insertBranch(clanId, null, "HO-BBBB", "/bbbbbbbb/", 0))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -51,7 +50,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID clanId = insertClan("NGUYEN-BBBB");
         UUID root = insertBranch(clanId, null, "HO-CCCC", "/aaaaaaaa/", 0);
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () -> insertBranch(clanId, root, "CHI-DDDD", "/aaaaaaaa/bbbbbbbb/", 11))
                 .isInstanceOf(DataAccessException.class);
     }
@@ -63,7 +62,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID root = insertBranch(clanId, null, "HO-EEEE", "/aaaaaaaa/", 0);
 
         // A child claiming depth 0.
-        assertThatThrownBy(() -> insertBranch(clanId, root, "CHI-FFFF", "/aaaaaaaa/bbbbbbbb/", 0))
+        assertThatRefused(() -> insertBranch(clanId, root, "CHI-FFFF", "/aaaaaaaa/bbbbbbbb/", 0))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -75,15 +74,15 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
 
         // The uniqueness index deliberately carries no soft-delete predicate: a code somebody
         // shared last year must never start pointing at a different family.
-        assertThatThrownBy(() -> insertClan("NGUYEN-DDDD")).isInstanceOf(DataAccessException.class);
+        assertThatRefused(() -> insertClan("NGUYEN-DDDD")).isInstanceOf(DataAccessException.class);
     }
 
     @Test
     @DisplayName("a code that is not SURNAME-XXXX is refused")
     void codeShapeIsChecked() {
-        assertThatThrownBy(() -> insertClan("nguyen-7f3k")).isInstanceOf(DataAccessException.class);
+        assertThatRefused(() -> insertClan("nguyen-7f3k")).isInstanceOf(DataAccessException.class);
         // I, L, O and U are not in the Crockford alphabet.
-        assertThatThrownBy(() -> insertClan("NGUYEN-7I3K")).isInstanceOf(DataAccessException.class);
+        assertThatRefused(() -> insertClan("NGUYEN-7I3K")).isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -95,7 +94,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
 
         // A path collision would silently make one branch's descendant query return the other's
         // subtree. `ux_branches_path` turns it into an insert failure instead.
-        assertThatThrownBy(
+        assertThatRefused(
                         () -> insertBranch(clanId, root, "CHI-JJJJ", "/aaaaaaaa/bbbbbbbb/", 1))
                 .isInstanceOf(DataAccessException.class);
     }
@@ -107,7 +106,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID userId = insertUser();
         insertMembership(clanId, userId, "ACTIVE", null);
 
-        assertThatThrownBy(() -> insertMembership(clanId, userId, "ACTIVE", null))
+        assertThatRefused(() -> insertMembership(clanId, userId, "ACTIVE", null))
                 .isInstanceOf(DataAccessException.class);
 
         // The index is partial, so somebody who left and rejoined keeps both rows.
@@ -121,9 +120,9 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID clanId = insertClan("NGUYEN-GGGG");
         UUID userId = insertUser();
 
-        assertThatThrownBy(() -> insertMembership(clanId, userId, "ACTIVE", Instant.now()))
+        assertThatRefused(() -> insertMembership(clanId, userId, "ACTIVE", Instant.now()))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> insertMembership(clanId, userId, "REMOVED", null))
+        assertThatRefused(() -> insertMembership(clanId, userId, "REMOVED", null))
                 .isInstanceOf(DataAccessException.class);
     }
 
@@ -134,7 +133,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID userId = insertUser();
         insertJoinRequest(clanId, userId, null, "PENDING");
 
-        assertThatThrownBy(() -> insertJoinRequest(clanId, userId, null, "PENDING"))
+        assertThatRefused(() -> insertJoinRequest(clanId, userId, null, "PENDING"))
                 .isInstanceOf(DataAccessException.class);
 
         // A decided request does not block a new one — the index is partial on PENDING.
@@ -148,7 +147,7 @@ class ClanOrgSchemaIT extends AbstractIntegrationTest {
         UUID clanId = insertClan("NGUYEN-JJJJ");
         UUID userId = insertUser();
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
