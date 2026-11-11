@@ -1,5 +1,6 @@
 package app.giaky.config;
 
+import app.giaky.common.security.CurrentUser;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +26,17 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     private static final String BEARER_SCHEME = "bearerAuth";
+
+    static {
+        // @CurrentUser is filled in from the access token by CurrentUserArgumentResolver; it is not
+        // something a client sends. springdoc cannot know that about a home-grown annotation, and
+        // left alone it documents the argument as what an unannotated object parameter would be —
+        // a required query parameter named "caller", typed as the internal AuthenticatedUser — on
+        // every authenticated operation. The document is the contract clients are generated from,
+        // so that is a wrong contract rather than a cosmetic slip. Same treatment springdoc gives
+        // Spring Security's own @AuthenticationPrincipal.
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentUser.class);
+    }
 
     @Bean
     public OpenAPI giaKyOpenApi(@Value("${app.api.base-url:http://localhost:8080}") String baseUrl) {
