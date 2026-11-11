@@ -1,6 +1,7 @@
 package app.giaky.linking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -207,6 +208,70 @@ class NodeClaimingIT extends LineageApiSupport {
 
         as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("a removed member's node goes back to the unlinked pool, and they are told (I-P5)")
+    void removalUnlinks() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+        JsonNode candidates =
+                body(
+                        as(founder, get("/api/v1/clans/" + clanId + "/persons/unlinked"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(candidates.get("content").toString()).contains(sonInChiHai.toString());
+
+        // By type rather than by position: the test clock does not move, so the assignment's
+        // notice and this one carry the same timestamp.
+        as(member, get("/api/v1/me/notifications?unreadOnly=true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.type == 'NODE_UNLINKED')]", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("somebody who leaves and is re-admitted comes back unlinked (I-P5)")
+    void leavingUnlinks() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(member, post("/api/v1/clans/" + clanId + "/members/leave"))
+                .andExpect(status().isNoContent());
+        joinClan(member, founder, clanId, clanCode, chiHai);
+
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isNoContent());
+        // Their own doing, so nothing to tell them: the only notice is the original assignment.
+        as(member, get("/api/v1/me/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.type == 'NODE_UNLINKED')]").isEmpty());
+    }
+
+    @Test
+    @DisplayName("a membership ending withdraws the claims that member still had open (I-K2)")
+    void membershipEndWithdrawsClaims() throws Exception {
+        String claimId = claim(member, sonInChiHai, "Con của ông Ất");
+
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(member, get("/api/v1/me/claims"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(claimId))
+                .andExpect(jsonPath("$[0].status").value("CANCELLED"));
+        as(chiHaiApprover, get(claimsPath() + "?status=PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        // …and it is over: the approver is not left with a claim that can only be refused.
+        as(chiHaiApprover, post(claimPath(claimId) + "/approve"), Map.of())
+                .andExpect(status().isConflict());
     }
 
     @Test

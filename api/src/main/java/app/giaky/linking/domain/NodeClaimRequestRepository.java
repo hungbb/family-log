@@ -28,6 +28,12 @@ public interface NodeClaimRequestRepository {
     /** Live claims on one node — what approving one has to close on the others. */
     List<NodeClaimRequest> findPendingForPerson(ClanId clanId, PersonId personId);
 
+    /**
+     * Every live claim one person has open in one clan — what their membership ending has to close
+     * (I-K2).
+     */
+    List<NodeClaimRequest> findPendingByRequester(ClanId clanId, UserId requesterUserId);
+
     /** The approver inbox (doc 05 §4.10), newest first. A null status means every status. */
     List<NodeClaimRequest> findByClanAndStatus(
             ClanId clanId, ClaimStatus status, int offset, int limit);

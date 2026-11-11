@@ -1,6 +1,7 @@
 package app.giaky.linking.support;
 
 import app.giaky.clanorg.application.event.MembershipGranted;
+import app.giaky.clanorg.application.event.MembershipRevoked;
 import app.giaky.clanorg.domain.ClanMembership;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
@@ -8,6 +9,7 @@ import app.giaky.common.types.UserId;
 import app.giaky.lineage.application.PersonLinkGateway;
 import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.ClaimService;
+import app.giaky.linking.application.LinkLifecycleListener;
 import app.giaky.linking.application.PersonLinkService;
 import app.giaky.linking.application.ProfilePropagationListener;
 import app.giaky.linking.application.SelfProfileService;
@@ -53,6 +55,7 @@ public final class LinkingTestFixtures {
     public final PersonLinkService personLinkService;
     public final SelfProfileService selfProfileService;
     public final ProfilePropagationListener propagationListener;
+    public final LinkLifecycleListener linkLifecycle;
 
     public LinkingTestFixtures() {
         gateway =
@@ -101,6 +104,13 @@ public final class LinkingTestFixtures {
                         lineage.clanOrg.audit);
 
         propagationListener = new ProfilePropagationListener(gateway, propagation);
+
+        // Spring does this by annotation. Stated here for the reason ClanOrgTestFixtures states the
+        // grant listener: a fixture that ended a membership and left the node linked would be
+        // exercising a state the application is not supposed to be able to reach.
+        linkLifecycle = new LinkLifecycleListener(personLinkService, claimService);
+        lineage.clanOrg.events.subscribe(
+                MembershipRevoked.class, linkLifecycle::onMembershipRevoked);
     }
 
     /**
