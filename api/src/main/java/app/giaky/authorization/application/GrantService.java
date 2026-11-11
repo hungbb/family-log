@@ -161,6 +161,7 @@ public class GrantService {
                     ErrorCode.GRANT_ALREADY_EXISTS,
                     "They already hold that permission at that scope.");
         }
+        closeLapsedPredecessor(clanId, command.granteeUserId(), permission, scope, now);
 
         PermissionGrant issued =
                 grants.save(
@@ -328,6 +329,33 @@ public class GrantService {
         // clan has thousands. The picker offers a person search instead and this flag is what tells
         // it the option is live (F3.6, F4.2); grant() resolves whichever person comes back.
         return new GrantableView(offered, ancestry.isAvailable());
+    }
+
+    /**
+     * Renewing a grant that has run out: close the old row so the new one has somewhere to go.
+     *
+     * <p>A lapsed grant confers nothing from the moment it expires, but it stays in {@code
+     * ux_grant_active} until the daily sweep marks it revoked — and for up to a day, granting the
+     * same permission at the same scope again hit that index and answered {@code 500}. The
+     * permissions screen does not list lapsed rows either, so there was no id to revoke by hand;
+     * the only way out was to wait. This does for one row, now, what the sweep would have done:
+     * the same revocation with no actor, and the same {@code PERMISSION_EXPIRED} entry.
+     */
+    private void closeLapsedPredecessor(
+            ClanId clanId, UserId grantee, Permission permission, PermissionScope scope, Instant now) {
+
+        grants.findLapsedDuplicate(clanId, grantee, permission, scope, now)
+                .ifPresent(
+                        lapsed -> {
+                            grants.save(lapsed.revoke(null, now));
+                            auditWriter.write(
+                                    AuditRecord.inClan(
+                                            AuditAction.PERMISSION_EXPIRED,
+                                            clanId,
+                                            AuditRecord.TARGET_PERMISSION_GRANT,
+                                            lapsed.id(),
+                                            null));
+                        });
     }
 
     /**

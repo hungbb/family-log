@@ -146,6 +146,37 @@ class GrantServiceTest {
                     .isZero();
             assertThat(fixtures.audit.actions()).contains(AuditAction.PERMISSION_EXPIRED);
         }
+
+        @Test
+        @DisplayName("a grant that has run out can be given again before the sweep has run")
+        void lapsedGrantCanBeRenewed() {
+            GrantCommand forAWeek =
+                    new GrantCommand(
+                            editorC,
+                            "TREE_EDIT",
+                            "BRANCH",
+                            chiHai.value(),
+                            ClanOrgTestFixtures.NOW.plus(Duration.ofDays(7)));
+            fixtures.grantService.grant(admin, clanId, forAWeek);
+            fixtures.advance(Duration.ofDays(8));
+
+            // The lapsed row is still unrevoked — the sweep is daily — and still in the unique
+            // index, which is what used to refuse this with a 500.
+            GrantView renewed =
+                    fixtures.grantService.grant(
+                            admin,
+                            clanId,
+                            new GrantCommand(editorC, "TREE_EDIT", "BRANCH", chiHai.value(), null));
+
+            assertThat(fixtures.permissions.permissionNames(editorC, clanId)).contains("TREE_EDIT");
+            assertThat(renewed.expiresAt()).isNull();
+            assertThat(fixtures.audit.actions())
+                    .as("the old grant is closed the way the sweep would have closed it")
+                    .contains(AuditAction.PERMISSION_EXPIRED);
+            assertThat(fixtures.grantService.markExpiredRevoked())
+                    .as("and there is nothing left for the sweep")
+                    .isZero();
+        }
     }
 
     @Nested
