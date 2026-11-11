@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import {
   addParentage,
@@ -119,10 +119,33 @@ export function useUpdatePerson(clanId: string) {
 }
 
 export function useDeletePerson(clanId: string) {
-  const invalidate = useInvalidateLineage(clanId);
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (personId: string) => deletePerson(clanId, personId),
-    onSuccess: invalidate,
+    onSuccess: (_removed, personId) => invalidateAfterRemoval(queryClient, clanId, personId),
+  });
+}
+
+/**
+ * What removing a person invalidates: everything lineage-shaped in the clan — except the detail of
+ * the person who was just removed.
+ *
+ * That one query is still mounted when this runs: the drawer that issued the delete closes only
+ * after the mutation resolves. Invalidating it with the rest made the drawer ask the server, one
+ * last time, for somebody the server had just been told to hide — a guaranteed
+ * `404 PERSON_NOT_FOUND` in the console after every successful removal. Nothing is lost by
+ * skipping it: the drawer is about to close, and if the person is restored and opened again the
+ * detail is fetched afresh like any other.
+ */
+export function invalidateAfterRemoval(
+  queryClient: QueryClient,
+  clanId: string,
+  personId: string,
+): Promise<void> {
+  const removed = JSON.stringify(personQueryKey(clanId, personId));
+  return queryClient.invalidateQueries({
+    queryKey: ['clan', clanId],
+    predicate: (query) => JSON.stringify(query.queryKey) !== removed,
   });
 }
 
