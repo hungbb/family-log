@@ -309,14 +309,16 @@ class AuthorizationIsolationIT extends ClanOrgApiSupport {
     }
 
     @Test
-    @DisplayName("subtree scope answers 422 with its own code until Phase 4")
-    void subtreeIsDeferred() throws Exception {
+    @DisplayName("subtree scope is live: a scope naming nobody is a 404, not a grant on nothing")
+    void subtreeScopeIsResolved() throws Exception {
+        // Phase 3 answered 422 SUBTREE_SCOPE_UNAVAILABLE here; Phase 4 turned the scope on (B4.8),
+        // and what is left to refuse is a person this clan does not have.
         as(
                         admin,
                         post(base() + "/permissions"),
                         grantBody(uncleC.userId(), "TREE_EDIT", "SUBTREE", UUID.randomUUID()))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("SUBTREE_SCOPE_UNAVAILABLE"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PERSON_NOT_FOUND"));
     }
 
     // --- helpers ------------------------------------------------------------------------------

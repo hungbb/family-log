@@ -1,7 +1,6 @@
 package app.giaky.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.giaky.support.AbstractIntegrationTest;
 import java.time.Instant;
@@ -42,21 +41,21 @@ class IdentitySchemaIT extends AbstractIntegrationTest {
 
         // The row itself is refused by ck_users_email_normalized before the index is even reached,
         // which is the belt-and-braces the migration comment describes.
-        assertThatThrownBy(() -> insertUser("AN@EXAMPLE.COM")).isInstanceOf(DataAccessException.class);
+        assertThatRefused(() -> insertUser("AN@EXAMPLE.COM")).isInstanceOf(DataAccessException.class);
         assertThat(first).isNotNull();
     }
 
     @Test
     @DisplayName("an un-normalized address is refused by the check constraint")
     void unnormalizedEmailIsRefused() {
-        assertThatThrownBy(() -> insertUser("  An@Example.com  "))
+        assertThatRefused(() -> insertUser("  An@Example.com  "))
                 .isInstanceOf(DataAccessException.class);
     }
 
     @Test
     @DisplayName("an unknown status is refused")
     void statusIsConstrained() {
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
@@ -71,7 +70,7 @@ class IdentitySchemaIT extends AbstractIntegrationTest {
     @Test
     @DisplayName("an unsupported locale is refused")
     void localeIsConstrained() {
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
@@ -88,7 +87,7 @@ class IdentitySchemaIT extends AbstractIntegrationTest {
     void revocationColumnsAreSetTogether() {
         UUID user = insertUser("an-" + UUID.randomUUID() + "@example.com");
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         """
@@ -129,12 +128,12 @@ class IdentitySchemaIT extends AbstractIntegrationTest {
                 id,
                 java.sql.Timestamp.from(Instant.now()));
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         "UPDATE audit_entries SET action = 'TAMPERED' WHERE id = ?", id))
                 .isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(
+        assertThatRefused(
                         () -> jdbcTemplate.update("DELETE FROM audit_entries WHERE id = ?", id))
                 .isInstanceOf(DataAccessException.class);
     }
@@ -144,7 +143,7 @@ class IdentitySchemaIT extends AbstractIntegrationTest {
     void avatarForeignKeyIsEnforced() {
         UUID user = insertUser("an-" + UUID.randomUUID() + "@example.com");
 
-        assertThatThrownBy(
+        assertThatRefused(
                         () ->
                                 jdbcTemplate.update(
                                         "UPDATE users SET avatar_media_id = ? WHERE id = ?",
