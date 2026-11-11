@@ -1,6 +1,7 @@
 package app.giaky.lineage.application;
 
 import app.giaky.authorization.domain.EditableSet;
+import app.giaky.authorization.domain.Permission;
 import app.giaky.authorization.domain.PermissionResolver;
 import app.giaky.clanorg.application.ClanDirectory;
 import app.giaky.common.error.ErrorCode;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,16 +99,53 @@ public class TreeQueryService {
     }
 
     /**
-     * The clan's tree version, for an {@code ETag} check that costs one indexed read.
+     * What a tree-read {@code ETag} has to be built from, for a check that costs no more than the
+     * read it is avoiding.
      *
      * <p>Separate from {@link #tree} on purpose: the point of the tag is to answer {@code 304}
      * without assembling the payload, and a method that returned the payload alongside the version
      * would have already done the work.
+     *
+     * <p><b>The version alone is not a validator.</b> It identifies the clan's rows, and the rows
+     * are the same for everybody — but {@code canEdit} is not, so at one version this URL has as
+     * many representations as there are distinct sets of edit rights among the members (#49).
+     * Answering {@code 304} on the version alone hands a plain member the flags of whoever
+     * populated the cache. {@link #editRights} is what separates them.
+     *
+     * @param version the clan's tree version, which the payload also carries
+     * @param editRights a stable rendering of the scopes at which the caller holds {@code
+     *     TREE_EDIT} — the whole of what {@code canEdit} is computed from
+     */
+    public record TreeValidator(long version, String editRights) {}
+
+    /**
+     * The validator for this caller's view of this clan's tree.
+     *
+     * <p>Two indexed reads at most, and usually one: the tree version, and the caller's grants,
+     * which {@code GrantPort} has already cached for this request if anything has asked about
+     * permissions. Deliberately not the expanded {@link EditableSet} — that costs a branch-path
+     * load and a closure query per subtree grant, and the scopes it is expanded *from* change
+     * whenever its answer does.
      */
     @Transactional(readOnly = true)
-    public long treeVersion(UserId caller, ClanId clanId) {
+    public TreeValidator treeValidator(UserId caller, ClanId clanId) {
         resolver.requireMembership(caller, clanId);
-        return treeVersions.current(clanId);
+        return new TreeValidator(treeVersions.current(clanId), editRights(caller, clanId));
+    }
+
+    /**
+     * The caller's {@code TREE_EDIT} scopes, sorted and joined.
+     *
+     * <p>Sorted because a set has no order and a validator must be stable across requests. Two
+     * members holding the same scopes genuinely share a representation, so they share a tag —
+     * folding in the user id instead would be correct but would miss every such cache hit, and
+     * would go stale the moment somebody's grants changed without the tree changing.
+     */
+    private String editRights(UserId caller, ClanId clanId) {
+        return resolver.scopesHolding(caller, clanId, Permission.TREE_EDIT).stream()
+                .map(scope -> scope.type() + ":" + scope.refId())
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 
     /**

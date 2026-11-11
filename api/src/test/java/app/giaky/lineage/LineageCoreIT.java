@@ -46,6 +46,7 @@ class LineageCoreIT extends LineageApiSupport {
     private Actor admin;
     private UUID clanId;
     private UUID rootBranchId;
+    private String clanCode;
 
     @BeforeEach
     void foundAClan() throws Exception {
@@ -53,6 +54,7 @@ class LineageCoreIT extends LineageApiSupport {
         JsonNode clan = createClan(admin, "Nguyễn Văn");
         clanId = UUID.fromString(clan.get("id").asText());
         rootBranchId = rootBranchId(clan);
+        clanCode = clan.get("clanCode").asText();
     }
 
     @Test
@@ -375,6 +377,69 @@ class LineageCoreIT extends LineageApiSupport {
                         get("/api/v1/clans/" + clanId + "/tree")
                                 .header(HttpHeaders.IF_NONE_MATCH, etag))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("one member's ETag does not answer 304 for another, whose canEdit differs (#49)")
+    void treeEtagIsPerCaller() throws Exception {
+        foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");
+
+        Actor member = signUp("Người xem");
+        joinClan(member, admin, clanId, clanCode, rootBranchId);
+
+        String adminEtag =
+                as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.persons[0].canEdit").value(true))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+
+        // The defect: same clan, same tree version, and a validator that could not tell the two
+        // representations apart — so a cache revalidating for the member kept the admin's flags.
+        as(
+                        member,
+                        get("/api/v1/clans/" + clanId + "/tree")
+                                .header(HttpHeaders.IF_NONE_MATCH, adminEtag))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persons[0].canEdit").value(false));
+
+        // And the member's own tag still revalidates for the member.
+        String memberEtag =
+                as(member, get("/api/v1/clans/" + clanId + "/tree"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+        as(
+                        member,
+                        get("/api/v1/clans/" + clanId + "/tree")
+                                .header(HttpHeaders.IF_NONE_MATCH, memberEtag))
+                .andExpect(status().isNotModified());
+    }
+
+    @Test
+    @DisplayName("a whole-tree ETag does not answer 304 for a subtree of it (#49)")
+    void treeEtagIsPerQuery() throws Exception {
+        UUID doi1 = foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");
+        UUID doi2 = childOf(admin, clanId, doi1, "Nguyễn Văn An", "MALE");
+
+        String wholeTree =
+                as(admin, get("/api/v1/clans/" + clanId + "/tree"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.persons.length()").value(2))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+
+        // rootPersonId selects a different body out of the very same rows at the very same version.
+        as(
+                        admin,
+                        get("/api/v1/clans/" + clanId + "/tree")
+                                .param("rootPersonId", doi2.toString())
+                                .header(HttpHeaders.IF_NONE_MATCH, wholeTree))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persons.length()").value(1));
     }
 
     @Test

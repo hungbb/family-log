@@ -236,6 +236,85 @@ class TreeQueryServiceTest {
         assertThat(fixtures.treeQueryService.tree(admin, clan, null, null).persons()).hasSize(4);
     }
 
+    @Nested
+    @DisplayName("the read validator (#49)")
+    class ReadValidator {
+
+        @Test
+        @DisplayName("the version it carries is the clan's, and a lineage edit moves it")
+        void versionFollowsTheTree() {
+            long before = fixtures.treeQueryService.treeValidator(admin, clan).version();
+
+            fixtures.childOf(admin, clan, doi3, "Nguyễn Văn Cường", Gender.MALE);
+
+            assertThat(fixtures.treeQueryService.treeValidator(admin, clan).version())
+                    .isGreaterThan(before);
+        }
+
+        @Test
+        @DisplayName("two members whose canEdit differs do not share a validator")
+        void callersWithDifferentRightsDiffer() {
+            UserId onlooker = fixtures.clanOrg.newUser("Người xem");
+            join(onlooker, root);
+
+            TreeQueryService.TreeValidator forAdmin =
+                    fixtures.treeQueryService.treeValidator(admin, clan);
+            TreeQueryService.TreeValidator forOnlooker =
+                    fixtures.treeQueryService.treeValidator(onlooker, clan);
+
+            assertThat(forOnlooker.version())
+                    .as("the rows are the same for both of them")
+                    .isEqualTo(forAdmin.version());
+            assertThat(forOnlooker.editRights())
+                    .as("the flags are not, so the validator must separate them")
+                    .isNotEqualTo(forAdmin.editRights());
+        }
+
+        @Test
+        @DisplayName("two members holding the same scopes do share one")
+        void callersWithTheSameRightsMatch() {
+            UserId first = fixtures.clanOrg.newUser("Người xem một");
+            UserId second = fixtures.clanOrg.newUser("Người xem hai");
+            join(first, root);
+            join(second, root);
+
+            assertThat(fixtures.treeQueryService.treeValidator(first, clan).editRights())
+                    .as("a representation shared is a revalidation saved")
+                    .isEqualTo(fixtures.treeQueryService.treeValidator(second, clan).editRights());
+        }
+
+        @Test
+        @DisplayName("a grant changes it although the tree has not changed")
+        void grantingChangesItWithoutTouchingTheTree() {
+            BranchId chiHai = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Hai");
+            UserId editor = fixtures.clanOrg.newUser("Người sửa chi hai");
+            join(editor, chiHai);
+
+            TreeQueryService.TreeValidator before =
+                    fixtures.treeQueryService.treeValidator(editor, clan);
+
+            fixtures.clanOrg.grantService.grant(
+                    admin,
+                    clan,
+                    new GrantCommand(editor, "TREE_EDIT", "BRANCH", chiHai.value(), null));
+
+            TreeQueryService.TreeValidator after =
+                    fixtures.treeQueryService.treeValidator(editor, clan);
+
+            // This is the case a version counter cannot see: nobody was born, nobody moved, and
+            // every canEdit in this caller's payload just changed.
+            assertThat(after.version()).isEqualTo(before.version());
+            assertThat(after.editRights()).isNotEqualTo(before.editRights());
+        }
+
+        @Test
+        @DisplayName("it is stable across reads, so a client's cached tag keeps working")
+        void stableAcrossReads() {
+            assertThat(fixtures.treeQueryService.treeValidator(admin, clan))
+                    .isEqualTo(fixtures.treeQueryService.treeValidator(admin, clan));
+        }
+    }
+
     /** Joins a second person to the clan through the ordinary flow, so their membership is real. */
     private void join(UserId user, BranchId homeBranch) {
         JoinRequestView request =
