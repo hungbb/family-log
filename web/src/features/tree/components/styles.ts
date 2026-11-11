@@ -88,11 +88,6 @@ export const DateFieldRow = styled.div`
   gap: ${({ theme }) => theme.space(2)};
 `;
 
-export const DateHint = styled.span`
-  color: ${({ theme }) => theme.color.inkSubtle};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-`;
-
 /** A block of related people in the detail drawer — parents, spouses, children, siblings. */
 export const RelationGroup = styled.section`
   margin-top: ${({ theme }) => theme.space(5)};
