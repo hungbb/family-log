@@ -1,15 +1,19 @@
 package app.giaky.linking.support;
 
 import app.giaky.clanorg.application.event.MembershipGranted;
+import app.giaky.clanorg.application.event.MembershipRevoked;
 import app.giaky.clanorg.domain.ClanMembership;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.UserId;
 import app.giaky.lineage.application.PersonLinkGateway;
+import app.giaky.lineage.application.event.PersonRestored;
 import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.ClaimService;
+import app.giaky.linking.application.LinkLifecycleListener;
 import app.giaky.linking.application.PersonLinkService;
 import app.giaky.linking.application.ProfilePropagationListener;
+import app.giaky.linking.application.RestoredNodeListener;
 import app.giaky.linking.application.SelfProfileService;
 import app.giaky.linking.domain.ClanMemberPort;
 import app.giaky.linking.domain.PersonLinkPort;
@@ -52,7 +56,9 @@ public final class LinkingTestFixtures {
     public final ClaimService claimService;
     public final PersonLinkService personLinkService;
     public final SelfProfileService selfProfileService;
+    public final RestoredNodeListener restoredNodes;
     public final ProfilePropagationListener propagationListener;
+    public final LinkLifecycleListener linkLifecycle;
 
     public LinkingTestFixtures() {
         gateway =
@@ -66,6 +72,10 @@ public final class LinkingTestFixtures {
         linkPort = new LineagePersonLinkAdapter(gateway);
         memberPort = new ClanOrgClanMemberAdapter(lineage.clanOrg.clanDirectory);
         linker = new PersonUserLinker(linkPort, memberPort);
+        // The member list asks Linking who is already in the tree (doc 05 §4.5). MembershipService
+        // was built before this graph existed, so its port is pointed at the real answer here.
+        lineage.clanOrg.memberNodes.backedBy(
+                new app.giaky.linking.application.LinkedMemberNodes(gateway));
 
         claimService =
                 new ClaimService(
@@ -91,6 +101,11 @@ public final class LinkingTestFixtures {
                         lineage.clanOrg.events,
                         lineage.clanOrg.clock);
 
+        // Spring does this by annotation; a restored node that comes back unlinked must not keep
+        // the propagation choices of whoever used to be on it.
+        restoredNodes = new RestoredNodeListener(gateway, propagation);
+        lineage.clanOrg.events.subscribe(PersonRestored.class, restoredNodes::onPersonRestored);
+
         selfProfileService =
                 new SelfProfileService(
                         linker,
@@ -101,6 +116,13 @@ public final class LinkingTestFixtures {
                         lineage.clanOrg.audit);
 
         propagationListener = new ProfilePropagationListener(gateway, propagation);
+
+        // Spring does this by annotation. Stated here for the reason ClanOrgTestFixtures states the
+        // grant listener: a fixture that ended a membership and left the node linked would be
+        // exercising a state the application is not supposed to be able to reach.
+        linkLifecycle = new LinkLifecycleListener(personLinkService, claimService);
+        lineage.clanOrg.events.subscribe(
+                MembershipRevoked.class, linkLifecycle::onMembershipRevoked);
     }
 
     /**

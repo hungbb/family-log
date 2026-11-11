@@ -63,6 +63,21 @@ public interface PermissionGrantJpaRepository extends JpaRepository<PermissionGr
             @Param("permission") String permission,
             @Param("now") Instant now);
 
+    /** One member's lapsed, not-yet-swept grants in one clan — what a renewal has to close first. */
+    @Query(
+            """
+            select g from PermissionGrantJpaEntity g
+            where g.clanId = :clanId
+              and g.granteeUserId = :userId
+              and g.revokedAt is null
+              and g.expiresAt is not null
+              and g.expiresAt <= :now
+            """)
+    List<PermissionGrantJpaEntity> findLapsedFor(
+            @Param("clanId") ClanId clanId,
+            @Param("userId") UserId userId,
+            @Param("now") Instant now);
+
     /**
      * Grants that have lapsed and are not yet marked revoked — the sweep's input (B3.14).
      *

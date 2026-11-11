@@ -39,7 +39,8 @@ class ClanLifecycleIT extends ClanOrgApiSupport {
         UUID clanId = UUID.fromString(clan.get("id").asText());
         String clanCode = clan.get("clanCode").asText();
 
-        assertThat(clanCode).startsWith("NGUYEN-");
+        // No surname was sent, so the code is derived from the clan's name — all of it.
+        assertThat(clanCode).startsWith("NGUYENVAN-");
         assertThat(clan.get("rootBranchId").isNull()).isFalse();
         assertThat(clan.get("memberCount").asLong()).isEqualTo(1);
         UUID rootBranchId = UUID.fromString(clan.get("rootBranchId").asText());
@@ -100,7 +101,9 @@ class ClanLifecycleIT extends ClanOrgApiSupport {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].displayName").value("Nguyễn Thị Bé"))
                 .andExpect(jsonPath("$.content[0].homeBranchName").value("Chi Hai"))
-                .andExpect(jsonPath("$.content[0].isCreator").value(false));
+                // Phase 2 called this isCreator; Phase 3 replaced "did they found the clan" with
+                // "do they hold CLAN_ADMIN", and the field was renamed with it.
+                .andExpect(jsonPath("$.content[0].isAdministrator").value(false));
 
         // An drags Nhánh An Giang under Chi Trưởng and the tree re-renders (demo step 5).
         as(

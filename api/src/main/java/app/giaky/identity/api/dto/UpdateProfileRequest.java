@@ -1,5 +1,6 @@
 package app.giaky.identity.api.dto;
 
+import app.giaky.common.web.NullOrNotBlank;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -16,5 +17,5 @@ import jakarta.validation.constraints.Size;
  */
 @Schema(description = "Update the signed-in account's profile (FR-A4).")
 public record UpdateProfileRequest(
-        @Size(min = 1, max = 150) String displayName,
+        @NullOrNotBlank @Size(max = 150) String displayName,
         @Pattern(regexp = LocalePattern.REGEX, message = LocalePattern.MESSAGE) String locale) {}

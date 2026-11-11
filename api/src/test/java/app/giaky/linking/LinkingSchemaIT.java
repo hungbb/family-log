@@ -35,7 +35,10 @@ class LinkingSchemaIT extends AbstractIntegrationTest {
                 .contains("UNIQUE")
                 .contains("requester_user_id")
                 .contains("person_id")
-                .contains("WHERE (status");
+                // pg_indexes prints the predicate normalized — ((status)::text = 'PENDING'::text) —
+                // so the assertion is on what it says rather than on how it is parenthesized.
+                .contains("WHERE")
+                .contains("'PENDING'");
     }
 
     @Test

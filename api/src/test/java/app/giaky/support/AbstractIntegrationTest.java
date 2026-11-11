@@ -1,10 +1,20 @@
 package app.giaky.support;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.sql.SQLException;
+import org.assertj.core.api.AbstractThrowableAssert;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -57,6 +67,8 @@ public abstract class AbstractIntegrationTest {
 
     @PersistenceContext protected EntityManager entityManager;
 
+    @Autowired private JdbcTemplate savepoints;
+
     /**
      * Pushes pending JPA writes to the database and forgets what the session has cached.
      *
@@ -68,5 +80,42 @@ public abstract class AbstractIntegrationTest {
     protected void flushAndClear() {
         entityManager.flush();
         entityManager.clear();
+    }
+
+    /**
+     * Asserts that the database refuses a statement, and leaves the test's transaction usable.
+     *
+     * <p>PostgreSQL aborts the whole transaction at the first error: every statement after it fails
+     * with {@code 25P02}, whatever it is. A schema test that provokes a violation and then carries
+     * on is therefore either broken by its own first assertion or — worse — satisfied by it, because
+     * "current transaction is aborted" is a {@code DataAccessException} too, and a second {@code
+     * assertThatThrownBy} cannot tell a constraint firing from the wreckage of the previous one. The
+     * savepoint confines the damage to the one statement under test.
+     *
+     * <p>A refusal that is really the test's own mistake — a misspelt column is SQLSTATE class 42 —
+     * fails here rather than passing as "the constraint works".
+     *
+     * @return the assertion on what was thrown, for the caller to narrow further
+     */
+    protected AbstractThrowableAssert<?, ? extends Throwable> assertThatRefused(
+            ThrowingCallable statement) {
+
+        savepoints.execute("SAVEPOINT expected_refusal");
+        Throwable thrown = catchThrowable(statement);
+        savepoints.execute(
+                thrown == null
+                        ? "RELEASE SAVEPOINT expected_refusal"
+                        : "ROLLBACK TO SAVEPOINT expected_refusal");
+
+        assertThat(thrown)
+                .as("the database should have refused this statement")
+                .isInstanceOf(DataAccessException.class);
+        if (NestedExceptionUtils.getRootCause(thrown) instanceof SQLException cause) {
+            assertThat(cause.getSQLState())
+                    .as("refused by a rule of the schema, not by a mistake in the statement: %s", cause.getMessage())
+                    .doesNotStartWith("42")
+                    .isNotEqualTo("25P02");
+        }
+        return assertThat(thrown);
     }
 }

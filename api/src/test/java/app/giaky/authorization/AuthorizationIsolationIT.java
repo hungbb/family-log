@@ -10,12 +10,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.giaky.clanorg.support.ClanOrgApiSupport;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * <b>The isolation matrix of doc 04 §8, at the API layer.</b>
@@ -34,6 +39,8 @@ import org.junit.jupiter.api.Test;
  * much harder to see.
  */
 class AuthorizationIsolationIT extends ClanOrgApiSupport {
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private Actor admin;
     private Actor uncleC;
@@ -309,14 +316,62 @@ class AuthorizationIsolationIT extends ClanOrgApiSupport {
     }
 
     @Test
-    @DisplayName("subtree scope answers 422 with its own code until Phase 4")
-    void subtreeIsDeferred() throws Exception {
+    @DisplayName("subtree scope is live: a scope naming nobody is a 404, not a grant on nothing")
+    void subtreeScopeIsResolved() throws Exception {
+        // Phase 3 answered 422 SUBTREE_SCOPE_UNAVAILABLE here; Phase 4 turned the scope on (B4.8),
+        // and what is left to refuse is a person this clan does not have.
         as(
                         admin,
                         post(base() + "/permissions"),
                         grantBody(uncleC.userId(), "TREE_EDIT", "SUBTREE", UUID.randomUUID()))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("SUBTREE_SCOPE_UNAVAILABLE"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PERSON_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("a grant that has run out can be given again before the daily sweep has run")
+    void lapsedGrantCanBeRenewed() throws Exception {
+        Map<String, Object> forAWhile = grantBody(uncleD.userId(), "TREE_EDIT", "BRANCH", chiBa);
+        forAWhile.put("expiresAt", Instant.now().plus(Duration.ofDays(1)).toString());
+        String grantId =
+                body(
+                                as(admin, post(base() + "/permissions"), forAWhile)
+                                        .andExpect(status().isCreated())
+                                        .andReturn())
+                        .get("id")
+                        .asText();
+
+        // Aged past the suite's frozen clock: lapsed, and — the sweep being daily — not yet marked
+        // revoked, so the row is still in ux_grant_active.
+        flushAndClear();
+        jdbcTemplate.update(
+                "UPDATE permission_grants SET granted_at = ?, expires_at = ? WHERE id = ?",
+                Timestamp.from(Instant.parse("2025-12-01T00:00:00Z")),
+                Timestamp.from(Instant.parse("2025-12-31T00:00:00Z")),
+                UUID.fromString(grantId));
+        flushAndClear();
+
+        as(uncleD, get(base() + "/my-permissions"))
+                .andExpect(
+                        jsonPath(
+                                "$.permissions",
+                                org.hamcrest.Matchers.not(
+                                        org.hamcrest.Matchers.hasItem("TREE_EDIT"))));
+
+        // Used to be 500: the insert hit the unique index the lapsed row was still holding.
+        as(admin, post(base() + "/permissions"), grantBody(uncleD.userId(), "TREE_EDIT", "BRANCH", chiBa))
+                .andExpect(status().isCreated());
+
+        as(uncleD, get(base() + "/my-permissions"))
+                .andExpect(jsonPath("$.permissions", org.hamcrest.Matchers.hasItem("TREE_EDIT")));
+        flushAndClear();
+        assertThat(
+                        jdbcTemplate.queryForObject(
+                                "SELECT revoked_at IS NOT NULL FROM permission_grants WHERE id = ?",
+                                Boolean.class,
+                                UUID.fromString(grantId)))
+                .as("the lapsed grant was closed rather than left for the sweep")
+                .isTrue();
     }
 
     // --- helpers ------------------------------------------------------------------------------

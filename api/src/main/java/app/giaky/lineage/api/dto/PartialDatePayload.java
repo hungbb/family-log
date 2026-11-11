@@ -35,9 +35,16 @@ public record PartialDatePayload(
         @Min(1) @Max(2999) Integer rangeEndYear,
         @Size(max = 100) @Schema(example = "tháng 6 năm Quý Mùi") String lunarText) {
 
-    /** Null in, null out: an absent date and an unknown one are the same fact. */
+    /**
+     * Null in, null out: an absent date and an empty one are the same fact.
+     *
+     * <p>"Empty" is {@link PartialDate#isRecorded}, not {@link PartialDate#isKnown}. A date that is
+     * only a lunar reading has {@code UNKNOWN} precision and is still something the family wrote
+     * down; answering null for it meant the API accepted and stored a giỗ day and then never
+     * returned it — and the next save from the form, which sends back what it was given, erased it.
+     */
     public static PartialDatePayload of(PartialDate date) {
-        if (date == null || !date.isKnown()) {
+        if (date == null || !date.isRecorded()) {
             return null;
         }
         return new PartialDatePayload(

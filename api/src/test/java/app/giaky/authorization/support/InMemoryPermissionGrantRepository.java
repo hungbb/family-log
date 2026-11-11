@@ -79,6 +79,23 @@ public final class InMemoryPermissionGrantRepository implements PermissionGrantR
     }
 
     @Override
+    public Optional<PermissionGrant> findLapsedDuplicate(
+            ClanId clanId,
+            UserId grantee,
+            Permission permission,
+            PermissionScope scope,
+            Instant now) {
+        return byId.values().stream()
+                .filter(grant -> grant.clanId().equals(clanId))
+                .filter(grant -> grant.granteeUserId().equals(grantee))
+                .filter(grant -> !grant.isRevoked())
+                .filter(grant -> grant.hasExpiredBy(now))
+                .filter(grant -> grant.permission() == permission)
+                .filter(grant -> grant.scope().equals(scope))
+                .findFirst();
+    }
+
+    @Override
     public PermissionGrant save(PermissionGrant grant) {
         if (!grant.isRevoked()) {
             // ux_grant_active, in a map. Without it a test could create the state the index exists
