@@ -1,6 +1,8 @@
 package app.giaky.authorization.domain;
 
 import app.giaky.authorization.domain.AccessDecision.DenialReason;
+import app.giaky.authorization.domain.Target.PersonTarget;
+import app.giaky.authorization.domain.Target.RelationshipTarget;
 import app.giaky.common.error.ErrorCode;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
@@ -37,7 +39,8 @@ import java.util.UUID;
  *   <li><b>Implications.</b> {@code CLAN_ADMIN} confers everything; everything confers {@code
  *       CLAN_VIEW} (FR-Z6). Expanded here, never stored.
  *   <li><b>Match.</b> The first grant that both confers the permission and covers the target wins,
- *       and its id goes on the audit entry (FR-Z8).
+ *       and its id goes on the audit entry (FR-Z8). A target that names several people is covered
+ *       when each of them is, by whichever grant — the union, not one grant spanning them all.
  *   <li><b>Deny.</b> No match is a denial. There is no fallthrough (doc 04 §1.5).
  * </ol>
  *
@@ -112,14 +115,17 @@ public final class PermissionResolver {
         }
 
         List<PermissionGrant> held = effectiveGrants(clan, user);
-        boolean holdsItSomewhere = false;
-        for (PermissionGrant grant : held) {
-            if (!grant.confers(permission)) {
-                continue;
-            }
-            holdsItSomewhere = true;
+        List<PermissionGrant> conferring =
+                held.stream().filter(grant -> grant.confers(permission)).toList();
+        for (PermissionGrant grant : conferring) {
             if (coverage.covers(clan, grant.scope(), target)) {
                 return AccessDecision.allow(permission, target, grant.id());
+            }
+        }
+        if (target instanceof RelationshipTarget relationship) {
+            UUID authorizing = grantCoveringEachEndpoint(clan, conferring, relationship);
+            if (authorizing != null) {
+                return AccessDecision.allow(permission, target, authorizing);
             }
         }
 
@@ -127,8 +133,47 @@ public final class PermissionResolver {
         // lets the API answer OUT_OF_SCOPE naming the branch the caller does hold (doc 04 §7) —
         // the difference between a support conversation and a refusal that explains itself.
         DenialReason reason =
-                holdsItSomewhere ? DenialReason.OUT_OF_SCOPE : DenialReason.NO_SUCH_PERMISSION;
+                conferring.isEmpty() ? DenialReason.NO_SUCH_PERMISSION : DenialReason.OUT_OF_SCOPE;
         return AccessDecision.deny(permission, target, reason, summarize(held, permission));
+    }
+
+    /**
+     * The union of doc 04 §1.3, applied to a target that names several people (§5.2).
+     *
+     * <p>§5.2 asks for the permission on <i>each</i> endpoint, and access is additive: somebody who
+     * edits Chi Hai through one grant and Chi Ba through another may edit a person in either, so
+     * they may record the marriage between the two. Asking a single grant to span the whole edge —
+     * which is all the loop above can see — refused exactly that, with a message naming both
+     * branches as held and the edge as uncovered, on a pair of cards the tree had marked editable.
+     *
+     * <p>Nothing is widened. Every endpoint still has to be inside a scope the user holds this
+     * permission on; an edge reaching into somebody else's branch has an endpoint no grant covers
+     * and is refused here as it was before, which is the escape hatch §5.2 exists to close.
+     *
+     * @return the grant covering the first endpoint — one id is what the audit entry carries
+     *     (FR-Z8), and which of several is reported changes the explanation, not the decision — or
+     *     null when some endpoint is covered by none
+     */
+    private UUID grantCoveringEachEndpoint(
+            ClanId clan, List<PermissionGrant> conferring, RelationshipTarget relationship) {
+
+        UUID first = null;
+        for (PersonTarget endpoint : relationship.endpoints()) {
+            UUID covering = null;
+            for (PermissionGrant grant : conferring) {
+                if (coverage.covers(clan, grant.scope(), endpoint)) {
+                    covering = grant.id();
+                    break;
+                }
+            }
+            if (covering == null) {
+                return null;
+            }
+            if (first == null) {
+                first = covering;
+            }
+        }
+        return first;
     }
 
     /**

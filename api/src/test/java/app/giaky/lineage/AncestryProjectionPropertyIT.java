@@ -271,7 +271,7 @@ class AncestryProjectionPropertyIT extends AbstractIntegrationTest {
          */
         Edge addEdge(PersonId parent, PersonId child) {
             UUID id = UUID.randomUUID();
-            String role = parentCount(child) == 0 ? "FATHER" : "MOTHER";
+            String role = freeRole(child);
             jdbcTemplate.update(
                     """
                     INSERT INTO parentages
@@ -285,6 +285,26 @@ class AncestryProjectionPropertyIT extends AbstractIntegrationTest {
                     role);
             projection.parentageAdded(clanId, parent, child);
             return new Edge(id, parent, child);
+        }
+
+        /**
+         * The role this child has no parent in yet.
+         *
+         * <p>Not "FATHER for the first edge, MOTHER for the second": once a child's father edge has
+         * been removed and only the mother's is left, the next edge is the second one again and
+         * that rule would hand out MOTHER twice — which the unique index refuses, about a hundred
+         * operations into the randomized sequence.
+         */
+        private String freeRole(PersonId child) {
+            List<String> taken =
+                    jdbcTemplate.queryForList(
+                            """
+                            SELECT parent_role FROM parentages
+                            WHERE child_person_id = ? AND deleted_at IS NULL
+                            """,
+                            String.class,
+                            child.value());
+            return taken.contains("FATHER") ? "MOTHER" : "FATHER";
         }
 
         void removeEdge(Edge edge) {

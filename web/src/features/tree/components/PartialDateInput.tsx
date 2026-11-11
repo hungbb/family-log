@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 
 import { type DatePrecision, type PartialDate } from '@/api/endpoints/persons.ts';
 
-import { DateFieldRow, DateHint } from './styles';
+import { withField, withLunarText, withPrecision } from '../model/partialDate';
+
+import { DateFieldRow } from './styles';
 
 interface PartialDateInputProps {
   // `exactOptionalPropertyTypes` is on (doc 09 §4.3), so an optional prop and a prop that may be
@@ -26,8 +28,9 @@ const PRECISIONS: DatePrecision[] = ['UNKNOWN', 'YEAR', 'MONTH', 'EXACT', 'RANGE
  * record says how much they know first, and only the fields that follow from that appear.
  *
  * `circa` is a checkbox rather than a precision of its own because it is orthogonal: "khoảng tháng 3
- * năm 1901" is a real thing to write. The lunar field is free text, always available, and never
- * converted — the âm lịch reading is the family's own words and the product keeps them.
+ * năm 1901" is a real thing to write. The lunar field is free text, always available — with or
+ * without a Gregorian date, since an anniversary is often all a family knows — and never converted:
+ * the âm lịch reading is the family's own words and the product keeps them.
  *
  * Written as a controlled component with `value`/`onChange` so AntD's `Form.Item` drives it like any
  * other input.
@@ -36,51 +39,11 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
   const { t } = useTranslation();
   const precision = value?.precision ?? 'UNKNOWN';
 
-  /**
-   * Applies one changed field and hands the whole date back.
-   *
-   * Cleared fields are dropped rather than sent as `undefined`. Under
-   * `exactOptionalPropertyTypes` (doc 09 §4.3) an absent key and a key holding `undefined` are
-   * different things, and the difference reaches the wire: the server distinguishes "no month" from
-   * "month: null" and refuses the second at YEAR precision.
-   */
-  const emit = (next: { [K in keyof PartialDate]?: PartialDate[K] | undefined }) => {
-    if (onChange === undefined) return;
-    const source = { ...(value ?? {}), ...next };
-    const merged: PartialDate = {
-      precision: source.precision ?? precision,
-      circa: source.circa ?? false,
-      ...defined('year', source.year),
-      ...defined('month', source.month),
-      ...defined('day', source.day),
-      ...defined('rangeEndYear', source.rangeEndYear),
-      ...defined('lunarText', source.lunarText),
-    };
-    // An unknown date carries nothing else — the server refuses a year at UNKNOWN precision, and
-    // sending one would turn a cleared field into a 422.
-    onChange(merged.precision === 'UNKNOWN' ? undefined : merged);
-  };
-
-  const onPrecisionChange = (next: DatePrecision) => {
-    if (onChange === undefined) return;
-    if (next === 'UNKNOWN') {
-      onChange(undefined);
-      return;
-    }
-    // Dropping the parts the new precision does not carry, because the server's shape rules refuse
-    // a month at YEAR precision — and because a hidden field that still travels is a field that
-    // silently reappears when somebody widens the precision again.
-    const year = value?.year ?? new Date().getFullYear();
-    const base: PartialDate = {
-      precision: next,
-      circa: value?.circa ?? false,
-      year,
-      ...(value?.lunarText !== undefined ? { lunarText: value.lunarText } : {}),
-    };
-    if (next === 'MONTH' || next === 'EXACT') base.month = value?.month ?? 1;
-    if (next === 'EXACT') base.day = value?.day ?? 1;
-    if (next === 'RANGE') base.rangeEndYear = value?.rangeEndYear ?? year;
-    onChange(base);
+  // Every edit produces the next whole date — or `undefined` when nothing is left — through the
+  // pure transitions in `model/partialDate.ts`, which is where the rules about what each precision
+  // may carry are written down and tested.
+  const emit = (next: PartialDate | undefined) => {
+    onChange?.(next);
   };
 
   return (
@@ -90,7 +53,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
         value={precision}
         aria-label={t('tree.date.precisionFor', { field: label })}
         onChange={(next) => {
-          onPrecisionChange(next);
+          emit(withPrecision(value, next, new Date().getFullYear()));
         }}
         options={PRECISIONS.map((option) => ({
           value: option,
@@ -108,7 +71,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
             aria-label={t('tree.date.year')}
             placeholder={t('tree.date.year')}
             onChange={(year) => {
-              emit({ year: year ?? undefined });
+              emit(withField(value, { year: year ?? undefined }));
             }}
           />
 
@@ -121,7 +84,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
               aria-label={t('tree.date.month')}
               placeholder={t('tree.date.month')}
               onChange={(month) => {
-                emit({ month: month ?? undefined });
+                emit(withField(value, { month: month ?? undefined }));
               }}
             />
           )}
@@ -135,7 +98,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
               aria-label={t('tree.date.day')}
               placeholder={t('tree.date.day')}
               onChange={(day) => {
-                emit({ day: day ?? undefined });
+                emit(withField(value, { day: day ?? undefined }));
               }}
             />
           )}
@@ -149,7 +112,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
               aria-label={t('tree.date.rangeEnd')}
               placeholder={t('tree.date.rangeEnd')}
               onChange={(rangeEndYear) => {
-                emit({ rangeEndYear: rangeEndYear ?? undefined });
+                emit(withField(value, { rangeEndYear: rangeEndYear ?? undefined }));
               }}
             />
           )}
@@ -158,7 +121,7 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
             disabled={disabled ?? false}
             checked={value?.circa ?? false}
             onChange={(event) => {
-              emit({ circa: event.target.checked });
+              emit(withField(value, { circa: event.target.checked }));
             }}
           >
             {t('tree.date.circaLabel')}
@@ -173,22 +136,10 @@ export function PartialDateInput({ value, onChange, disabled, label }: PartialDa
         aria-label={t('tree.date.lunar')}
         placeholder={t('tree.date.lunarPlaceholder')}
         onChange={(event) => {
-          const lunarText = event.target.value;
-          if (onChange === undefined) return;
-          if (value === undefined) {
-            // A lunar reading with no Gregorian year is not something the server can store, so the
-            // field waits until a precision has been chosen rather than silently discarding it.
-            return;
-          }
-          onChange({ ...value, lunarText });
+          // Works with no precision chosen: an anniversary with no year is a date the book has.
+          emit(withLunarText(value, event.target.value));
         }}
       />
-      {value === undefined && <DateHint>{t('tree.date.lunarNeedsPrecision')}</DateHint>}
     </Space>
   );
-}
-
-/** `{ key: value }`, or nothing at all when the value was cleared. */
-function defined<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
-  return value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 }

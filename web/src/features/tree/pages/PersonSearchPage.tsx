@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
+import { branchNamesById, branchSelectOptions } from '@/api/endpoints/branches.ts';
 import { type LifeStatus, type PersonSummary } from '@/api/endpoints/persons.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
 
@@ -58,8 +59,11 @@ export function PersonSearchPage() {
   };
 
   const { data, isPending, error } = usePersonSearch(clanId, filters);
-  const branchNames = useMemo(
-    () => new Map((branches ?? []).map((branch) => [branch.id, branch.name])),
+  // The endpoint nests every branch under the root one, so both of these walk the whole tree: a
+  // lookup over the top level alone names the root branch and nobody's chi.
+  const branchNames = useMemo(() => branchNamesById(branches ?? []), [branches]);
+  const branchOptions = useMemo(
+    () => branchSelectOptions(branches ?? [], { includeArchived: true }),
     [branches],
   );
 
@@ -117,10 +121,7 @@ export function PersonSearchPage() {
               setBranchId(value);
               setPage(0);
             }}
-            options={(branches ?? []).map((branch) => ({
-              value: branch.id,
-              label: branch.name,
-            }))}
+            options={branchOptions}
           />
           <Select
             allowClear

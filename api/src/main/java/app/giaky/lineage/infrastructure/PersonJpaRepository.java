@@ -47,6 +47,9 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
     Optional<PersonJpaEntity> findByClanIdAndLinkedUserIdAndDeletedAtIsNull(
             ClanId clanId, UserId linkedUserId);
 
+    List<PersonJpaEntity> findByClanIdAndLinkedUserIdInAndDeletedAtIsNull(
+            ClanId clanId, Collection<UserId> linkedUserIds);
+
     @TenantExempt(
             justification =
                     "Profile propagation spans every clan the account is linked in (FR-N6), so no"

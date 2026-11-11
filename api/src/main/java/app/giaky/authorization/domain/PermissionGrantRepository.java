@@ -50,6 +50,21 @@ public interface PermissionGrantRepository {
             PermissionScope scope,
             Instant effectiveAt);
 
+    /**
+     * The same grant, lapsed and not yet swept — the row still sitting in {@code ux_grant_active}.
+     *
+     * <p>Every read filters on {@code expires_at}; the unique index does not, because an index
+     * predicate cannot mention the clock. So between a grant's expiry and the daily sweep there is a
+     * row that confers nothing and still refuses its own replacement. Whoever renews a grant in that
+     * window has to close this one first.
+     */
+    Optional<PermissionGrant> findLapsedDuplicate(
+            ClanId clanId,
+            UserId grantee,
+            Permission permission,
+            PermissionScope scope,
+            Instant now);
+
     PermissionGrant save(PermissionGrant grant);
 
     /**

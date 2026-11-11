@@ -145,6 +145,21 @@ public record PartialDate(
         return precision != DatePrecision.UNKNOWN;
     }
 
+    /**
+     * Whether the record holds anything at all: a Gregorian reading at some precision, or only the
+     * book's own lunar wording.
+     *
+     * <p>Not the same question as {@link #isKnown}, and the difference is the commonest date in a
+     * <i>gia phả</i>. "Giỗ ngày mồng 3 tháng Chạp", with no year, is what a family keeps of an
+     * ancestor long after the year is forgotten. It cannot be placed on a timeline, so comparison
+     * rightly treats it as unknown — but it is recorded, and anything that decides whether to
+     * <i>show</i> or <i>keep</i> a date has to ask this instead, or the anniversary is stored and
+     * never seen again.
+     */
+    public boolean isRecorded() {
+        return isKnown() || lunarText != null;
+    }
+
     /** A copy carrying the book's own lunar wording alongside the Gregorian reading. */
     public PartialDate withLunarText(String value) {
         return new PartialDate(year, month, day, precision, circa, rangeEndYear, value);

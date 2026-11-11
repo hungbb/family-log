@@ -2,6 +2,7 @@ package app.giaky.clanorg;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -144,6 +145,38 @@ class BranchStructureIT extends ClanOrgApiSupport {
     }
 
     // --- helpers -------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("renaming a clan or a branch to nothing but spaces is 422, not a 500")
+    void blankNamesAreRefused() throws Exception {
+        Actor an = signUp("Nguyễn Văn An");
+        JsonNode clan = createClan(an, "Nguyễn Văn");
+        UUID clanId = UUID.fromString(clan.get("id").asText());
+        JsonNode chiHai = createBranch(an, clanId, null, "Chi Hai");
+
+        as(
+                        an,
+                        patch("/api/v1/clans/" + clanId),
+                        Map.of("name", "   ", "version", clan.get("version").asLong()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[0].field").value("name"));
+        as(
+                        an,
+                        patch("/api/v1/clans/" + clanId + "/branches/" + id(chiHai)),
+                        Map.of("name", " \t ", "version", chiHai.get("version").asLong()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[0].field").value("name"));
+
+        // Leaving the name out is still how a PATCH says "leave it alone".
+        as(
+                        an,
+                        patch("/api/v1/clans/" + clanId + "/branches/" + id(chiHai)),
+                        Map.of("description", "Con cháu cụ Nhị", "version", chiHai.get("version").asLong()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Chi Hai"));
+    }
 
     private static UUID id(JsonNode branch) {
         return UUID.fromString(branch.get("id").asText());

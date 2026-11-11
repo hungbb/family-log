@@ -124,7 +124,15 @@ function toFormFields(error: ZodError, t: TFunction): { name: string; errors: st
   for (const issue of error.issues) {
     const name = issue.path.length > 0 ? String(issue.path[0]) : 'form';
     const existing = byField.get(name) ?? [];
-    existing.push(t(issue.message, boundOf(issue)));
+    existing.push(
+      t(issue.message, {
+        ...boundOf(issue),
+        // The schemas produce keys. If one ever produces something else — a rule added without a
+        // message, a Zod upgrade that words an issue differently — the person sees a translated
+        // "this is not valid" rather than the library's English sentence.
+        defaultValue: t('errors.validationFailed'),
+      }),
+    );
     byField.set(name, existing);
   }
   return [...byField].map(([name, errors]) => ({ name, errors }));

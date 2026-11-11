@@ -1,6 +1,7 @@
 package app.giaky.linking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -198,6 +199,37 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("the member list says who already holds a node, and which (doc 05 §4.5)")
+    void memberListCarriesTheLinkedNode() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        JsonNode members =
+                body(
+                        as(chiHaiApprover, get("/api/v1/clans/" + clanId + "/members"))
+                                .andExpect(status().isOk())
+                                .andReturn())
+                        .get("content");
+
+        assertThat(members).hasSize(3);
+        for (JsonNode row : members) {
+            if (row.get("userId").asText().equals(member.userId().toString())) {
+                assertThat(row.get("linkedPersonId").asText()).isEqualTo(sonInChiHai.toString());
+            } else {
+                // The founder and the approver hold no node, and the field is absent rather than
+                // somebody else's id.
+                assertThat(row.hasNonNull("linkedPersonId")).isFalse();
+            }
+        }
+
+        as(member, delete(linkPath(sonInChiHai))).andExpect(status().isNoContent());
+
+        as(founder, get("/api/v1/clans/" + clanId + "/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.linkedPersonId)]").isEmpty());
+    }
+
+    @Test
     @DisplayName("unlink by the linked user themselves is 204 (FR-N5)")
     void selfUnlink() throws Exception {
         as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
@@ -207,6 +239,70 @@ class NodeClaimingIT extends LineageApiSupport {
 
         as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("a removed member's node goes back to the unlinked pool, and they are told (I-P5)")
+    void removalUnlinks() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+        JsonNode candidates =
+                body(
+                        as(founder, get("/api/v1/clans/" + clanId + "/persons/unlinked"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        assertThat(candidates.get("content").toString()).contains(sonInChiHai.toString());
+
+        // By type rather than by position: the test clock does not move, so the assignment's
+        // notice and this one carry the same timestamp.
+        as(member, get("/api/v1/me/notifications?unreadOnly=true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.type == 'NODE_UNLINKED')]", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("somebody who leaves and is re-admitted comes back unlinked (I-P5)")
+    void leavingUnlinks() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(member, post("/api/v1/clans/" + clanId + "/members/leave"))
+                .andExpect(status().isNoContent());
+        joinClan(member, founder, clanId, clanCode, chiHai);
+
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isNoContent());
+        // Their own doing, so nothing to tell them: the only notice is the original assignment.
+        as(member, get("/api/v1/me/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.type == 'NODE_UNLINKED')]").isEmpty());
+    }
+
+    @Test
+    @DisplayName("a membership ending withdraws the claims that member still had open (I-K2)")
+    void membershipEndWithdrawsClaims() throws Exception {
+        String claimId = claim(member, sonInChiHai, "Con của ông Ất");
+
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(member, get("/api/v1/me/claims"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(claimId))
+                .andExpect(jsonPath("$[0].status").value("CANCELLED"));
+        as(chiHaiApprover, get(claimsPath() + "?status=PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        // …and it is over: the approver is not left with a claim that can only be refused.
+        as(chiHaiApprover, post(claimPath(claimId) + "/approve"), Map.of())
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -259,6 +355,58 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("restoring a node whose account has since been linked elsewhere is not a 500 (I-P4)")
+    void restoreAfterTheAccountMovedOn() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        // The deleted node still carries the link, and ux_persons_linked_user does not see it.
+        as(founder, post(linkPath(sonInChiBa)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personId").value(sonInChiBa.toString()));
+    }
+
+    @Test
+    @DisplayName("a mistaken delete, undone, gives the member their node back (FR-P10)")
+    void restoreKeepsALinkThatStillHolds() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isNoContent());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(member, get("/api/v1/clans/" + clanId + "/persons/linked-to-me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personId").value(sonInChiHai.toString()));
+    }
+
+    @Test
+    @DisplayName("a node restored after its account left the clan comes back unlinked (I-P5)")
+    void restoreAfterTheAccountLeft() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+        as(founder, delete(personPath(sonInChiHai))).andExpect(status().isNoContent());
+        as(founder, delete("/api/v1/clans/" + clanId + "/members/" + member.userId()))
+                .andExpect(status().isNoContent());
+
+        as(founder, post(personPath(sonInChiHai) + "/restore")).andExpect(status().isOk());
+
+        as(founder, get(linkPath(sonInChiHai)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedUserId").doesNotExist());
+    }
+
+    @Test
     @DisplayName("a decision notifies the requester, and a claim notifies the approvers (B6.9)")
     void notifications() throws Exception {
         String claimId = claim(member, sonInChiHai, null);
@@ -283,6 +431,10 @@ class NodeClaimingIT extends LineageApiSupport {
 
     private String claimPath(String claimId) {
         return claimsPath() + "/" + claimId;
+    }
+
+    private String personPath(UUID personId) {
+        return "/api/v1/clans/" + clanId + "/persons/" + personId;
     }
 
     private String linkPath(UUID personId) {
