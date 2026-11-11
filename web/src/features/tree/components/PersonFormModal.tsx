@@ -12,6 +12,7 @@ import {
 } from '@/api/endpoints/persons.ts';
 import { hasCode } from '@/api/errors.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
+import { validatedValues } from '@/lib/forms.ts';
 
 import { useBranches } from '../../branch';
 import { useCreatePerson, useUpdatePerson } from '../hooks/useTree';
@@ -103,7 +104,8 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
   }, [open, mode, form]);
 
   const onSubmit = async () => {
-    const values = await form.validateFields();
+    const values = await validatedValues(form);
+    if (values === null) return;
     try {
       if (mode.kind === 'create') {
         const created = await createPerson.mutateAsync({
