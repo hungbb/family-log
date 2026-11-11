@@ -161,6 +161,12 @@ public final class ClanOrgTestFixtures {
                     ids,
                     clock);
 
+    /**
+     * Who holds which node of the tree. Empty here — ClanOrg has no tree — until a test records a
+     * link or the Linking fixtures back it with the real thing.
+     */
+    public final InMemoryMemberNodeLookup memberNodes = new InMemoryMemberNodeLookup();
+
     public final MembershipService membershipService =
             new MembershipService(
                     memberships,
@@ -168,6 +174,7 @@ public final class ClanOrgTestFixtures {
                     resolver,
                     permissions,
                     lastAdmin,
+                    memberNodes,
                     directory,
                     audit,
                     events,

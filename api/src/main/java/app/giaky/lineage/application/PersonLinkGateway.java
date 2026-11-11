@@ -12,6 +12,7 @@ import app.giaky.lineage.domain.PersonRepository;
 import app.giaky.lineage.domain.TreeVersionRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,21 @@ public class PersonLinkGateway {
     @Transactional(readOnly = true)
     public Optional<NodeRef> nodeLinkedTo(ClanId clanId, UserId userId) {
         return persons.findByLinkedUser(clanId, userId).map(NodeRef::of);
+    }
+
+    /**
+     * The node each of these accounts holds in this clan (doc 05 §4.5).
+     *
+     * <p>One query for a whole page of members. Accounts with no node are simply absent from the
+     * answer, and I-P4 is why a map is the honest shape: nobody holds two.
+     */
+    @Transactional(readOnly = true)
+    public Map<UserId, PersonId> nodesLinkedTo(ClanId clanId, Collection<UserId> userIds) {
+        Map<UserId, PersonId> nodes = new LinkedHashMap<>();
+        for (Person person : persons.findLinkedTo(clanId, userIds)) {
+            nodes.put(person.linkedUserId(), person.id());
+        }
+        return nodes;
     }
 
     /**

@@ -199,6 +199,37 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("the member list says who already holds a node, and which (doc 05 §4.5)")
+    void memberListCarriesTheLinkedNode() throws Exception {
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        JsonNode members =
+                body(
+                        as(chiHaiApprover, get("/api/v1/clans/" + clanId + "/members"))
+                                .andExpect(status().isOk())
+                                .andReturn())
+                        .get("content");
+
+        assertThat(members).hasSize(3);
+        for (JsonNode row : members) {
+            if (row.get("userId").asText().equals(member.userId().toString())) {
+                assertThat(row.get("linkedPersonId").asText()).isEqualTo(sonInChiHai.toString());
+            } else {
+                // The founder and the approver hold no node, and the field is absent rather than
+                // somebody else's id.
+                assertThat(row.hasNonNull("linkedPersonId")).isFalse();
+            }
+        }
+
+        as(member, delete(linkPath(sonInChiHai))).andExpect(status().isNoContent());
+
+        as(founder, get("/api/v1/clans/" + clanId + "/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.linkedPersonId)]").isEmpty());
+    }
+
+    @Test
     @DisplayName("unlink by the linked user themselves is 204 (FR-N5)")
     void selfUnlink() throws Exception {
         as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))

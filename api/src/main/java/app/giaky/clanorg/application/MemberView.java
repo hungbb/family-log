@@ -7,8 +7,8 @@ import java.util.UUID;
  * One member of a clan (doc 05 §4.5).
  *
  * <p>The name and address come from Identity through {@code UserDirectory}; ClanOrg holds only the
- * id (doc 02 §1.1). {@code linkedPersonId} is in the contract from doc 05 §4.5 and stays null until
- * Phase 6 links accounts to nodes — shipping the field now means the UI does not change shape then.
+ * id (doc 02 §1.1). {@code linkedPersonId} is the node the member is recorded as in this clan's tree,
+ * asked of Linking through {@link MemberNodeLookup}, and null for a member who holds none.
  *
  * @param isAdministrator whether this member holds CLAN_ADMIN. Phase 2 answered this with "did they
  *     found the clan?", which was the only definition it had; now any number of people can, and the
