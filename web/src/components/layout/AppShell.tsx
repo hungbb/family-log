@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Sidebar } from './Sidebar';
 import { Content, Shell, VerificationBanner } from './styles';
 import { AppTopBar } from './TopBar';
+import { sidebarStartsCollapsed } from './viewport';
 
 /**
  * The application chrome: sidebar, top bar, and a content area the router fills.
@@ -16,11 +17,15 @@ import { AppTopBar } from './TopBar';
  * — there is no CSS file for this component and there will not be one.
  *
  * Sidebar collapse is local state on purpose. Doc 07 §6 puts anything that must survive a route
- * change in `useUiStore`; this does not, so a `useState` is the honest amount of machinery.
+ * change in `useUiStore`; this does not, so a `useState` is the honest amount of machinery. Its
+ * initial value depends on the viewport (see `viewport.ts`): a 240 px sidebar on a 390 px phone
+ * leaves no page to look at.
  */
 export function AppShell() {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  // Open on a desktop, the icon rail on a phone — decided once, when the shell mounts. After that
+  // the toggle is the person's, and a rotation or a resize does not overrule them.
+  const [collapsed, setCollapsed] = useState(() => sidebarStartsCollapsed(window.innerWidth));
   const { user } = useAuth();
 
   const needsVerification = user !== null && !user.emailVerified;
