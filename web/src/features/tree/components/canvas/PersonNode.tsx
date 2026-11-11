@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
 
-import { formatGeneration, formatLifespan } from '../../model/format';
-import { type LaidOutCard } from '../../model/layout';
+import { estimateTextWidth, fitFirst, fitName, fitText, fitWords } from '../../model/fitText';
+import { formatCompactLifespan, formatGeneration, formatLifespan } from '../../model/format';
+import { CARD, type LaidOutCard } from '../../model/layout';
 
 import {
   ActionButton,
@@ -21,6 +22,20 @@ import {
   NodeMeta,
   NodeName,
 } from './styles';
+
+/** Where the text column starts: past the avatar and its gap. */
+const TEXT_X = 52;
+
+/** How wide the text column is: to the card's right edge, less a hair of breathing room. */
+const TEXT_ROOM = CARD.width - TEXT_X - 4;
+
+/** The font sizes of `NodeName`, `NodeMeta` and `BranchPillText` in `styles.ts`. */
+const NAME_FONT_SIZE = 14;
+const META_FONT_SIZE = 11;
+const PILL_FONT_SIZE = 10;
+
+/** The space inside the branch pill on either side of its label. */
+const PILL_PADDING = 7;
 
 /**
  * One person's card on the canvas (F5.5, F5.11, F5.12).
@@ -76,7 +91,23 @@ function PersonNodeComponent({
   const { t } = useTranslation();
   const person = card.person;
   const deceased = person.lifeStatus === 'DECEASED';
-  const lifespan = formatLifespan(person, t);
+  // As much of the lifespan as there is room for: with its lunar readings, then without them, and
+  // cut only if even the bare years do not fit. With no dates at all, the đời.
+  const metaLine =
+    fitFirst(
+      [formatLifespan(person, t), formatCompactLifespan(person, t)],
+      TEXT_ROOM,
+      META_FONT_SIZE,
+    ) ?? fitText(formatGeneration(person.generation, t), TEXT_ROOM, META_FONT_SIZE);
+  // The pill is as wide as its label needs and no wider than the column it sits in.
+  const pillLabel =
+    branchName === undefined
+      ? ''
+      : fitWords(branchName, TEXT_ROOM - 2 * PILL_PADDING, PILL_FONT_SIZE);
+  const pillWidth = Math.min(
+    TEXT_ROOM,
+    estimateTextWidth(pillLabel, PILL_FONT_SIZE) + 2 * PILL_PADDING,
+  );
 
   return (
     <NodeGroup
@@ -119,28 +150,36 @@ function PersonNodeComponent({
         {initialsOf(person.fullName)}
       </AvatarInitials>
 
-      <NodeName x={52} y={24} $deceased={deceased}>
-        {truncate(person.fullName, 17)}
-      </NodeName>
-      <NodeMeta x={52} y={41}>
-        {lifespan ?? formatGeneration(person.generation, t)}
-      </NodeMeta>
+      {/*
+        The text column, as a nested viewport. An inner <svg> clips to its own box, which is the
+        guarantee that nothing written on a card is ever painted over the card beside it — whatever
+        font the browser ends up with. `fitText` is what makes the cut read as a cut, with an
+        ellipsis, instead of as a letter sliced in half.
+      */}
+      <svg x={TEXT_X} y={0} width={TEXT_ROOM} height={card.height}>
+        <NodeName x={0} y={24} $deceased={deceased}>
+          {fitName(person.fullName, TEXT_ROOM, NAME_FONT_SIZE)}
+        </NodeName>
+        <NodeMeta x={0} y={41}>
+          {metaLine}
+        </NodeMeta>
 
-      {branchName !== undefined && (
-        <>
-          <BranchPill
-            x={52}
-            y={48}
-            width={Math.min(112, branchName.length * 5.6 + 14)}
-            height={16}
-            rx={8}
-            $highlighted={branchHighlighted}
-          />
-          <BranchPillText x={59} y={59} $highlighted={branchHighlighted}>
-            {truncate(branchName, 16)}
-          </BranchPillText>
-        </>
-      )}
+        {branchName !== undefined && (
+          <>
+            <BranchPill
+              x={0}
+              y={48}
+              width={pillWidth}
+              height={16}
+              rx={8}
+              $highlighted={branchHighlighted}
+            />
+            <BranchPillText x={PILL_PADDING} y={59} $highlighted={branchHighlighted}>
+              {pillLabel}
+            </BranchPillText>
+          </>
+        )}
+      </svg>
 
       {person.canEdit && (
         <ActionLayer transform={`translate(${card.width - 10}, -10)`}>
@@ -217,9 +256,4 @@ function initialsOf(fullName: string): string {
     .slice(-2)
     .map((word) => word.charAt(0).toLocaleUpperCase('vi'))
     .join('');
-}
-
-/** SVG has no ellipsis, so the string is cut. Cheap, and stable across every browser. */
-function truncate(value: string, maxLength: number): string {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
 }
