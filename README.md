@@ -99,6 +99,10 @@ npm run dev
 
 Open <http://localhost:5173>. You land on the sign-in screen.
 
+The dev server talks to the API at `http://localhost:8080` out of the box — that default is
+committed in `web/.env.development`. If your API is somewhere else, copy `web/.env.example` to
+`web/.env.local` and change it there.
+
 ### 4. Walk through an account
 
 There is no mail server until Phase 8, so under the `dev` profile the API logs the link a real

@@ -68,7 +68,7 @@ can(user, permission, target) -> Decision
    - `BRANCH` → covers if `target.branchPath` starts with `grantBranch.path`.
    - `SUBTREE` → covers if `person_ancestry` contains `(ancestor = grant.scopeRefId, descendant = target.personId)`, self-row included.
    - For a `BranchTarget` under a `SUBTREE` grant: covers only if the branch's root person is in the grant's descendant set.
-   - For a `RelationshipTarget`: **all** involved persons must be covered (see §5.2).
+   - For a `RelationshipTarget`: **all** involved persons must be covered (see §5.2) — each by *some* grant, not necessarily the same one. Access is the union of the grants (§1.3), so an editor of two branches may relate a person in one to a person in the other.
 6. **Decide.** First covering grant → allow, recording `authorizingGrantId` for the audit log (FR-Z8). No match → deny.
 
 **Complexity.** One membership lookup + one grants query (both indexed, both cacheable per request) + at most one ancestry lookup per `SUBTREE` grant. Typical users hold 1–3 grants per clan.

@@ -37,11 +37,12 @@ public class UnionRepositoryAdapter implements UnionRepository {
      *
      * <p>The unique index is on the ordered pair, so a caller asking about (B, A) would otherwise
      * miss the row stored as (A, B) — and would then create the duplicate I-N2 exists to prevent.
-     * Doing the ordering here means no call site has to remember it.
+     * Doing the ordering here means no call site has to remember it. The order is {@link
+     * Union#precedes}, the same one the row was written in.
      */
     @Override
     public Optional<Union> findByPair(ClanId clanId, PersonId onePartner, PersonId otherPartner) {
-        boolean ordered = onePartner.value().compareTo(otherPartner.value()) < 0;
+        boolean ordered = Union.precedes(onePartner, otherPartner);
         return repository
                 .findByClanIdAndPartnerAIdAndPartnerBIdAndDeletedAtIsNull(
                         clanId,

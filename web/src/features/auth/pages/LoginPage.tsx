@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { login } from '../../../api/endpoints/auth';
 import { useAuth } from '../../../hooks/useAuth';
 import { applyApiError, toMessage, validateWithSchema } from '../../../lib/apiErrors';
+import { returnPathOrHome } from '../../../lib/returnPath';
 import { AuthLayout } from '../components/AuthLayout';
 import { Footer } from '../components/styles';
 import { loginSchema, type LoginValues } from '../model/schemas';
@@ -26,7 +27,7 @@ export function LoginPage() {
   const [form] = Form.useForm<LoginValues>();
   const [submitting, setSubmitting] = useState(false);
 
-  const returnPath = readReturnPath(location.state) ?? '/';
+  const returnPath = returnPathOrHome(location.state);
 
   const onFinish = async (values: LoginValues) => {
     const parsed = validateWithSchema(loginSchema, values, form, t);
@@ -90,19 +91,4 @@ export function LoginPage() {
       </Form>
     </AuthLayout>
   );
-}
-
-/**
- * The path `RequireAuth` stashed before redirecting here.
- *
- * Narrowed rather than cast: navigation state is whatever the previous route put there, and an
- * unchecked `as` would turn a stale entry into an open redirect.
- */
-function readReturnPath(state: unknown): string | null {
-  if (typeof state !== 'object' || state === null || !('from' in state)) {
-    return null;
-  }
-  const { from } = state;
-  // Only same-origin paths. "//evil.example" parses as a protocol-relative URL in a browser.
-  return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : null;
 }

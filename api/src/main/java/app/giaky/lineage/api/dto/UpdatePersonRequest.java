@@ -1,5 +1,6 @@
 package app.giaky.lineage.api.dto;
 
+import app.giaky.common.web.NullOrNotBlank;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -16,7 +17,7 @@ import jakarta.validation.constraints.Size;
  * @param version the version the client last read; a mismatch is {@code 409 VERSION_CONFLICT}
  */
 public record UpdatePersonRequest(
-        @Size(max = 200) String fullName,
+        @NullOrNotBlank @Size(max = 200) String fullName,
         @Size(max = 100) String familyName,
         @Size(max = 100) String givenName,
         @Size(max = 100) String alias,

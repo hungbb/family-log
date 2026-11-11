@@ -195,8 +195,14 @@ public class AuthService {
      *
      * <p>Re-reads the account rather than trusting the token: a session opened before a suspension
      * must not survive it.
+     *
+     * <p>A refusal commits what was written before it. {@code RefreshTokenService.rotate} revokes a
+     * replayed token's whole chain and then throws; this is the outermost transaction that call
+     * joins, so the rule has to be stated here as well or the revocation is rolled back with the
+     * rejection. It also means a suspended account's presented token stays rotated — spent — which
+     * is the outcome the sentence above asks for.
      */
-    @Transactional
+    @Transactional(noRollbackFor = AuthenticationRequiredException.class)
     public SessionTokens refresh(String rawRefreshToken, ClientContext client) {
         RefreshTokenService.Issued rotated = refreshTokenService.rotate(rawRefreshToken, client);
 

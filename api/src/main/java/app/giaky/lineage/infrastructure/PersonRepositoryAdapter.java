@@ -141,6 +141,19 @@ public class PersonRepositoryAdapter implements PersonRepository {
     }
 
     @Override
+    public List<Person> findLinkedTo(ClanId clanId, Collection<UserId> linkedUserIds) {
+        if (linkedUserIds.isEmpty()) {
+            // An empty IN list is a round trip to learn nothing.
+            return List.of();
+        }
+        return repository
+                .findByClanIdAndLinkedUserIdInAndDeletedAtIsNull(clanId, linkedUserIds)
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<Person> findAllByLinkedUser(UserId linkedUserId) {
         return repository.findByLinkedUserIdAndDeletedAtIsNull(linkedUserId).stream()
                 .map(mapper::toDomain)

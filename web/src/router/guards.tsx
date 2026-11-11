@@ -6,6 +6,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router';
 import { SplashScreen } from '../components/feedback/SplashScreen';
 import { useActiveClan } from '../hooks/useActiveClan';
 import { useAuth } from '../hooks/useAuth';
+import { returnPathOrHome } from '../lib/returnPath';
 
 /**
  * Keeps signed-out visitors out of the application (task F1.5).
@@ -37,14 +38,21 @@ export function RequireAuth() {
  *
  * Without it, the back button after signing in lands on a login form that would sign the same
  * person in again — confusing, and a needless second session.
+ *
+ * **It sends them where they were going, not always home.** This guard is also the first thing to
+ * react when somebody signs in: the session starts, this re-renders, and its redirect runs. It used
+ * to say `/` unconditionally, which overrode the login form's own navigation to the stashed path —
+ * so a deep link opened while signed out, or a page somebody had open when their session expired,
+ * came back as the clan's default page. Both now read the same state through `returnPathOrHome`.
  */
 export function RequireAnonymous() {
   const { isAuthenticated, isResolving } = useAuth();
+  const location = useLocation();
 
   if (isResolving) {
     return <SplashScreen />;
   }
-  return isAuthenticated ? <Navigate to="/" replace /> : <Outlet />;
+  return isAuthenticated ? <Navigate to={returnPathOrHome(location.state)} replace /> : <Outlet />;
 }
 
 /**

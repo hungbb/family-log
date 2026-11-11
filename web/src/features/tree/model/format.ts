@@ -15,11 +15,19 @@ import { type PartialDate, type PersonSummary } from '@/api/endpoints/persons.ts
  * Never invents the missing parts. "1901" stays "1901" rather than becoming "1 January 1901", and a
  * `circa` year is prefixed so nobody reads a recollection as a record. The âm lịch reading, when the
  * book has one, is appended verbatim — the product does not convert lunar dates (see `PartialDate`
- * on the server).
+ * on the server) — and when it is all the book has, it is shown on its own, marked as lunar.
  */
 export function formatPartialDate(date: PartialDate | undefined, t: TFunction): string | undefined {
-  if (date === undefined || date.precision === 'UNKNOWN' || date.year === undefined) {
+  if (date === undefined) {
     return undefined;
+  }
+  if (date.precision === 'UNKNOWN' || date.year === undefined) {
+    // No Gregorian reading — but the book may still say "giỗ ngày mồng 3 tháng Chạp", and for an
+    // ancestor whose year nobody remembers that is the whole of what is known. Showing nothing
+    // here is what made such a date look as if it had never been entered.
+    return date.lunarText === undefined || date.lunarText === ''
+      ? undefined
+      : t('tree.date.format.lunarOnly', { lunar: date.lunarText });
   }
 
   let base: string;

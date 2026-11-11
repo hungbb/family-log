@@ -397,6 +397,145 @@ class PermissionResolverTest {
         }
 
         @Test
+        @DisplayName("two grants, one endpoint each: access is the union of the grants (doc 04 §1.3)")
+        void edgeAcrossTwoGrants() {
+            ResolverFixture world = new ResolverFixture();
+            UserId editor = world.member();
+            BranchId root = world.rootBranch();
+            BranchId branchC = world.branchUnder(root);
+            BranchId branchD = world.branchUnder(root);
+            PermissionGrant onC =
+                    world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchC));
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchD));
+
+            Target.PersonTarget inC =
+                    new Target.PersonTarget(world.clanId, ResolverFixture.newId(), branchC);
+            Target.PersonTarget inD =
+                    new Target.PersonTarget(world.clanId, ResolverFixture.newId(), branchD);
+            // Each end is editable on its own…
+            assertThat(world.resolver.can(editor, Permission.TREE_EDIT, inC)).isTrue();
+            assertThat(world.resolver.can(editor, Permission.TREE_EDIT, inD)).isTrue();
+
+            AccessDecision decision =
+                    world.resolver.decide(
+                            editor,
+                            Permission.TREE_EDIT,
+                            Target.relationship(world.clanId, List.of(inC, inD)));
+
+            // …so the edge between them is, and the audit entry names the grant on the first end.
+            assertThat(decision.allowed()).isTrue();
+            assertThat(decision.authorizingGrantId()).isEqualTo(onC.id());
+        }
+
+        @Test
+        @DisplayName("…and a branch grant combines with a subtree grant the same way")
+        void edgeAcrossABranchAndASubtreeGrant() {
+            ResolverFixture world = new ResolverFixture();
+            UserId editor = world.member();
+            BranchId branchC = world.branchUnder(world.rootBranch());
+            UUID uncle = ResolverFixture.newId();
+            UUID son = ResolverFixture.newId();
+            world.enableAncestry();
+            world.descendants(uncle, son);
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchC));
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.subtree(uncle));
+
+            Target marriage =
+                    Target.relationship(
+                            world.clanId,
+                            List.of(
+                                    new Target.PersonTarget(world.clanId, son, null),
+                                    new Target.PersonTarget(
+                                            world.clanId, ResolverFixture.newId(), branchC)));
+
+            assertThat(world.resolver.can(editor, Permission.TREE_EDIT, marriage)).isTrue();
+        }
+
+        @Test
+        @DisplayName("an endpoint no grant covers still refuses the edge, however many are held")
+        void edgeLeavingEveryScope() {
+            ResolverFixture world = new ResolverFixture();
+            UserId editor = world.member();
+            BranchId root = world.rootBranch();
+            BranchId branchC = world.branchUnder(root);
+            BranchId branchD = world.branchUnder(root);
+            BranchId branchE = world.branchUnder(root);
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchC));
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchD));
+
+            AccessDecision decision =
+                    world.resolver.decide(
+                            editor,
+                            Permission.TREE_EDIT,
+                            Target.relationship(
+                                    world.clanId,
+                                    List.of(
+                                            new Target.PersonTarget(
+                                                    world.clanId, ResolverFixture.newId(), branchC),
+                                            new Target.PersonTarget(
+                                                    world.clanId, ResolverFixture.newId(), branchD),
+                                            new Target.PersonTarget(
+                                                    world.clanId, ResolverFixture.newId(), branchE))));
+
+            assertThat(decision.allowed())
+                    .as("a child attached to a marriage across C and D, but living in E")
+                    .isFalse();
+            assertThat(decision.reason()).isEqualTo(AccessDecision.DenialReason.OUT_OF_SCOPE);
+        }
+
+        @Test
+        @DisplayName("a grant of some other permission on the far end does not count")
+        void edgeNeedsThePermissionOnBothEnds() {
+            ResolverFixture world = new ResolverFixture();
+            UserId editor = world.member();
+            BranchId root = world.rootBranch();
+            BranchId branchC = world.branchUnder(root);
+            BranchId branchD = world.branchUnder(root);
+            world.grant(editor, Permission.TREE_EDIT, PermissionScope.branch(branchC));
+            world.grant(editor, Permission.MEMBER_APPROVE, PermissionScope.branch(branchD));
+
+            Target edge =
+                    Target.relationship(
+                            world.clanId,
+                            List.of(
+                                    new Target.PersonTarget(
+                                            world.clanId, ResolverFixture.newId(), branchC),
+                                    new Target.PersonTarget(
+                                            world.clanId, ResolverFixture.newId(), branchD)));
+
+            assertThat(world.resolver.can(editor, Permission.TREE_EDIT, edge))
+                    .as("approving members in D is not editing D")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("somebody holding nothing that edits is told so, not that they are out of scope")
+        void edgeWithoutThePermissionAtAll() {
+            ResolverFixture world = new ResolverFixture();
+            UserId viewer = world.member();
+            BranchId branchC = world.branchUnder(world.rootBranch());
+            world.grant(viewer, Permission.CLAN_VIEW, PermissionScope.clan());
+
+            AccessDecision decision =
+                    world.resolver.decide(
+                            viewer,
+                            Permission.TREE_EDIT,
+                            Target.relationship(
+                                    world.clanId,
+                                    List.of(
+                                            new Target.PersonTarget(
+                                                    world.clanId, ResolverFixture.newId(), branchC),
+                                            new Target.PersonTarget(
+                                                    world.clanId,
+                                                    ResolverFixture.newId(),
+                                                    branchC))));
+
+            assertThat(decision.allowed()).isFalse();
+            assertThat(decision.reason())
+                    .isEqualTo(AccessDecision.DenialReason.NO_SUCH_PERMISSION);
+        }
+
+        @Test
         @DisplayName("an edge spanning two clans cannot even be expressed")
         void edgeAcrossClansIsRejected() {
             ResolverFixture world = new ResolverFixture();
