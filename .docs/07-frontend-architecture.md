@@ -26,7 +26,7 @@
 | Dates | **dayjs** | Already an AntD peer dependency. |
 | Quality | **ESLint** (flat config) + **Prettier** + **typescript-eslint** | Custom rules enforce the constraints (§9). |
 
-> **No automated frontend test suite in v1.** No Vitest, Testing Library, MSW, or Playwright. Frontend correctness rests on TypeScript `strict`, the ESLint constraint rules, and manual verification against each phase's demo script. Backend keeps its full test suite (doc 09 §4). Automated frontend testing can be added later.
+> **Unit tests only on the frontend in v1.** Pure modules — formatting, validation, the tree model — are covered by **Vitest** unit tests in the `node` environment, run by `npm run verify` ([ADR 0005](adr/0005-frontend-unit-tests-with-vitest.md)). There is still no Testing Library, MSW, or Playwright: component and end-to-end behaviour rest on TypeScript `strict`, the ESLint constraint rules, and manual verification against each phase's demo script. Backend keeps its full test suite (doc 09 §4).
 
 ## 2. Project Structure
 

@@ -115,18 +115,19 @@ Automated testing in v1 is **backend-only**. The frontend has no automated test 
 | Architecture | ArchUnit | Layering, tenancy, `require(...)` coverage | Runs in the normal test task |
 | Performance | JMH / custom harness | Tree read, closure maintenance | Budgets asserted locally against the 5,000-node fixture (moves into CI when it lands) |
 
-### 4.3 Frontend verification (no automated suite in v1)
+### 4.3 Frontend verification (unit tests only in v1)
 
-There is no frontend test framework in v1 — no Vitest, Testing Library, MSW, or Playwright. Frontend quality is held up by:
+The frontend has unit tests and nothing heavier in v1: Vitest in the `node` environment ([ADR 0005](adr/0005-frontend-unit-tests-with-vitest.md)), no Testing Library, MSW, or Playwright. Frontend quality is held up by:
 
 | Layer | Approach |
 |-------|----------|
 | Types | TypeScript `strict` (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) — the primary safety net |
 | Static rules | ESLint constraint rules + Prettier + `tsc --noEmit`, warnings as errors |
+| Unit | Vitest, `*.test.ts` beside the module — pure logic only (formatting, validation, the tree model), translated with the real locale files |
 | Behaviour | Manual verification against each phase's demo script |
 | Accessibility | Manual keyboard + screen-reader checks and a browser axe extension on the tree page, list view, and forms |
 
-Pure, framework-agnostic logic (`buildGraph`, date/name formatting) is written to be easily testable so an automated frontend suite can be added later without restructuring.
+Pure, framework-agnostic logic (`buildGraph`, date/name formatting) is written to be testable without a DOM, which is what the unit suite covers. A decision buried in a component — where a redirect goes, whether a form may submit — is extracted into such a function when it needs a test. A fix for a frontend defect comes with a unit test that fails without it.
 
 ### 4.4 Coverage gates
 
