@@ -398,7 +398,7 @@
       "placeholder": "Áp dụng ở đâu?",
       "wholeClan": "Toàn dòng họ",
       "subtree": "Một người và con cháu",
-      "subtreeUnavailable": "Một người và con cháu — có khi gia phả đã dựng xong"
+      "subtreeUnavailable": "Một người và con cháu — chỉ người quản lý quyền của cả dòng họ mới trao được"
     },
     "column": {
       "holder": "Người giữ quyền",
