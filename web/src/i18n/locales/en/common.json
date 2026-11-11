@@ -575,13 +575,13 @@
       "circaLabel": "Approximate (khoảng)",
       "lunar": "Lunar date (âm lịch)",
       "lunarPlaceholder": "tháng 6 năm Quý Mùi",
-      "lunarNeedsPrecision": "Choose how much of the date is known before adding the lunar reading.",
       "format": {
         "range": "{{from}}–{{to}}",
         "exact": "{{day}}/{{month}}/{{year}}",
         "month": "{{month}}/{{year}}",
         "circa": "about {{date}}",
-        "withLunar": "{{date}} ({{lunar}})"
+        "withLunar": "{{date}} ({{lunar}})",
+        "lunarOnly": "{{lunar}} (lunar calendar)"
       }
     },
     "lifespan": {
