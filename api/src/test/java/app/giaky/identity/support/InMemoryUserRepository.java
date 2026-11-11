@@ -45,15 +45,15 @@ public final class InMemoryUserRepository implements UserRepository {
     }
 
     @Override
-    public List<UserId> searchIds(String query, int limit) {
+    public List<UserId> searchIdsAmong(String query, Collection<UserId> among) {
         String needle = query.toLowerCase(Locale.ROOT);
         return byId.values().stream()
+                .filter(user -> among.contains(user.id()))
                 .filter(
                         user ->
                                 user.displayName().toLowerCase(Locale.ROOT).contains(needle)
                                         || user.email().value().contains(needle))
                 .map(User::id)
-                .limit(limit)
                 .toList();
     }
 

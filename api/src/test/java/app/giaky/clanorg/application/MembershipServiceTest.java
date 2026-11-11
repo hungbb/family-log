@@ -123,6 +123,26 @@ class MembershipServiceTest {
     }
 
     @Test
+    @DisplayName("a common name finds every member, however many accounts elsewhere share it (#51)")
+    void searchIsNotCappedByAccountsOutsideTheClan() {
+        // Accounts first, so a platform-wide search ordered by name or by age would fill any cap
+        // with strangers before it reached this clan's member.
+        for (int i = 0; i < 250; i++) {
+            fixtures.newUser(String.format("Nguyễn Văn Khách %03d", i));
+        }
+        UserId latecomer = fixtures.newUser("Nguyễn Văn Út");
+        join(latecomer, null);
+
+        Paged<MemberView> page =
+                fixtures.membershipService.list(founder, clanId, "Nguyễn", null, 0, 20);
+
+        assertThat(page.content())
+                .extracting(MemberView::displayName)
+                .containsExactlyInAnyOrder("Nguyễn Văn An", "Nguyễn Văn Út");
+        assertThat(page.totalElements()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("a search that matches somebody in another clan returns nobody")
     void searchDoesNotLeakAcrossClans() {
         // The intersection is what makes this safe: Identity searches every account, and only the

@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,16 +33,15 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
     /**
      * The member-search lookup behind {@code UserDirectory.search}.
      *
-     * <p>{@code LIKE} on two columns rather than a full-text index: the result is intersected with
-     * one clan's memberships, so the query runs against a table whose growth is bounded by
-     * registrations rather than by tree size, and the {@code Pageable} caps it regardless.
+     * <p>{@code LIKE} on two columns rather than a full-text index: the primary-key filter narrows
+     * the rows to one clan's members first, so the pattern match runs over a clan, not the platform.
      */
     @Query(
             """
             select u.id from UserJpaEntity u
-            where lower(u.displayName) like lower(concat('%', :query, '%'))
-               or lower(u.email) like lower(concat('%', :query, '%'))
-            order by u.displayName asc
+            where u.id in :ids
+              and (lower(u.displayName) like lower(concat('%', :query, '%'))
+                   or lower(u.email) like lower(concat('%', :query, '%')))
             """)
-    List<UUID> searchIds(@Param("query") String query, Pageable pageable);
+    List<UUID> searchIdsAmong(@Param("query") String query, @Param("ids") Collection<UUID> ids);
 }

@@ -27,15 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserDirectory {
 
-    /**
-     * The cap on a name search.
-     *
-     * <p>The caller intersects the result with a clan's memberships, so a wide search costs the
-     * intersection, not the response. A hundred is far more than any clan has members, and it stops
-     * a one-character query from reading the whole account table.
-     */
-    public static final int MAX_SEARCH_RESULTS = 200;
-
     private final UserRepository users;
 
     public UserDirectory(UserRepository users) {
@@ -64,21 +55,28 @@ public class UserDirectory {
     }
 
     /**
-     * Accounts whose display name or address contains {@code query}.
+     * The accounts among {@code among} whose display name or address contains {@code query}.
+     *
+     * <p>Scoped to the candidates in the query itself rather than searched platform-wide and
+     * intersected afterwards. A platform-wide search needs a cap to stop a one-character query
+     * reading the whole account table, and a cap applied before the intersection silently drops
+     * members once enough accounts elsewhere share a common surname (#51). Scoped, the result is
+     * bounded by the candidates, so there is nothing to cap.
      *
      * <p>Deliberately not diacritic-insensitive yet: doc 05 §4.7 asks for that on the person search,
      * which gets a {@code tsvector} column in Phase 4. Matching it here would mean the same
      * treatment on {@code users.display_name}, which is a migration this phase does not need.
      *
-     * @return matching ids, capped at {@link #MAX_SEARCH_RESULTS}; empty for a blank query
+     * @param among the accounts to search, typically a clan's members
+     * @return the matching ids, in no particular order; empty for a blank query
      */
     @Transactional(readOnly = true)
-    public List<UserId> search(String query) {
+    public List<UserId> search(String query, Collection<UserId> among) {
         String trimmed = query == null ? "" : query.trim();
-        if (trimmed.isEmpty()) {
+        if (trimmed.isEmpty() || among.isEmpty()) {
             return List.of();
         }
-        return users.searchIds(trimmed, MAX_SEARCH_RESULTS);
+        return users.searchIdsAmong(trimmed, among);
     }
 
     /** The profile of one account, when the caller already knows it exists. */

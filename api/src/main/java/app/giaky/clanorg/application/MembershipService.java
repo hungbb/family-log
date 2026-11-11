@@ -113,7 +113,10 @@ public class MembershipService {
             active = active.stream().filter(m -> branchFilter.equals(m.homeBranchId())).toList();
         }
         if (search != null && !search.isBlank()) {
-            Set<UserId> matches = Set.copyOf(users.search(search));
+            // Searched among this clan's members, not platform-wide and intersected afterwards:
+            // the latter needs a cap, and a cap before the intersection drops members (#51).
+            List<UserId> candidates = active.stream().map(ClanMembership::userId).toList();
+            Set<UserId> matches = Set.copyOf(users.search(search, candidates));
             active = active.stream().filter(m -> matches.contains(m.userId())).toList();
         }
 
