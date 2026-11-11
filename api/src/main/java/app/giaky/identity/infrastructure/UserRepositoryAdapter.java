@@ -4,11 +4,11 @@ import app.giaky.common.types.UserId;
 import app.giaky.identity.domain.EmailAddress;
 import app.giaky.identity.domain.User;
 import app.giaky.identity.domain.UserRepository;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -19,6 +19,9 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public class UserRepositoryAdapter implements UserRepository {
+
+    /** Candidate ids per search statement, well inside PostgreSQL's bind-parameter limit. */
+    static final int SEARCH_SLICE = 1_000;
 
     private final UserJpaRepository repository;
     private final UserMapper mapper;
@@ -53,10 +56,16 @@ public class UserRepositoryAdapter implements UserRepository {
     }
 
     @Override
-    public List<UserId> searchIds(String query, int limit) {
-        return repository.searchIds(query, PageRequest.of(0, limit)).stream()
-                .map(UserId::of)
-                .toList();
+    public List<UserId> searchIdsAmong(String query, Collection<UserId> among) {
+        // In slices: PostgreSQL's wire protocol takes at most 32,767 bind parameters per statement,
+        // and a clan's roll has no cap of its own.
+        List<UUID> raw = among.stream().map(UserId::value).distinct().toList();
+        List<UserId> matches = new ArrayList<>();
+        for (int from = 0; from < raw.size(); from += SEARCH_SLICE) {
+            List<UUID> slice = raw.subList(from, Math.min(from + SEARCH_SLICE, raw.size()));
+            repository.searchIdsAmong(query, slice).stream().map(UserId::of).forEach(matches::add);
+        }
+        return matches;
     }
 
     @Override

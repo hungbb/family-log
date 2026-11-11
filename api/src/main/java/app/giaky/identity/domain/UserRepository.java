@@ -33,14 +33,14 @@ public interface UserRepository {
     List<User> findAllById(Collection<UserId> ids);
 
     /**
-     * Ids of accounts whose display name or address contains {@code query}, case-insensitively.
+     * Ids among {@code among} of accounts whose display name or address contains {@code query},
+     * case-insensitively.
      *
-     * <p>Returns ids rather than users because the caller intersects them with something else (a
-     * clan's memberships) before it needs anything else about them.
-     *
-     * @param limit hard cap on the result; a one-character query must not read the table
+     * <p>Returns ids rather than users because the caller filters something else (a clan's
+     * memberships) by them before it needs anything else about them. Bounded by {@code among}, so a
+     * one-character query reads no more than the candidates.
      */
-    List<UserId> searchIds(String query, int limit);
+    List<UserId> searchIdsAmong(String query, Collection<UserId> among);
 
     /** Inserts or updates, returning the stored state. */
     User save(User user);
