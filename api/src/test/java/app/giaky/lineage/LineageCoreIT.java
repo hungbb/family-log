@@ -159,6 +159,60 @@ class LineageCoreIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("attaching a child to a marriage names the man as father, and nobody as both parents")
+    void parentRolesOnAttach() throws Exception {
+        // The wife first: the smaller id, so she is stored as partner A, and her gender is not
+        // recorded — the case in which the attach route used to make her the father.
+        UUID wife = unplaced("Trần Thị Hoa", Map.of());
+        UUID husband = unplaced("Nguyễn Văn Hai", Map.of("gender", "MALE"));
+        UUID child = unplaced("Nguyễn Văn Con", Map.of());
+        JsonNode union =
+                body(
+                        as(
+                                        admin,
+                                        post("/api/v1/clans/" + clanId + "/unions"),
+                                        Map.of(
+                                                "partnerAId", husband.toString(),
+                                                "partnerBId", wife.toString(),
+                                                "unionType", "PRIMARY"))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.partnerAId").value(wife.toString()))
+                                .andReturn());
+
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/unions/" + union.get("id").asText() + "/children"),
+                        Map.of("personId", child.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.parentRole == 'FATHER')].parentPersonId").value(husband.toString()))
+                .andExpect(jsonPath("$[?(@.parentRole == 'MOTHER')].parentPersonId").value(wife.toString()));
+
+        // And the father cannot be entered a second time as an adoptive mother's slot is free.
+        UUID orphan = unplaced("Nguyễn Văn Út", Map.of());
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/parentages"),
+                        Map.of(
+                                "parentPersonId", husband.toString(),
+                                "childPersonId", orphan.toString(),
+                                "parentRole", "FATHER"))
+                .andExpect(status().isCreated());
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/parentages"),
+                        Map.of(
+                                "parentPersonId", husband.toString(),
+                                "childPersonId", orphan.toString(),
+                                "parentRole", "MOTHER"))
+                .andExpect(status().isConflict());
+    }
+
+    private UUID unplaced(String fullName, Map<String, Object> extras) throws Exception {
+        return UUID.fromString(createPerson(admin, clanId, fullName, extras).get("id").asText());
+    }
+
+    @Test
     @DisplayName("a duplicate union is refused with 409, in either order")
     void duplicateUnionIsRefused() throws Exception {
         UUID husband = foundingAncestor(admin, clanId, rootBranchId, "Nguyễn Phúc Tổ");
