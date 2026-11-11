@@ -419,6 +419,49 @@ public class ClaimService {
         return views;
     }
 
+    // --- collaborators inside the context ------------------------------------------------------
+
+    /**
+     * Closes every claim somebody still has open in a clan they are no longer a member of (I-K2).
+     *
+     * <p>Package-private and unguarded for the reason {@code GrantService.revokeAllFor} is: the only
+     * caller is {@link LinkLifecycleListener}, acting on a removal or a departure that was already
+     * authorized. Left open, these would sit in the approvers' inbox as questions with one possible
+     * answer — approving one is refused, because {@link PersonUserLinker} will not link a
+     * non-member (I-P5).
+     *
+     * <p>Cancelled rather than rejected. Nobody judged the claim; the person asking is simply no
+     * longer there to be answered, which is what a withdrawal is.
+     *
+     * @return how many claims were closed
+     */
+    int withdrawAllOf(ClanId clanId, UserId requester, UserId actor) {
+        List<NodeClaimRequest> open = claims.findPendingByRequester(clanId, requester);
+        Instant now = clock.instant();
+        for (NodeClaimRequest claim : open) {
+            claims.save(claim.cancel(now));
+            auditWriter.write(
+                    AuditRecord.inClan(
+                            AuditAction.CLAIM_DECIDED,
+                            clanId,
+                            AuditRecord.TARGET_CLAIM,
+                            claim.id(),
+                            actor));
+            events.publishEvent(
+                    new ClaimDecided(
+                            clanId,
+                            claim.id(),
+                            claim.personId(),
+                            nameOf(clanId, claim.personId()),
+                            requester,
+                            ClaimDecided.Outcome.CANCELLED,
+                            null,
+                            actor,
+                            now));
+        }
+        return open.size();
+    }
+
     // --- internals -----------------------------------------------------------------------------
 
     /**

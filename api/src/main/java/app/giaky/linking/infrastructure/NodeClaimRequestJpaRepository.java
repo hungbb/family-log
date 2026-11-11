@@ -22,6 +22,9 @@ public interface NodeClaimRequestJpaRepository extends JpaRepository<NodeClaimRe
     List<NodeClaimRequestJpaEntity> findByClanIdAndPersonIdAndStatus(
             ClanId clanId, PersonId personId, String status);
 
+    List<NodeClaimRequestJpaEntity> findByClanIdAndRequesterUserIdAndStatus(
+            ClanId clanId, UserId requesterUserId, String status);
+
     List<NodeClaimRequestJpaEntity> findByClanIdAndStatusOrderByCreatedAtDesc(
             ClanId clanId, String status, Pageable pageable);
 
