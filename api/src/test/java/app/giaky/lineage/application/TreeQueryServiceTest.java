@@ -6,6 +6,7 @@ import app.giaky.authorization.application.GrantCommand;
 import app.giaky.authorization.domain.Permission;
 import app.giaky.authorization.domain.Target;
 import app.giaky.clanorg.application.JoinRequestView;
+import app.giaky.clanorg.application.UpdateBranchCommand;
 import app.giaky.clanorg.application.SubmitJoinRequestCommand;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
@@ -312,6 +313,92 @@ class TreeQueryServiceTest {
         void stableAcrossReads() {
             assertThat(fixtures.treeQueryService.treeValidator(admin, clan))
                     .isEqualTo(fixtures.treeQueryService.treeValidator(admin, clan));
+        }
+
+        @Nested
+        @DisplayName("the branch block of the payload (#54)")
+        class BranchStructure {
+
+            @Test
+            @DisplayName("a rename changes the validator, with no lineage edit to move the version")
+            void renameChangesIt() {
+                BranchId chiHai = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Hai");
+                TreeQueryService.TreeValidator before =
+                        fixtures.treeQueryService.treeValidator(admin, clan);
+
+                rename(chiHai, "Chi Thứ Hai");
+
+                TreeQueryService.TreeValidator after =
+                        fixtures.treeQueryService.treeValidator(admin, clan);
+
+                assertThat(after.version())
+                        .as("nobody was born; the counter cannot see this")
+                        .isEqualTo(before.version());
+                assertThat(after.branchStructure()).isNotEqualTo(before.branchStructure());
+            }
+
+            @Test
+            @DisplayName("so does a new branch, a move, and a root person being assigned")
+            void everyBranchMutationChangesIt() {
+                BranchId chiHai = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Hai");
+                String afterCreate = structure();
+
+                BranchId chiBa = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Ba");
+                String afterSecondCreate = structure();
+                assertThat(afterSecondCreate).isNotEqualTo(afterCreate);
+
+                fixtures.clanOrg.branchService.move(admin, clan, chiBa, chiHai);
+                String afterMove = structure();
+                assertThat(afterMove)
+                        .as("the path and depth it carries both changed")
+                        .isNotEqualTo(afterSecondCreate);
+
+                fixtures.clanOrg.branchService.assignRootPerson(admin, clan, chiHai, doi2.value());
+                assertThat(structure())
+                        .as("rootPersonId is in the payload too")
+                        .isNotEqualTo(afterMove);
+            }
+
+            @Test
+            @DisplayName("the tag and the body are built from one mapping, so they cannot disagree")
+            void tagAndBodyAgree() {
+                BranchId chiHai = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Hai");
+                String before = structure();
+
+                rename(chiHai, "Chi Thứ Hai");
+
+                // The invariant worth having: the fingerprint moved *and* the payload really does
+                // carry the new name. A fingerprint over something the body does not contain would
+                // pass the test above and still be wrong.
+                assertThat(structure()).isNotEqualTo(before);
+                assertThat(fixtures.treeQueryService.tree(admin, clan, null, null).branches())
+                        .extracting(TreeView.TreeBranch::name)
+                        .contains("Chi Thứ Hai");
+            }
+
+            @Test
+            @DisplayName("a name carrying the separators cannot spell another branch's line")
+            void aNameCannotForgeALine() {
+                BranchId chiHai = fixtures.clanOrg.newBranch(admin, clan, null, "Chi Hai");
+                String honest = structure();
+
+                // The name is the one free-text field in the rendering, so it is the one that could
+                // smuggle a delimiter. It is length-prefixed and last for exactly this reason.
+                rename(chiHai, "Chi Hai;" + chiHai.value() + "|0|null|/forged/|1:z");
+
+                assertThat(structure()).isNotEqualTo(honest);
+            }
+
+            private void rename(BranchId branchId, String name) {
+                long version =
+                        fixtures.clanOrg.branchService.detail(admin, clan, branchId).version();
+                fixtures.clanOrg.branchService.update(
+                        admin, clan, branchId, new UpdateBranchCommand(name, null, version));
+            }
+
+            private String structure() {
+                return fixtures.treeQueryService.treeValidator(admin, clan).branchStructure();
+            }
         }
     }
 

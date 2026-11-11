@@ -206,12 +206,20 @@ One row per clan, created lazily on the clan's first lineage mutation.
 | `tree_version` | BIGINT | incremented by every lineage mutation |
 | `updated_at` | TIMESTAMPTZ | |
 
-Rendered into the `ETag` on tree reads (doc 05 §4.9), so an unchanged tree answers `304` after one
-indexed read rather than after assembling the payload. Only *into*: the counter identifies the
-clan's rows, which are the same for everybody, while the response's `canEdit` flags are the caller's
-own — so the tag is the counter plus the caller's `TREE_EDIT` scopes and the read's bounding
-parameters. A tag built on the counter alone answered `304` across callers and handed one member
-another's flags.
+Rendered into the `ETag` on tree reads (doc 05 §4.9), so an unchanged tree answers `304` after a
+handful of indexed reads rather than after assembling the payload. Only *into*, because the counter
+is narrower than the response in two directions. It identifies the clan's person rows, which are
+the same for everybody, while the `canEdit` flags are the caller's own; and it counts *lineage*
+mutations, while the payload also carries the clan's branches, which no lineage mutation touches.
+So the tag is the counter plus the caller's `TREE_EDIT` scopes, a fingerprint of the branch block,
+and the read's bounding parameters. On the counter alone it answered `304` across callers, handing
+one member another's flags, and across a branch rename, keeping the old names in every cache.
+
+The branch part is fingerprinted from the rows rather than counted by a `branch_version` beside this
+one. A counter has to be bumped by every branch mutation, and five of them already existed without
+bumping anything; a fingerprint over the same mapping the payload is built from cannot be forgotten.
+It also keeps the snapshot cache keyed on `tree_version` alone, so correcting a typo in a chi's name
+does not evict five thousand person rows.
 
 **Why not a column on `clans`.** `clans.version` is the aggregate's optimistic lock, and bumping it
 whenever somebody adds a cousin would answer a concurrent settings edit with `409 VERSION_CONFLICT`

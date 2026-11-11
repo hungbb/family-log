@@ -130,7 +130,8 @@ A method annotation on controllers resolved by a `HandlerInterceptor`/AOP aspect
 
 - Single flat fetch per clan (persons + parentages + unions + branches) using native queries, assembled in memory.
 - Applies the `EditableSet` to stamp `canEdit`.
-- Caches per (clanId, treeVersion) in Caffeine; `treeVersion` is a per-clan counter bumped on any lineage mutation, which also drives the HTTP `ETag`.
+- Caches per (clanId, treeVersion) in Caffeine; `treeVersion` is a per-clan counter bumped on any lineage mutation.
+- The HTTP `ETag` is that counter **plus** what the counter does not cover: the caller's `TREE_EDIT` scopes (`canEdit` is per caller), a fingerprint of the branch block (which no lineage mutation bumps), and the read's `rootPersonId`/`depth`. The cache key stays the counter alone — the rows it holds are the same for everybody, so a rename must not evict them.
 
 ### 4.4 `AncestryProjection` (lineage/infrastructure)
 
