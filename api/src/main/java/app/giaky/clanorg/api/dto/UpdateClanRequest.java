@@ -1,6 +1,7 @@
 package app.giaky.clanorg.api.dto;
 
 import app.giaky.clanorg.domain.Clan;
+import app.giaky.common.web.NullOrNotBlank;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -14,7 +15,7 @@ import java.util.UUID;
  * able to express a change.
  */
 public record UpdateClanRequest(
-        @Size(max = Clan.NAME_MAX_LENGTH) String name,
+        @NullOrNotBlank @Size(max = Clan.NAME_MAX_LENGTH) String name,
         @Size(max = Clan.DESCRIPTION_MAX_LENGTH) String description,
         @Size(max = Clan.ORIGIN_PLACE_MAX_LENGTH) String originPlace,
         UUID coverMediaId,

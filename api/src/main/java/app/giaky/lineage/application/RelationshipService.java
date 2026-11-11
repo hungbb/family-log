@@ -9,8 +9,10 @@ import app.giaky.common.audit.AuditRecord;
 import app.giaky.common.audit.AuditWriter;
 import app.giaky.common.error.DomainRuleViolation;
 import app.giaky.common.error.ErrorCode;
+import app.giaky.common.error.FieldViolation;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.types.ClanId;
+import app.giaky.common.types.PartialDate;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
 import app.giaky.lineage.application.event.ParentageAdded;
@@ -204,6 +206,8 @@ public class RelationshipService {
         Person partnerB = require(clanId, command.partnerBId());
         AccessDecision authorizing = requireEditOfAll(caller, clanId, partnerA, partnerB);
 
+        requireOrdered(command.startDate(), command.endDate());
+
         if (command.force() && !resolver.can(caller, Permission.CLAN_ADMIN, Target.clan(clanId))) {
             throw new DomainRuleViolation(
                     ErrorCode.INVALID_RELATIONSHIP,
@@ -256,6 +260,8 @@ public class RelationshipService {
         Person partnerA = require(clanId, union.partnerAId());
         Person partnerB = require(clanId, union.partnerBId());
         AccessDecision authorizing = requireEditOfAll(caller, clanId, partnerA, partnerB);
+
+        requireOrdered(command.startDate(), command.endDate());
 
         Instant now = clock.instant();
         String before = snapshots.of(union);
@@ -411,6 +417,22 @@ public class RelationshipService {
                         .toList();
         return resolver.require(
                 caller, Permission.TREE_EDIT, Target.relationship(clanId, endpoints));
+    }
+
+    /**
+     * A marriage cannot end before it began — {@link Union}'s own invariant, answered as {@code 422
+     * DATE_RANGE_INVALID} rather than as the {@code IllegalArgumentException} the record throws,
+     * which reached the client as a 500.
+     */
+    private static void requireOrdered(PartialDate startDate, PartialDate endDate) {
+        PartialDate start = startDate == null ? PartialDate.unknown() : startDate;
+        PartialDate end = endDate == null ? PartialDate.unknown() : endDate;
+        if (start.isCertainlyAfter(end)) {
+            throw new DomainRuleViolation(
+                    ErrorCode.DATE_RANGE_INVALID,
+                    "A marriage cannot end before it began.",
+                    List.of(new FieldViolation("endDate", "must not be before the start date")));
+        }
     }
 
     private static ParentRole roleOf(ParentRole requested, Person parent) {

@@ -98,14 +98,21 @@ class AccountIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("a blank display name is refused")
+    @DisplayName("a blank display name is refused — empty, or made of whitespace")
     void blankDisplayNameIsRejected() throws Exception {
-        mockMvc.perform(
-                        authorized(patch("/api/v1/me"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(Map.of("displayName", ""))))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.errors[0].field").value("displayName"));
+        // "   " used to get past @Size(min = 1) and be refused by the aggregate instead, which the
+        // client saw as 500 INTERNAL_ERROR.
+        for (String blank : new String[] {"", "   ", "\u3000"}) {
+            mockMvc.perform(
+                            authorized(patch("/api/v1/me"))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            objectMapper.writeValueAsString(
+                                                    Map.of("displayName", blank))))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                    .andExpect(jsonPath("$.errors[0].field").value("displayName"));
+        }
     }
 
     @Test
