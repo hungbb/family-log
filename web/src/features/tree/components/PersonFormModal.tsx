@@ -2,6 +2,7 @@ import { App as AntApp, Form, Input, InputNumber, Modal, Select } from 'antd';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { branchSelectOptions } from '@/api/endpoints/branches.ts';
 import {
   type Gender,
   type LifeStatus,
@@ -174,12 +175,7 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
             label={t('tree.form.branch')}
             rules={[{ required: true, message: t('tree.validation.branchRequired') }]}
           >
-            <Select
-              options={(branches ?? []).map((branch) => ({
-                value: branch.id,
-                label: branch.name,
-              }))}
-            />
+            <Select options={branchSelectOptions(branches ?? [])} />
           </Form.Item>
         )}
 
