@@ -3,6 +3,7 @@ import { App as AntApp, Alert, Button, Descriptions, Drawer, Skeleton, Space, Ta
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { branchNamesById } from '@/api/endpoints/branches.ts';
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
 import { AssignMemberDialog, SelfProfileForm, useUnlinkUser } from '@/features/claims';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
@@ -81,10 +82,12 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
     });
   };
 
+  // Through the whole hierarchy: the endpoint nests every chi under the root branch, and a
+  // top-level `find` told everybody outside the root that they belonged to no branch at all.
   const branchName =
     person?.branchId === undefined
       ? undefined
-      : (branches ?? []).find((branch) => branch.id === person.branchId)?.name;
+      : branchNamesById(branches ?? []).get(person.branchId);
 
   const onDelete = () => {
     if (person === undefined) return;
