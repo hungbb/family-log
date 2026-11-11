@@ -10,6 +10,10 @@ import { type Orientation } from '../model/layout';
  * store rather than in `TreeCanvas` is what lets the toolbar, the minimap and the keyboard handler
  * all drive the same viewport without threading a dozen callbacks through the canvas.
  *
+ * **Not the open person.** Which drawer is open is in the URL instead (`?person=`, see
+ * `router/paths.ts` and #48), because that one piece of view state has to be shareable, survive a
+ * reload and answer to the Back button. A copy here would be a second source of truth for it.
+ *
  * **Reset when the clan changes.** A viewport is a position in one family's tree and means nothing
  * in another's; a collapsed set is worse, because the ids do not exist there at all. `openClan`
  * clears everything unless it is the clan already open.
@@ -32,8 +36,6 @@ interface TreeViewState {
   collapsed: Set<string>;
   /** The slot the keyboard is on, and the one a click selects. */
   focusedSlotKey: string | null;
-  /** The person whose drawer is open, if any. */
-  openPersonId: string | null;
   /** Branch to light up; everything else dims. Null for no highlighting. */
   highlightBranchId: string | null;
 
@@ -45,7 +47,6 @@ interface TreeViewState {
   toggleCollapsed: (slotKey: string) => void;
   expandAll: () => void;
   focusSlot: (slotKey: string | null) => void;
-  openPerson: (personId: string | null) => void;
   highlightBranch: (branchId: string | null) => void;
 }
 
@@ -59,7 +60,6 @@ const INITIAL = {
   translate: { x: 0, y: 0 },
   collapsed: new Set<string>(),
   focusedSlotKey: null,
-  openPersonId: null,
   highlightBranchId: null,
 };
 
@@ -120,10 +120,6 @@ export const useTreeViewStore = create<TreeViewState>((set) => ({
 
   focusSlot: (focusedSlotKey) => {
     set({ focusedSlotKey });
-  },
-
-  openPerson: (openPersonId) => {
-    set({ openPersonId });
   },
 
   highlightBranch: (highlightBranchId) => {

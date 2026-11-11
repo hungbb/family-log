@@ -1,14 +1,14 @@
 import { Input, Select, Skeleton, Tag, Tooltip } from 'antd';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import { branchNamesById, branchSelectOptions } from '@/api/endpoints/branches.ts';
 import { type LifeStatus, type PersonSummary } from '@/api/endpoints/persons.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
+import { treePath } from '@/router/paths.ts';
 
 import { useBranches } from '../../branch';
-import { PersonDrawer } from '../components/PersonDrawer';
 import {
   FilterBar,
   Page,
@@ -34,10 +34,15 @@ const PAGE_SIZE = 20;
  *
  * The filters are the ones somebody actually narrows by when a surname returns forty rows: which
  * đời, which chi, living or not, and whether the node already belongs to somebody's account.
+ *
+ * **A result is a way into the tree, not a dead end.** FR-T5 asks results to deep-link into the
+ * tree, so a row navigates to `/clans/{clanId}/tree?person={personId}` (#48). Searching is how
+ * somebody finds a relative; what they wanted was to see where that relative sits in the family.
  */
 export function PersonSearchPage() {
   const { t } = useTranslation();
   const { clanId = '' } = useParams();
+  const navigate = useNavigate();
   const { data: branches } = useBranches(clanId);
 
   const [term, setTerm] = useState('');
@@ -46,7 +51,6 @@ export function PersonSearchPage() {
   const [branchId, setBranchId] = useState<string | undefined>(undefined);
   const [linked, setLinked] = useState<boolean | undefined>(undefined);
   const [page, setPage] = useState(0);
-  const [openPersonId, setOpenPersonId] = useState<string | null>(null);
 
   const filters = {
     ...(term === '' ? {} : { q: term }),
@@ -144,9 +148,13 @@ export function PersonSearchPage() {
           <TreeTable<PersonSummary>
             rowKey="id"
             dataSource={data?.content ?? []}
+            // FR-T5: a result deep-links *into the tree* rather than opening a drawer that this
+            // page has no URL for (#48). The row leaves the address bar holding something the
+            // reader can bookmark or send to a relative, and it lands them with the family drawn
+            // around the person instead of on a row in a table.
             onRow={(person) => ({
               onClick: () => {
-                setOpenPersonId(person.id);
+                void navigate(treePath(clanId, person.id));
               },
             })}
             pagination={{
@@ -210,15 +218,6 @@ export function PersonSearchPage() {
           />
         </Skeleton>
       </SectionCard>
-
-      <PersonDrawer
-        clanId={clanId}
-        personId={openPersonId}
-        onClose={() => {
-          setOpenPersonId(null);
-        }}
-        onOpenPerson={setOpenPersonId}
-      />
     </Page>
   );
 }

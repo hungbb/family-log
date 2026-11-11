@@ -5,15 +5,16 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Alert, App as AntApp, Button, Dropdown, Segmented, Skeleton, Statistic } from 'antd';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 
 import { type PersonSummary, type PlacementType } from '@/api/endpoints/persons.ts';
 import { FindYourselfBanner } from '@/features/claims';
 import { useActiveClan } from '@/hooks/useActiveClan.ts';
 import { useAuth } from '@/hooks/useAuth.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
+import { personIdIn, withPerson } from '@/router/paths.ts';
 
 import { type NodeAction } from '../components/canvas/PersonNode';
 import { CanvasFrame, CanvasOverlay, OverlayBody, OverlayTitle } from '../components/canvas/styles';
@@ -67,8 +68,22 @@ export function TreePage() {
   const mode = useTreeViewStore((state) => state.mode);
   const setMode = useTreeViewStore((state) => state.setMode);
   const openClan = useTreeViewStore((state) => state.openClan);
-  const openPersonId = useTreeViewStore((state) => state.openPersonId);
-  const openPerson = useTreeViewStore((state) => state.openPerson);
+
+  /**
+   * The open person lives in the URL, not in the view store (FR-T5, #48).
+   *
+   * That is what makes a card shareable and a reload harmless, and what puts Back in charge of
+   * closing the drawer. Opening pushes an entry; closing replaces it, so a drawer that has been
+   * closed leaves nothing behind for Back to re-open.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openPersonId = personIdIn(searchParams);
+  const openPerson = useCallback(
+    (personId: string | null) => {
+      setSearchParams((current) => withPerson(current, personId), { replace: personId === null });
+    },
+    [setSearchParams],
+  );
 
   const canvasRef = useRef<TreeCanvasHandle>(null);
   const [creating, setCreating] = useState<PersonFormMode | null>(null);
@@ -207,6 +222,7 @@ export function TreePage() {
               layout={layout}
               controlRef={canvasRef}
               {...(myPersonId === undefined ? {} : { myPersonId })}
+              {...(openPersonId === null ? {} : { focusPersonId: openPersonId })}
               onOpenPerson={openPerson}
               onNodeAction={onNodeAction}
             />
