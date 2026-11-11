@@ -333,10 +333,15 @@ class GrantServiceTest {
         void grantableMatchesWhatIsActuallyAllowed() {
             GrantableView offered = fixtures.grantService.grantable(editorC, clanId);
 
-            // True from Phase 4. Subtree scopes are not enumerated among the permissions below —
-            // a scope names a person and a clan has thousands — so this flag is how the dialog
-            // knows to offer a person search instead (F3.6, F4.2).
-            assertThat(offered.subtreeAvailable()).isTrue();
+            // Subtree scopes are not enumerated among the permissions below — a scope names a
+            // person and a clan has thousands — so this flag is how the dialog knows whether to
+            // offer a person search instead (F3.6, F4.2). A branch role manager is not offered it:
+            // grant() refuses them a subtree scope even inside their own chi, and the title of
+            // this test is a promise about exactly that.
+            assertThat(offered.subtreeAvailable()).isFalse();
+            assertThat(fixtures.grantService.grantable(admin, clanId).subtreeAvailable())
+                    .as("somebody who manages roles clan-wide can, and is offered it")
+                    .isTrue();
             assertThat(offered.permissions())
                     .extracting(GrantableView.GrantablePermission::permission)
                     .containsExactlyInAnyOrder("CLAN_VIEW", "TREE_EDIT", "ROLE_MANAGE");

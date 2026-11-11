@@ -14,10 +14,10 @@ import { FieldRow } from '../pages/styles';
  *
  * The subtree option is not one of those: a subtree scope names a person, and a clan has thousands
  * of them, so it cannot be enumerated alongside the branches. Choosing it reveals a person search
- * instead (see {@link GrantDialog}), and the server resolves whoever comes back. Before Phase 4 it
- * was present and disabled rather than absent — a picker that omitted it read as a product without
- * the feature — and {@code subtreeAvailable} still drives that state for a deployment without a
- * lineage schema.
+ * instead (see {@link GrantDialog}), and the server resolves whoever comes back. It is present and
+ * disabled rather than absent for somebody who cannot grant it — a branch role manager, whom the
+ * server refuses a person scope even inside their own chi — so the picker says who can, instead of
+ * offering a choice that ends in "escalation blocked".
  */
 interface ScopePickerProps {
   scopes: GrantableScope[];
