@@ -80,6 +80,29 @@ public record Parentage(
     }
 
     /**
+     * The same edge, no longer naming a marriage. The parent and the child stay linked; only the
+     * grouping under one particular union goes — what deleting that union means for an edge.
+     */
+    public Parentage withoutUnion(UserId actor, Instant now) {
+        if (unionId == null) {
+            return this;
+        }
+        return new Parentage(
+                id,
+                clanId,
+                parentPersonId,
+                childPersonId,
+                parentRole,
+                nature,
+                null,
+                createdBy,
+                actor,
+                createdAt,
+                now,
+                deletedAt);
+    }
+
+    /**
      * Removes the edge (soft).
      *
      * <p>Soft, so that the audit trail keeps the shape the tree used to have. Whoever repairs a

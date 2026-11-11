@@ -27,8 +27,13 @@ public interface ParentageRepository {
     /** The existing edge for this (child, role), if any. The pre-check behind I-R3's index. */
     Optional<Parentage> findEdge(ClanId clanId, PersonId childId, ParentRole role);
 
-    /** Live edges that were attached through a union — the guard on deleting one (doc 05 §4.8). */
-    long countByUnion(ClanId clanId, UUID unionId);
+    /**
+     * Live edges that were attached through a union — the guard on deleting one (doc 05 §4.8).
+     *
+     * <p>Includes edges whose child has since been soft-deleted: a person's edges outlive them so
+     * that a restore has nothing to rebuild, and the caller decides what those edges mean.
+     */
+    List<Parentage> findByUnion(ClanId clanId, UUID unionId);
 
     Parentage save(Parentage parentage);
 }

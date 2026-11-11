@@ -277,8 +277,36 @@ class RelationshipServiceTest {
                                     fixtures.relationshipService.deleteUnion(
                                             admin, clan, created.id()))
                     .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("1 child is recorded")
+                    .hasMessageContaining("Nguyễn Văn Con")
                     .extracting(error -> ((ApiException) error).code())
                     .isEqualTo(ErrorCode.INVALID_RELATIONSHIP);
+        }
+
+        @Test
+        @DisplayName(
+                "a removed child does not block deleting the marriage, and comes back to both"
+                        + " parents (#50)")
+        void deletingAUnionWhoseOnlyChildWasRemoved() {
+            PersonId husband = personIn(chiHai, "Nguyễn Văn Hai");
+            PersonId wife = personIn(chiHai, "Trần Thị Hoa", Gender.FEMALE);
+            UnionView created =
+                    fixtures.relationshipService.createUnion(
+                            admin, clan, union(husband, wife, UnionType.PRIMARY));
+            PersonId child = personIn(chiHai, "Nguyễn Văn Con");
+            fixtures.relationshipService.attachChildToUnion(admin, clan, created.id(), child);
+            fixtures.personService.softDelete(admin, clan, child);
+
+            fixtures.relationshipService.deleteUnion(admin, clan, created.id());
+
+            assertThat(fixtures.unions.findById(clan, created.id())).isEmpty();
+            assertThat(fixtures.parentages.findByUnion(clan, created.id())).isEmpty();
+
+            fixtures.personService.restore(admin, clan, child);
+            assertThat(fixtures.parentages.findByChild(clan, child))
+                    .allSatisfy(edge -> assertThat(edge.unionId()).isNull())
+                    .extracting(edge -> edge.parentPersonId())
+                    .containsExactlyInAnyOrder(husband, wife);
         }
 
         @Test

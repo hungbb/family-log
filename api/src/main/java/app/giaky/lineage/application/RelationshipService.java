@@ -32,7 +32,9 @@ import app.giaky.lineage.domain.UnionRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -298,6 +300,11 @@ public class RelationshipService {
      * naming a union that no longer exists — the children would stay in the tree, correctly, but the
      * fact that they belong to <i>this</i> wife rather than that one would be gone, and that is
      * precisely what a book with several wives is recording.
+     *
+     * <p>Only children still in the tree count. A soft-deleted child is invisible to every read
+     * (I-P7), so nobody can see — let alone detach — what would be blocking them (#50). Their edges
+     * to the partners stay, so restoring the child still restores their parents; they just stop
+     * naming the marriage, which no longer exists to be named.
      */
     @Transactional
     public void deleteUnion(UserId caller, ClanId clanId, UUID unionId) {
@@ -306,16 +313,43 @@ public class RelationshipService {
         Person partnerB = require(clanId, union.partnerBId());
         AccessDecision authorizing = requireEditOfAll(caller, clanId, partnerA, partnerB);
 
-        long attached = parentages.countByUnion(clanId, unionId);
-        if (attached > 0) {
+        List<Parentage> attached = parentages.findByUnion(clanId, unionId);
+        Set<PersonId> childIds =
+                attached.stream().map(Parentage::childPersonId).collect(Collectors.toSet());
+        List<Person> liveChildren = persons.findAllByIds(clanId, childIds);
+        if (!liveChildren.isEmpty()) {
+            String who =
+                    liveChildren.size() == 1
+                            ? "1 child is"
+                            : liveChildren.size() + " children are";
+            String names =
+                    liveChildren.stream()
+                            .map(Person::fullName)
+                            .sorted()
+                            .collect(Collectors.joining(", "));
             throw new DomainRuleViolation(
                     ErrorCode.INVALID_RELATIONSHIP,
-                    attached
-                            + " children are recorded as belonging to this marriage. Detach them"
-                            + " first if the record is wrong.");
+                    who
+                            + " recorded as belonging to this marriage ("
+                            + names
+                            + "). Detach them first if the record is wrong.");
         }
 
         Instant now = clock.instant();
+        for (Parentage edge : attached) {
+            String edgeBefore = snapshots.of(edge);
+            Parentage detached = parentages.save(edge.withoutUnion(caller, now));
+            auditWriter.write(
+                    AuditRecord.inClan(
+                                    AuditAction.PARENTAGE_DETACHED_FROM_UNION,
+                                    clanId,
+                                    AuditRecord.TARGET_PARENTAGE,
+                                    edge.id(),
+                                    caller)
+                            .withChange(edgeBefore, snapshots.of(detached))
+                            .authorizedBy(authorizing.authorizingGrantId()));
+        }
+
         String before = snapshots.of(union);
         Union removed = unions.save(union.remove(caller, now));
         treeVersions.bump(clanId);

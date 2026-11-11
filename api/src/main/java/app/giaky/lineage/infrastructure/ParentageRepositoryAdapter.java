@@ -68,8 +68,10 @@ public class ParentageRepositoryAdapter implements ParentageRepository {
     }
 
     @Override
-    public long countByUnion(ClanId clanId, UUID unionId) {
-        return repository.countByClanIdAndUnionIdAndDeletedAtIsNull(clanId, unionId);
+    public List<Parentage> findByUnion(ClanId clanId, UUID unionId) {
+        return repository.findByClanIdAndUnionIdAndDeletedAtIsNull(clanId, unionId).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override
