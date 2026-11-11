@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from 'node:url';
 
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   // @vitejs/plugin-react v6 transforms with oxc and no longer exposes a Babel pipeline, so
@@ -18,6 +18,16 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+  },
+  test: {
+    // Unit tests only, in plain Node (ADR 0005): the pure modules — formatting, validation, the
+    // tree model — need no DOM, and a suite that never boots a browser environment stays fast
+    // enough to sit inside `npm run verify`. A component test would need jsdom and Testing
+    // Library, which are still deferred.
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+    // A stray `.only` must not turn the gate into a single passing test.
+    allowOnly: false,
   },
   build: {
     outDir: 'dist',

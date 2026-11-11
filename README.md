@@ -157,10 +157,11 @@ everywhere.
 
 ```bash
 npm run dev               # Vite dev server on :5173
-npm run verify            # lint + constraint fixtures + tsc + build — run this before pushing
+npm run verify            # lint + constraint fixtures + tsc + unit tests + build — run this before pushing
 npm run lint              # eslint --max-warnings=0
 npm run lint:constraints  # proves ESLint still blocks Axios, Tailwind, .css imports, raw fetch
 npm run typecheck         # tsc --noEmit
+npm run test              # vitest run — unit tests (*.test.ts), plain Node, no DOM
 npm run format            # prettier --write .
 npm run build             # production bundle into dist/
 ```
@@ -350,9 +351,11 @@ guardrail that quietly stops working.
 
 ## Known gaps in this phase
 
-- **No CI, no Docker, no frontend test runner.** Deferred deliberately — see
-  [ADR 0001](.docs/adr/0001-defer-containerisation-and-ci.md). Until CI exists, `./mvnw verify` and
-  `npm run verify` are a convention, and the pre-commit hook is the only mechanical gate.
+- **No CI, no Docker; frontend tests are unit tests only.** Deferred deliberately — see
+  [ADR 0001](.docs/adr/0001-defer-containerisation-and-ci.md), and
+  [ADR 0005](.docs/adr/0005-frontend-unit-tests-with-vitest.md) for the Vitest unit suite that has
+  since been added. There are no component or end-to-end tests. Until CI exists, `./mvnw verify`
+  and `npm run verify` are a convention, and the pre-commit hook is the only mechanical gate.
 - **No email delivery.** Verification and reset tokens are logged and served by a `dev`-only
   endpoint. SMTP is Phase 8; in any profile that is neither `dev` nor `test`, a token is issued and
   discarded with a `WARN`, so nobody can complete verification there. That is deliberate and loud.
