@@ -66,6 +66,10 @@ public final class LinkingTestFixtures {
         linkPort = new LineagePersonLinkAdapter(gateway);
         memberPort = new ClanOrgClanMemberAdapter(lineage.clanOrg.clanDirectory);
         linker = new PersonUserLinker(linkPort, memberPort);
+        // The member list asks Linking who is already in the tree (doc 05 §4.5). MembershipService
+        // was built before this graph existed, so its port is pointed at the real answer here.
+        lineage.clanOrg.memberNodes.backedBy(
+                new app.giaky.linking.application.LinkedMemberNodes(gateway));
 
         claimService =
                 new ClaimService(
