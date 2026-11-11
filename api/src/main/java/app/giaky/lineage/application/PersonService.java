@@ -13,6 +13,7 @@ import app.giaky.common.audit.AuditWriter;
 import app.giaky.common.error.ConflictException;
 import app.giaky.common.error.DomainRuleViolation;
 import app.giaky.common.error.ErrorCode;
+import app.giaky.common.error.FieldViolation;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
 import app.giaky.common.types.BranchId;
@@ -203,6 +204,7 @@ public class PersonService {
         if (command.foundingAncestor()) {
             requireNoFoundingAncestorYet(clanId);
         }
+        requireCoherentDates(command.lifeStatus(), command.birth(), command.death());
 
         Instant now = clock.instant();
         NoteSanitizer.SanitizedNote note = sanitizer.sanitize(command.notesHtml());
@@ -437,9 +439,23 @@ public class PersonService {
                         ? new NoteSanitizer.SanitizedNote(person.notesHtml(), person.notesText())
                         : sanitizer.sanitize(command.notesHtml());
 
+        String fullName = pick(command.fullName(), person.name().fullName(), merge);
+        if (fullName == null || fullName.isBlank()) {
+            // Only PUT gets here with nothing: it replaces, so a body without a name is a request
+            // to clear it — and a person without a name is not a record (I-P1).
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "A person needs a name.",
+                    List.of(new FieldViolation("fullName", "must not be blank")));
+        }
+        LifeStatus lifeStatus = pick(command.lifeStatus(), person.lifeStatus(), merge);
+        PartialDate birth = pick(command.birth(), person.birth(), merge);
+        PartialDate death = pick(command.death(), person.death(), merge);
+        requireCoherentDates(lifeStatus, birth, death);
+
         PersonName name =
                 new PersonName(
-                        pick(command.fullName(), person.name().fullName(), merge),
+                        fullName,
                         pick(command.familyName(), person.name().familyName(), merge),
                         pick(command.givenName(), person.name().givenName(), merge),
                         pick(command.alias(), person.name().alias(), merge),
@@ -450,9 +466,9 @@ public class PersonService {
                         person.update(
                                 name,
                                 pick(command.gender(), person.gender(), merge),
-                                pick(command.lifeStatus(), person.lifeStatus(), merge),
-                                pick(command.birth(), person.birth(), merge),
-                                pick(command.death(), person.death(), merge),
+                                lifeStatus,
+                                birth,
+                                death,
                                 pick(command.burialPlace(), person.burialPlace(), merge),
                                 pick(command.birthOrder(), person.birthOrder(), merge),
                                 note.html(),
@@ -473,6 +489,39 @@ public class PersonService {
         events.publishEvent(new PersonUpdated(clanId, personId, caller, now));
 
         return assembleDetail(caller, clanId, updated);
+    }
+
+    /**
+     * I-P2 and I-P3, answered in the API's vocabulary before the aggregate has to refuse them.
+     *
+     * <p>{@link Person} enforces both itself, as it must. But an aggregate refuses by throwing
+     * {@code IllegalArgumentException} — right for a domain object, and wrong for a client to
+     * receive: it surfaced as {@code 500 INTERNAL_ERROR} for what is an ordinary slip on a form, a
+     * status changed to "living" with the date of death left in. The questions asked here are the
+     * value object's own ({@code isKnown}, {@code isCertainlyAfter}), so each rule still has one
+     * definition; this only decides what the refusal is called.
+     */
+    private static void requireCoherentDates(
+            LifeStatus lifeStatus, PartialDate birth, PartialDate death) {
+
+        PartialDate born = birth == null ? PartialDate.unknown() : birth;
+        PartialDate died = death == null ? PartialDate.unknown() : death;
+
+        if (lifeStatus == LifeStatus.ALIVE && died.isKnown()) {
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "Somebody recorded as living cannot have a date of death. Change the status,"
+                            + " or clear the date.",
+                    List.of(
+                            new FieldViolation(
+                                    "death", "a living person cannot have a date of death")));
+        }
+        if (born.isCertainlyAfter(died)) {
+            throw new DomainRuleViolation(
+                    ErrorCode.DATE_RANGE_INVALID,
+                    "The date of death is before the date of birth.",
+                    List.of(new FieldViolation("death", "must not be before the date of birth")));
+        }
     }
 
     /**

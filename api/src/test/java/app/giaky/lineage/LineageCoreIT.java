@@ -1,9 +1,11 @@
 package app.giaky.lineage;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -396,7 +398,97 @@ class LineageCoreIT extends LineageApiSupport {
                                 "birth", Map.of("year", 1968, "precision", "YEAR"),
                                 "death", Map.of("year", 1901, "precision", "YEAR"),
                                 "placement", placement("UNPLACED", null, null)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DATE_RANGE_INVALID"))
+                .andExpect(jsonPath("$.errors[0].field").value("death"));
+    }
+
+    @Test
+    @DisplayName("what the aggregates refuse is answered 422, on create and on every kind of edit")
+    void brokenInvariantsAreNotServerErrors() throws Exception {
+        String persons = "/api/v1/clans/" + clanId + "/persons";
+
+        // I-P3: recorded as living, with a date of death.
+        as(
+                        admin,
+                        post(persons),
+                        Map.of(
+                                "fullName", "Nguyễn Văn An",
+                                "lifeStatus", "ALIVE",
+                                "death", Map.of("year", 2001, "precision", "YEAR")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[0].field").value("death"));
+
+        JsonNode an =
+                createPerson(
+                        admin,
+                        clanId,
+                        "Nguyễn Văn An",
+                        Map.of(
+                                "lifeStatus", "DECEASED",
+                                "birth", Map.of("year", 1901, "precision", "YEAR")));
+        String anUrl = persons + "/" + an.get("id").asText();
+        long version = an.get("version").asLong();
+
+        // The same two rules against what is already stored, which only the service can see.
+        as(admin, patch(anUrl), Map.of("death", Map.of("year", 1890, "precision", "YEAR"), "version", version))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DATE_RANGE_INVALID"));
+        as(
+                        admin,
+                        patch(anUrl),
+                        Map.of(
+                                "lifeStatus", "ALIVE",
+                                "death", Map.of("year", 1968, "precision", "YEAR"),
+                                "version", version))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        // A name of spaces on PATCH, and no name at all on PUT — which replaces, so it clears.
+        as(admin, patch(anUrl), Map.of("fullName", "   ", "version", version))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].field").value("fullName"));
+        as(admin, put(anUrl), Map.of("alias", "Cụ An", "version", version))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].field").value("fullName"));
+
+        // None of that was applied.
+        as(admin, get(anUrl))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Nguyễn Văn An"))
+                .andExpect(jsonPath("$.version").value(version));
+
+        // A marriage that ends before it begins, recorded and then edited.
+        UUID wife = spouseOf(admin, clanId, UUID.fromString(an.get("id").asText()), "Trần Thị Bé", "FEMALE");
+        String unionId =
+                body(as(admin, get(anUrl)).andReturn()).get("unions").get(0).get("union").get("id").asText();
+        as(
+                        admin,
+                        patch("/api/v1/clans/" + clanId + "/unions/" + unionId),
+                        Map.of(
+                                "unionType", "PRIMARY",
+                                "startDate", Map.of("year", 1950, "precision", "YEAR"),
+                                "endDate", Map.of("year", 1940, "precision", "YEAR")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DATE_RANGE_INVALID"));
+        UUID second =
+                UUID.fromString(
+                        createPerson(admin, clanId, "Lê Thị Hai", Map.of("gender", "FEMALE"))
+                                .get("id")
+                                .asText());
+        as(
+                        admin,
+                        post("/api/v1/clans/" + clanId + "/unions"),
+                        Map.of(
+                                "partnerAId", an.get("id").asText(),
+                                "partnerBId", second.toString(),
+                                "unionType", "SECONDARY",
+                                "startDate", Map.of("year", 1950, "precision", "YEAR"),
+                                "endDate", Map.of("year", 1940, "precision", "YEAR")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DATE_RANGE_INVALID"));
+        assertThat(wife).isNotNull();
     }
 
     @Test
