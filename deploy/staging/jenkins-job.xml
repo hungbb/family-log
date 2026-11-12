@@ -2,12 +2,11 @@
 <!--
   Jenkins job "giaky-staging": pipeline from SCM, reading the Jenkinsfile at the repo root.
 
-  Create it (needs a Jenkins API token: user menu → Security → API Token):
-    curl -fsS -u "<user>:<api-token>" -H "Content-Type: application/xml" \
-      --data-binary @deploy/staging/jenkins-job.xml \
-      "http://192.168.1.100:8080/createItem?name=giaky-staging"
+  Create it by POSTing this file to http://192.168.1.100:8080/createItem?name=giaky-staging
+  (the exact curl command is in deploy/staging/README.md). Update it later by POSTing it to
+  http://192.168.1.100:8080/job/giaky-staging/config.xml.
 
-  Update it later: POST the same file to http://192.168.1.100:8080/job/giaky-staging/config.xml
+  No double hyphens anywhere in this comment: XML forbids them, and Jenkins rejects the file.
 -->
 <flow-definition plugin="workflow-job">
   <description>Gia Ký — build, test and deploy main to staging on this host (http://192.168.1.100:8081).</description>
