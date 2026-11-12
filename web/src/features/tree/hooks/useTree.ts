@@ -24,6 +24,8 @@ import {
 } from '@/api/endpoints/persons.ts';
 import { getTree, getTreeStats, type TreeQuery } from '@/api/endpoints/tree.ts';
 
+import { withMarriedInGenerations } from '../model/generation';
+
 /**
  * Lineage server state (doc 07 §5).
  *
@@ -50,6 +52,8 @@ export function useTree(clanId: string, query: TreeQuery = {}) {
   return useQuery({
     queryKey: treeQueryKey(clanId, query),
     queryFn: ({ signal }) => getTree(clanId, query, signal),
+    // A wife who married in is shown at her husband's đời rather than as unknown (#59).
+    select: withMarriedInGenerations,
     enabled: clanId !== '',
     staleTime: 30_000,
   });

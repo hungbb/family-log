@@ -9,8 +9,10 @@ import { formatCompactLifespan, formatGeneration, formatLifespan } from '../../m
 import { CARD, type LaidOutCard } from '../../model/layout';
 
 import {
+  ActionBridge,
   ActionButton,
   ActionLayer,
+  ActionStrip,
   AvatarCircle,
   AvatarInitials,
   BranchPill,
@@ -77,6 +79,10 @@ const ICON = {
 } as const;
 
 const ACTIONS: NodeAction[] = ['add-child', 'add-spouse', 'edit', 'delete'];
+
+/** Centre-to-centre distance between two action buttons, and the strip's padding around them. */
+const ACTION_SPACING = 26;
+const ACTION_PAD = 14;
 
 function PersonNodeComponent({
   card,
@@ -183,10 +189,28 @@ function PersonNodeComponent({
 
       {person.canEdit && (
         <ActionLayer transform={`translate(${card.width - 10}, -10)`}>
+          {/*
+            One solid strip under the buttons, reaching down into the card. Without it the gaps
+            between two icons — and between the icons and the card — belong to nothing, so the
+            pointer crossing them leaves the node and the whole bar vanished mid-reach (#59).
+          */}
+          <ActionBridge
+            x={-ACTION_SPACING * (ACTIONS.length - 1) - ACTION_PAD}
+            y={-ACTION_PAD}
+            width={ACTION_SPACING * (ACTIONS.length - 1) + ACTION_PAD * 2}
+            height={ACTION_PAD + 10 + 12}
+          />
+          <ActionStrip
+            x={-ACTION_SPACING * (ACTIONS.length - 1) - ACTION_PAD}
+            y={-ACTION_PAD}
+            width={ACTION_SPACING * (ACTIONS.length - 1) + ACTION_PAD * 2}
+            height={ACTION_PAD * 2}
+            rx={ACTION_PAD}
+          />
           {ACTIONS.map((action, index) => (
             <ActionButton
               key={action}
-              transform={`translate(${(index - ACTIONS.length + 1) * 24}, 0)`}
+              transform={`translate(${(index - ACTIONS.length + 1) * ACTION_SPACING}, 0)`}
               role="button"
               tabIndex={-1}
               aria-label={t(`tree.canvas.action.${action}`, { name: person.fullName })}

@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import {
   ParentEdgePath,
   RailLabel,
   RailLine,
+  StackPanel,
   UnionLine,
   VisuallyHidden,
 } from './styles';
@@ -159,12 +161,28 @@ export function TreeCanvas({
 
   // --- the frame's size, which every fit and every viewport calculation needs -------------------
 
+  // A resize — the window, or entering and leaving fullscreen — keeps whatever was in the middle of
+  // the frame in the middle of it. Re-fitting instead would throw away the zoom somebody chose.
+  const lastSizeRef = useRef({ width: 0, height: 0 });
   useEffect(() => {
     const frame = frameRef.current;
     if (frame === null) return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry === undefined) return;
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+      const last = lastSizeRef.current;
+      lastSizeRef.current = next;
+      if (last.width > 0 && last.height > 0) {
+        const view = useTreeViewStore.getState();
+        view.setViewport({
+          scale: view.scale,
+          translate: {
+            x: view.translate.x + (next.width - last.width) / 2,
+            y: view.translate.y + (next.height - last.height) / 2,
+          },
+        });
+      }
+      setSize(next);
     });
     observer.observe(frame);
     return () => {
@@ -272,7 +290,9 @@ export function TreeCanvas({
   // unplaced, or inside a collapsed branch — falls back to fitting rather than to the empty origin.
   const positionedFor = useRef<string | null>(null);
   useEffect(() => {
-    const signature = `${layout.orientation}:${layout.slots.length}:${size.width}x${size.height}`;
+    // Keyed on the orientation and the tree, never on the slot count or the frame size: collapsing a
+    // branch changes the first and fullscreen changes the second, and neither should re-fit (#59).
+    const signature = `${layout.orientation}:${layout.slots[0]?.key ?? ''}`;
     if (size.width === 0 || layout.slots.length === 0 || positionedFor.current === signature) {
       return;
     }
@@ -280,6 +300,40 @@ export function TreeCanvas({
     if (focusPersonId !== undefined && centreOnPerson(focusPersonId) !== null) return;
     fit();
   }, [layout, size, fit, centreOnPerson, focusPersonId]);
+
+  // --- collapsing without losing your place -------------------------------------------------------
+
+  /**
+   * Collapses or expands a slot, keeping that slot exactly where it was on screen.
+   *
+   * The tidy layout re-centres every parent over its remaining children, so without this the node
+   * somebody just clicked jumps sideways — on a wide clan, often off the screen entirely.
+   */
+  const pinnedRef = useRef<{ key: string; x: number; y: number } | null>(null);
+  const toggleAnchored = useCallback(
+    (slotKey: string) => {
+      const slot = layout.slots.find((candidate) => candidate.key === slotKey);
+      if (slot !== undefined) pinnedRef.current = { key: slotKey, x: slot.x, y: slot.y };
+      toggleCollapsed(slotKey);
+    },
+    [layout.slots, toggleCollapsed],
+  );
+
+  useLayoutEffect(() => {
+    const pinned = pinnedRef.current;
+    if (pinned === null) return;
+    pinnedRef.current = null;
+    const slot = layout.slots.find((candidate) => candidate.key === pinned.key);
+    if (slot === undefined) return;
+    const view = useTreeViewStore.getState();
+    view.setViewport({
+      scale: view.scale,
+      translate: {
+        x: view.translate.x - (slot.x - pinned.x) * view.scale,
+        y: view.translate.y - (slot.y - pinned.y) * view.scale,
+      },
+    });
+  }, [layout]);
 
   // --- pan and zoom ------------------------------------------------------------------------------
 
@@ -425,7 +479,9 @@ export function TreeCanvas({
       }
       case ' ':
         event.preventDefault();
-        if ((nav.childrenOf.get(current) ?? []).length > 0) toggleCollapsed(current);
+        if ((nav.childrenOf.get(current) ?? []).length > 0 || collapsed.has(current)) {
+          toggleAnchored(current);
+        }
         return;
       case '+':
         event.preventDefault();
@@ -487,6 +543,28 @@ export function TreeCanvas({
             );
           })}
 
+          {layout.stacks.map((stack) =>
+            intersects(
+              {
+                minX: stack.x,
+                minY: stack.y,
+                maxX: stack.x + stack.width,
+                maxY: stack.y + stack.height,
+              },
+              viewport,
+              margin,
+            ) ? (
+              <StackPanel
+                key={stack.key}
+                x={stack.x}
+                y={stack.y}
+                width={stack.width}
+                height={stack.height}
+                rx={12}
+              />
+            ) : null,
+          )}
+
           {layout.edges.map((edge) =>
             visibleSlotKeys.has(edge.childSlotKey) ? (
               <ParentEdgePath
@@ -543,12 +621,12 @@ export function TreeCanvas({
                   )}
                   onClick={(event) => {
                     event.stopPropagation();
-                    toggleCollapsed(slot.key);
+                    toggleAnchored(slot.key);
                   }}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
-                    toggleCollapsed(slot.key);
+                    toggleAnchored(slot.key);
                   }}
                 >
                   <title>

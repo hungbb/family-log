@@ -38,6 +38,14 @@ interface TreeViewState {
   focusedSlotKey: string | null;
   /** Branch to light up; everything else dims. Null for no highlighting. */
   highlightBranchId: string | null;
+  /** The toolbar and canvas fill the whole window. */
+  fullscreen: boolean;
+  /**
+   * The "show N generations" choice the collapsed set was last built from, or null for all.
+   * Collapsing or expanding by hand afterwards adjusts the set without clearing this — the limit
+   * is the starting point somebody chose, not a rule the canvas keeps enforcing.
+   */
+  generationLimit: number | null;
 
   openClan: (clanId: string) => void;
   setMode: (mode: ViewMode) => void;
@@ -46,8 +54,11 @@ interface TreeViewState {
   zoomBy: (factor: number, origin?: { x: number; y: number }) => void;
   toggleCollapsed: (slotKey: string) => void;
   expandAll: () => void;
+  /** Shows `levels` generations by replacing the collapsed set; null clears the limit. */
+  limitGenerations: (levels: number | null, collapsed: Set<string>) => void;
   focusSlot: (slotKey: string | null) => void;
   highlightBranch: (branchId: string | null) => void;
+  setFullscreen: (fullscreen: boolean) => void;
 }
 
 /** Far enough out to see a five-thousand-person clan, far enough in to read a lunar date. */
@@ -61,6 +72,8 @@ const INITIAL = {
   collapsed: new Set<string>(),
   focusedSlotKey: null,
   highlightBranchId: null,
+  fullscreen: false,
+  generationLimit: null,
 };
 
 export const useTreeViewStore = create<TreeViewState>((set) => ({
@@ -115,7 +128,11 @@ export const useTreeViewStore = create<TreeViewState>((set) => ({
   },
 
   expandAll: () => {
-    set({ collapsed: new Set<string>() });
+    set({ collapsed: new Set<string>(), generationLimit: null });
+  },
+
+  limitGenerations: (generationLimit, collapsed) => {
+    set({ generationLimit, collapsed });
   },
 
   focusSlot: (focusedSlotKey) => {
@@ -124,6 +141,10 @@ export const useTreeViewStore = create<TreeViewState>((set) => ({
 
   highlightBranch: (highlightBranchId) => {
     set({ highlightBranchId });
+  },
+
+  setFullscreen: (fullscreen) => {
+    set({ fullscreen });
   },
 }));
 

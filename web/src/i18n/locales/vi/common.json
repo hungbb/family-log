@@ -676,6 +676,12 @@
       "zoomIn": "Phóng to",
       "zoomOut": "Thu nhỏ",
       "fit": "Vừa màn hình",
+      "fullscreen": "Toàn màn hình",
+      "exitFullscreen": "Thoát toàn màn hình",
+      "generations": "Số đời hiển thị",
+      "generationsAll": "Tất cả các đời",
+      "generationsShown_one": "{{count}} đời",
+      "generationsShown_other": "{{count}} đời",
       "collapse": "Thu gọn nhánh của {{name}}",
       "expand": "Mở lại nhánh của {{name}}",
       "action": {

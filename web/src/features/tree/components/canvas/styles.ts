@@ -12,7 +12,8 @@ import styled, { css } from 'styled-components';
 export const CanvasFrame = styled.div`
   position: relative;
   overflow: hidden;
-  height: min(72vh, 820px);
+  /* Tall enough to see a few generations of a large clan without going fullscreen. */
+  height: clamp(420px, calc(100vh - 220px), 1100px);
   border: 1px solid ${({ theme }) => theme.color.border};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.color.surfaceAlt};
@@ -82,6 +83,14 @@ export const UnionLine = styled.line<{ $secondary: boolean; $dimmed: boolean }>`
       stroke-dasharray: 4 3;
     `}
   opacity: ${({ $dimmed }) => ($dimmed ? 0.25 : 1)};
+`;
+
+/** The faint panel behind a stack of siblings, so the columns read as one family (#59). */
+export const StackPanel = styled.rect`
+  fill: ${({ theme }) => theme.color.surfaceSunken};
+  fill-opacity: 0.6;
+  stroke: ${({ theme }) => theme.color.border};
+  stroke-dasharray: 3 4;
 `;
 
 /** The whole card, including its rail, avatar and text. */
@@ -178,17 +187,43 @@ export const BranchPillText = styled.text<{ $highlighted: boolean }>`
   font-weight: ${({ theme }) => theme.fontWeight.medium};
 `;
 
-/** The hover actions on an editable node (F5.11). Hidden until the slot is hovered or focused. */
+/**
+ * The hover actions on an editable node (F5.11). Hidden until the slot is hovered or focused.
+ *
+ * **Slow to leave, quick to arrive.** Hiding waits a moment before it starts: a hand moving from the
+ * card to an icon, or from one icon to the next, overshoots by a few pixels all the time, and a bar
+ * that disappears the instant the pointer slips is a bar nobody can use. While it is fading it is
+ * still visible and still clickable, and coming back onto it cancels the fade. `visibility` rather
+ * than `pointer-events` is what makes that work — it switches at the end of the delay, not the start.
+ */
 export const ActionLayer = styled.g`
   opacity: 0;
-  pointer-events: none;
-  transition: opacity ${({ theme }) => theme.motion.fast};
+  visibility: hidden;
+  transition:
+    opacity 160ms ease 350ms,
+    visibility 0s linear 510ms;
 
   ${NodeGroup}:hover &,
   ${NodeGroup}:focus-within & {
     opacity: 1;
-    pointer-events: auto;
+    visibility: visible;
+    transition:
+      opacity 120ms ease 0s,
+      visibility 0s linear 0s;
   }
+`;
+
+/** The pill the action buttons sit on. */
+export const ActionStrip = styled.rect`
+  fill: ${({ theme }) => theme.color.surface};
+  stroke: ${({ theme }) => theme.color.border};
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 12%));
+`;
+
+/** Invisible, but hit-testable: joins the strip to the card so the pointer never falls through. */
+export const ActionBridge = styled.rect`
+  fill: transparent;
+  pointer-events: all;
 `;
 
 export const ActionButton = styled.g`
@@ -246,6 +281,37 @@ export const CollapsedCount = styled.text`
 `;
 
 // --- chrome around the canvas ------------------------------------------------------------------
+
+/**
+ * The toolbar and the canvas together — the part that goes fullscreen (#59).
+ *
+ * Fullscreen is a fixed layer over the page rather than the browser's element fullscreen on its own:
+ * a fullscreened element hides everything outside it, and the person drawer, the forms and every
+ * dropdown are portalled to `<body>`, so clicking a card would open a drawer nobody could see. The
+ * layer sits under AntD's popups (z-index 1000) and over the app shell, and the page asks the
+ * browser for document fullscreen on top of it where that is available.
+ */
+export const TreeStage = styled.div<{ $fullscreen: boolean }>`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space(2)};
+
+  ${({ $fullscreen, theme }) =>
+    $fullscreen &&
+    css`
+      position: fixed;
+      inset: 0;
+      z-index: ${theme.z.drawer};
+      padding: ${theme.space(3)};
+      background: ${theme.color.surfaceSunken};
+
+      ${CanvasFrame} {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+      }
+    `}
+`;
 
 export const ToolbarBar = styled.div`
   display: flex;

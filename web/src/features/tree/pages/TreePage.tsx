@@ -17,7 +17,13 @@ import { toMessage } from '@/lib/apiErrors.ts';
 import { personIdIn, withPerson } from '@/router/paths.ts';
 
 import { type NodeAction } from '../components/canvas/PersonNode';
-import { CanvasFrame, CanvasOverlay, OverlayBody, OverlayTitle } from '../components/canvas/styles';
+import {
+  CanvasFrame,
+  CanvasOverlay,
+  OverlayBody,
+  OverlayTitle,
+  TreeStage,
+} from '../components/canvas/styles';
 import { TreeCanvas, type TreeCanvasHandle } from '../components/canvas/TreeCanvas';
 import { TreeToolbar } from '../components/canvas/TreeToolbar';
 import { PersonDrawer } from '../components/PersonDrawer';
@@ -34,6 +40,7 @@ import {
 import { TreeListView } from '../components/TreeListView';
 import { useDeletedPersons, useRestorePerson, useTree, useTreeStats } from '../hooks/useTree';
 import { useTreeLayout } from '../hooks/useTreeLayout';
+import { collapsedBeyond, levelCount } from '../model/depth';
 import { useTreeViewStore } from '../stores/useTreeViewStore';
 
 /**
@@ -68,6 +75,10 @@ export function TreePage() {
   const mode = useTreeViewStore((state) => state.mode);
   const setMode = useTreeViewStore((state) => state.setMode);
   const openClan = useTreeViewStore((state) => state.openClan);
+  const fullscreen = useTreeViewStore((state) => state.fullscreen);
+  const setFullscreen = useTreeViewStore((state) => state.setFullscreen);
+
+  useFullscreen(fullscreen && mode === 'canvas', setFullscreen);
 
   /**
    * The open person lives in the URL, not in the view store (FR-T5, #48).
@@ -95,6 +106,25 @@ export function TreePage() {
   }, [clanId, openClan]);
 
   const { graph, layout } = useTreeLayout(tree);
+
+  // "Show N generations" (#59): rebuild the collapsed set from the graph, then fit once the new
+  // layout is on screen — the effect runs after the canvas has re-rendered, so `fit` sees it.
+  const limitGenerations = useTreeViewStore((state) => state.limitGenerations);
+  const levels = useMemo(() => (graph === null ? 0 : levelCount(graph.roots)), [graph]);
+  const fitPendingRef = useRef(false);
+  const onLimitGenerations = useCallback(
+    (limit: number | null) => {
+      if (graph === null) return;
+      limitGenerations(limit, limit === null ? new Set() : collapsedBeyond(graph.roots, limit));
+      fitPendingRef.current = true;
+    },
+    [graph, limitGenerations],
+  );
+  useEffect(() => {
+    if (!fitPendingRef.current) return;
+    fitPendingRef.current = false;
+    canvasRef.current?.fit();
+  }, [layout]);
 
   /** The node linked to the signed-in account, if there is one — what "find me" jumps to. */
   const myPersonId = useMemo(
@@ -202,7 +232,7 @@ export function TreePage() {
       <FindYourselfBanner clanId={clanId} />
 
       {mode === 'canvas' ? (
-        <>
+        <TreeStage $fullscreen={fullscreen}>
           <TreeToolbar
             persons={tree?.persons ?? []}
             branches={tree?.branches ?? []}
@@ -214,6 +244,8 @@ export function TreePage() {
             onFit={() => {
               canvasRef.current?.fit();
             }}
+            levels={levels}
+            onLimitGenerations={onLimitGenerations}
           />
 
           {graph !== null && !isEmpty ? (
@@ -254,7 +286,7 @@ export function TreePage() {
               </CanvasOverlay>
             </CanvasFrame>
           )}
-        </>
+        </TreeStage>
       ) : (
         <SectionCard>
           {isEmpty && (
@@ -324,5 +356,68 @@ export function TreePage() {
         />
       )}
     </Page>
+  );
+}
+
+/**
+ * Keeps the fullscreen layer and the browser's own fullscreen in step (#59).
+ *
+ * Entering asks for document fullscreen — the whole page, not the stage, so the drawer and the
+ * dropdowns portalled to `<body>` stay visible — and leaving gives it back. Leaving the browser's
+ * fullscreen by its own means (Esc, F11) leaves the layer too. Where the API is missing (iOS Safari)
+ * the layer works on its own and Esc closes it. Page scroll is locked while it is up, and leaving
+ * the page always leaves fullscreen, so the next visit does not open into it.
+ */
+function useFullscreen(active: boolean, setFullscreen: (fullscreen: boolean) => void) {
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    const native = typeof root.requestFullscreen === 'function' && document.fullscreenEnabled;
+    let entered = false;
+
+    if (native && document.fullscreenElement === null) {
+      root
+        .requestFullscreen()
+        .then(() => {
+          entered = true;
+        })
+        .catch(() => {
+          // Refused (not from a user gesture, or blocked by policy): the layer still works.
+        });
+    }
+
+    const onChange = () => {
+      if (document.fullscreenElement === null && entered) setFullscreen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      // With native fullscreen the browser owns Esc and `onChange` handles it.
+      // An Esc that closes a drawer, a form or a dropdown is not also a request to leave fullscreen.
+      const inPopup =
+        event.target instanceof Element &&
+        event.target.closest('.ant-drawer, .ant-modal-wrap, .ant-select-dropdown') !== null;
+      if (event.key === 'Escape' && !entered && !inPopup) setFullscreen(false);
+    };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('keydown', onKey);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+      if (document.fullscreenElement !== null) {
+        document.exitFullscreen().catch(() => {
+          // Already left by the browser's own means; nothing to undo.
+        });
+      }
+    };
+  }, [active, setFullscreen]);
+
+  useEffect(
+    () => () => {
+      setFullscreen(false);
+    },
+    [setFullscreen],
   );
 }
