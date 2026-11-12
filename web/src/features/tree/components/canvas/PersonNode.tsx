@@ -192,7 +192,7 @@ function PersonNodeComponent({
           {/*
             One solid strip under the buttons, reaching down into the card. Without it the gaps
             between two icons — and between the icons and the card — belong to nothing, so the
-            pointer crossing them leaves the node and the whole bar vanished mid-reach (#59).
+            pointer crossing them leaves the node and the whole bar vanished mid-reach (#60).
           */}
           <ActionBridge
             x={-ACTION_SPACING * (ACTIONS.length - 1) - ACTION_PAD}

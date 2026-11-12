@@ -52,7 +52,7 @@ export function useTree(clanId: string, query: TreeQuery = {}) {
   return useQuery({
     queryKey: treeQueryKey(clanId, query),
     queryFn: ({ signal }) => getTree(clanId, query, signal),
-    // A wife who married in is shown at her husband's đời rather than as unknown (#59).
+    // A wife who married in is shown at her husband's đời rather than as unknown (#60).
     select: withMarriedInGenerations,
     enabled: clanId !== '',
     staleTime: 30_000,

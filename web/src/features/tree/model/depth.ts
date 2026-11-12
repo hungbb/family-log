@@ -3,7 +3,7 @@ import { type CoupleNode } from './buildGraph';
 /**
  * Generations as the canvas draws them: levels below the roots, counted from 1.
  *
- * Used by "show N generations" (#59). It counts levels of the laid-out tree rather than recorded
+ * Used by "show N generations" (#60). It counts levels of the laid-out tree rather than recorded
  * *đời*, because what it controls is how deep the picture goes — and a fragment attached halfway
  * down has a *đời* that says nothing about how many levels sit above it on screen.
  */

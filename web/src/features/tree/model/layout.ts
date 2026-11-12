@@ -53,7 +53,7 @@ const FOREST_KEY = '__forest__';
 const COUSIN_SPREAD = 1.35;
 
 /**
- * Stacking a large family (#59).
+ * Stacking a large family (#60).
  *
  * A couple with a dozen children laid out in one row makes the whole tree as wide as that row, and
  * most of those children are usually leaves — young, unmarried, or simply without recorded

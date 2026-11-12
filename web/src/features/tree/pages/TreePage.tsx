@@ -107,7 +107,7 @@ export function TreePage() {
 
   const { graph, layout } = useTreeLayout(tree);
 
-  // "Show N generations" (#59): rebuild the collapsed set from the graph, then fit once the new
+  // "Show N generations" (#60): rebuild the collapsed set from the graph, then fit once the new
   // layout is on screen — the effect runs after the canvas has re-rendered, so `fit` sees it.
   const limitGenerations = useTreeViewStore((state) => state.limitGenerations);
   const levels = useMemo(() => (graph === null ? 0 : levelCount(graph.roots)), [graph]);
@@ -360,7 +360,7 @@ export function TreePage() {
 }
 
 /**
- * Keeps the fullscreen layer and the browser's own fullscreen in step (#59).
+ * Keeps the fullscreen layer and the browser's own fullscreen in step (#60).
  *
  * Entering asks for document fullscreen — the whole page, not the stage, so the drawer and the
  * dropdowns portalled to `<body>` stay visible — and leaving gives it back. Leaving the browser's

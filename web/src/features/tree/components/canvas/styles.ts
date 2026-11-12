@@ -85,7 +85,7 @@ export const UnionLine = styled.line<{ $secondary: boolean; $dimmed: boolean }>`
   opacity: ${({ $dimmed }) => ($dimmed ? 0.25 : 1)};
 `;
 
-/** The faint panel behind a stack of siblings, so the columns read as one family (#59). */
+/** The faint panel behind a stack of siblings, so the columns read as one family (#60). */
 export const StackPanel = styled.rect`
   fill: ${({ theme }) => theme.color.surfaceSunken};
   fill-opacity: 0.6;
@@ -283,7 +283,7 @@ export const CollapsedCount = styled.text`
 // --- chrome around the canvas ------------------------------------------------------------------
 
 /**
- * The toolbar and the canvas together — the part that goes fullscreen (#59).
+ * The toolbar and the canvas together — the part that goes fullscreen (#60).
  *
  * Fullscreen is a fixed layer over the page rather than the browser's element fullscreen on its own:
  * a fullscreened element hides everything outside it, and the person drawer, the forms and every

@@ -291,7 +291,7 @@ export function TreeCanvas({
   const positionedFor = useRef<string | null>(null);
   useEffect(() => {
     // Keyed on the orientation and the tree, never on the slot count or the frame size: collapsing a
-    // branch changes the first and fullscreen changes the second, and neither should re-fit (#59).
+    // branch changes the first and fullscreen changes the second, and neither should re-fit (#60).
     const signature = `${layout.orientation}:${layout.slots[0]?.key ?? ''}`;
     if (size.width === 0 || layout.slots.length === 0 || positionedFor.current === signature) {
       return;
