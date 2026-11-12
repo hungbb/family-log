@@ -679,6 +679,12 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "fit": "Fit to screen",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen",
+      "generations": "Generations to show",
+      "generationsAll": "All generations",
+      "generationsShown_one": "{{count}} generation",
+      "generationsShown_other": "{{count}} generations",
       "collapse": "Collapse the branch below {{name}}",
       "expand": "Expand the branch below {{name}}",
       "action": {

@@ -19,7 +19,12 @@ import { MiniMapFrame, MiniMapNode, MiniMapSurface, MiniMapViewport } from './st
 /** Below this many slots, the canvas is its own overview. */
 export const MINIMAP_THRESHOLD = 40;
 
-const SIZE = { width: 168, height: 120, padding: 6 } as const;
+/**
+ * The map's box. Its shape follows the tree's: a clan that is twenty times wider than it is deep
+ * would otherwise be a thin line across a mostly empty box, which is exactly the clan that needs
+ * the map most.
+ */
+const SIZE = { maxWidth: 260, maxHeight: 160, minSide: 56, padding: 6 } as const;
 
 interface MiniMapProps {
   layout: TreeLayout;
@@ -37,8 +42,21 @@ function MiniMapComponent({ layout, viewport, highlightBranchId, onJumpTo }: Min
 
   const treeWidth = Math.max(1, bounds.maxX - bounds.minX);
   const treeHeight = Math.max(1, bounds.maxY - bounds.minY);
-  const inner = { width: SIZE.width - SIZE.padding * 2, height: SIZE.height - SIZE.padding * 2 };
-  const scale = Math.min(inner.width / treeWidth, inner.height / treeHeight);
+  const scale = Math.min(
+    (SIZE.maxWidth - SIZE.padding * 2) / treeWidth,
+    (SIZE.maxHeight - SIZE.padding * 2) / treeHeight,
+  );
+  const width = Math.max(SIZE.minSide, treeWidth * scale + SIZE.padding * 2);
+  const height = Math.max(SIZE.minSide, treeHeight * scale + SIZE.padding * 2);
+
+  // Click to jump, or hold and drag to steer the viewport across the map.
+  const jumpFrom = (event: React.PointerEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    onJumpTo({
+      x: bounds.minX + (event.clientX - box.left - SIZE.padding) / scale,
+      y: bounds.minY + (event.clientY - box.top - SIZE.padding) / scale,
+    });
+  };
 
   const toMap = (x: number, y: number) => ({
     x: SIZE.padding + (x - bounds.minX) * scale,
@@ -50,16 +68,22 @@ function MiniMapComponent({ layout, viewport, highlightBranchId, onJumpTo }: Min
   return (
     <MiniMapFrame>
       <MiniMapSurface
-        width={SIZE.width}
-        height={SIZE.height}
+        width={width}
+        height={height}
         role="img"
         aria-label={t('tree.canvas.minimap')}
-        onClick={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          onJumpTo({
-            x: bounds.minX + (event.clientX - box.left - SIZE.padding) / scale,
-            y: bounds.minY + (event.clientY - box.top - SIZE.padding) / scale,
-          });
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          jumpFrom(event);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) jumpFrom(event);
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
         }}
       >
         {layout.slots.map((slot) => {

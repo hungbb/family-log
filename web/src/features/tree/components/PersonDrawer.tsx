@@ -13,6 +13,7 @@ import { toMessage } from '@/lib/apiErrors.ts';
 import { useBranches } from '../../branch';
 import { useDeletePerson, usePerson } from '../hooks/useTree';
 import { formatGeneration, formatLifespan, parentLabel, spouseLabel } from '../model/format';
+import { generationThroughMarriage } from '../model/generation';
 
 import { PersonFormModal, type PersonFormMode } from './PersonFormModal';
 import { RelationshipEditor } from './RelationshipEditor';
@@ -163,7 +164,7 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
 
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label={t('tree.field.generation')}>
-                {formatGeneration(person.generation, t)}
+                {formatGeneration(generationThroughMarriage(person, person.unions), t)}
               </Descriptions.Item>
               <Descriptions.Item label={t('tree.field.gender')}>
                 {t(`tree.gender.${person.gender}`)}

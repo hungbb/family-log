@@ -3,6 +3,8 @@ import {
   ColumnWidthOutlined,
   CompressOutlined,
   ExpandOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
   MinusOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
@@ -39,6 +41,10 @@ interface TreeToolbarProps {
   myPersonId?: string;
   onJumpToPerson: (personId: string) => void;
   onFit: () => void;
+  /** Levels in the fully expanded tree; the "show N generations" choices run up to it. */
+  levels: number;
+  /** Show this many generations, or all of them for null. */
+  onLimitGenerations: (levels: number | null) => void;
   disabled: boolean;
 }
 
@@ -48,6 +54,8 @@ export function TreeToolbar({
   myPersonId,
   onJumpToPerson,
   onFit,
+  levels,
+  onLimitGenerations,
   disabled,
 }: TreeToolbarProps) {
   const { t } = useTranslation();
@@ -60,6 +68,21 @@ export function TreeToolbar({
   const highlightBranch = useTreeViewStore((state) => state.highlightBranch);
   const collapsed = useTreeViewStore((state) => state.collapsed);
   const expandAll = useTreeViewStore((state) => state.expandAll);
+  const fullscreen = useTreeViewStore((state) => state.fullscreen);
+  const setFullscreen = useTreeViewStore((state) => state.setFullscreen);
+  const generationLimit = useTreeViewStore((state) => state.generationLimit);
+
+  // "All", then every depth short of the full tree — showing all N levels is the same as "All".
+  const generationOptions = useMemo(
+    () => [
+      { value: 0, label: t('tree.canvas.generationsAll') },
+      ...Array.from({ length: Math.max(0, levels - 1) }, (_, index) => ({
+        value: index + 1,
+        label: t('tree.canvas.generationsShown', { count: index + 1 }),
+      })),
+    ],
+    [levels, t],
+  );
 
   const searchOptions = useMemo(
     () =>
@@ -125,6 +148,17 @@ export function TreeToolbar({
 
       <ToolbarSpacer />
 
+      <Select<number, { value: number; label: string }>
+        value={generationLimit ?? 0}
+        disabled={disabled || levels < 2}
+        options={generationOptions}
+        popupMatchSelectWidth={false}
+        onChange={(value) => {
+          onLimitGenerations(value === 0 ? null : value);
+        }}
+        aria-label={t('tree.canvas.generations')}
+      />
+
       {collapsed.size > 0 && (
         <Button type="link" onClick={expandAll}>
           {t('tree.canvas.expandAll', { hidden: collapsed.size })}
@@ -172,6 +206,17 @@ export function TreeToolbar({
           />
         </Tooltip>
       </Space.Compact>
+
+      <Tooltip title={t(fullscreen ? 'tree.canvas.exitFullscreen' : 'tree.canvas.fullscreen')}>
+        <Button
+          icon={fullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+          aria-label={t(fullscreen ? 'tree.canvas.exitFullscreen' : 'tree.canvas.fullscreen')}
+          aria-pressed={fullscreen}
+          onClick={() => {
+            setFullscreen(!fullscreen);
+          }}
+        />
+      </Tooltip>
     </ToolbarBar>
   );
 }

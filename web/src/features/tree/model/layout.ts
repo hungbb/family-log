@@ -52,6 +52,67 @@ const FOREST_KEY = '__forest__';
 /** Cousins are pushed apart harder than brothers, so a branch reads as a branch. */
 const COUSIN_SPREAD = 1.35;
 
+/**
+ * Stacking a large family (#60).
+ *
+ * A couple with a dozen children laid out in one row makes the whole tree as wide as that row, and
+ * most of those children are usually leaves — young, unmarried, or simply without recorded
+ * descendants. So when one family has at least `STACK_MIN` children with nothing drawn below them,
+ * those children are set in a few columns under their parents instead of in the row. Children who
+ * have families of their own stay in the row, because their subtrees need the room beneath them.
+ *
+ * In the layout a stack is one wide node followed by a chain of invisible nodes, one per level it
+ * reaches down into, so the tidy layout keeps every other branch out of the space it occupies.
+ */
+const STACK_MIN = 5;
+
+const STACK = {
+  /** Between two rows of a stack: room for a collapse handle and its count under a card. */
+  rowGap: 40,
+  /** Space before each column for the trunk and the short connector into each card. */
+  lead: 18,
+  /** How far the panel behind a stack reaches past its cards. */
+  inset: 10,
+} as const;
+
+interface Stack {
+  key: string;
+  /** Members by column, top to bottom. */
+  columns: CoupleNode[][];
+  /** Each column's width along the sibling axis, including its lead. */
+  widths: number[];
+  /** The whole stack's width along the sibling axis. */
+  extent: number;
+  /** How many layout levels the stack reaches down into. */
+  levels: number;
+}
+
+/** A layout node: a real slot, or one level of a stack. */
+type Item =
+  | { kind: 'slot'; key: string; node: CoupleNode }
+  | { kind: 'stack'; key: string; part: number; stack: Stack };
+
+/** Axis-space coordinates of the connector into one stacked child. */
+interface StackRoute {
+  /** The along position of the column's trunk. */
+  trunk: number;
+  /** Where the card begins along the sibling axis. */
+  enter: number;
+  /** The card's middle on the depth axis. */
+  middle: number;
+  /** Where the stack begins on the depth axis. */
+  top: number;
+}
+
+/** The panel behind one stack, so a stack reads as one family. */
+export interface LaidOutStack {
+  key: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface LaidOutCard {
   personId: string;
   person: PersonSummary;
@@ -117,6 +178,7 @@ export interface TreeLayout {
   slots: LaidOutSlot[];
   unions: LaidOutUnion[];
   edges: LaidOutParentEdge[];
+  stacks: LaidOutStack[];
   rails: GenerationRail[];
   bounds: TreeBounds;
   /** Slot key by person id, so a search hit resolves to something on the canvas. */
@@ -127,6 +189,8 @@ export interface LayoutOptions {
   orientation: Orientation;
   /** Slots whose descendants are hidden. The slot itself still renders. */
   collapsed: ReadonlySet<string>;
+  /** Stack a large family's childless children into columns. On unless turned off. */
+  stacking?: boolean;
 }
 
 /**
@@ -138,7 +202,7 @@ export interface LayoutOptions {
  * stacking them at the origin.
  */
 export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLayout {
-  const { orientation, collapsed } = options;
+  const { orientation, collapsed, stacking = true } = options;
   const along = orientation === 'vertical' ? CARD.width : CARD.height;
   const depth = orientation === 'vertical' ? CARD.height : CARD.width;
 
@@ -147,6 +211,7 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
     slots: [],
     unions: [],
     edges: [],
+    stacks: [],
     rails: [],
     bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
     slotOfPerson: new Map(),
@@ -169,62 +234,137 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
       ? 0
       : slotWidthInCards(node) * along + (slotWidthInCards(node) - 1) * GAP.spouse;
 
-  const root = hierarchy<CoupleNode>(forest, (node) =>
-    node.key !== FOREST_KEY && collapsed.has(node.key) ? [] : node.children,
-  );
+  const levelStep = depth + GAP.generation;
+  const isLeaf = (node: CoupleNode) => node.children.length === 0 || collapsed.has(node.key);
+
+  const stackOf = (members: CoupleNode[], key: string): Stack => {
+    // Taller than wide: a card is much wider than it is deep, so two columns of four take less room
+    // than four columns of two and still read as a list.
+    const columnCount = Math.min(members.length, Math.ceil(Math.sqrt(members.length / 2)));
+    const rows = Math.ceil(members.length / columnCount);
+    const columns: CoupleNode[][] = [];
+    for (let column = 0; column < columnCount; column += 1) {
+      columns.push(members.slice(column * rows, (column + 1) * rows));
+    }
+    const widths = columns.map(
+      (column) => STACK.lead + Math.max(...column.map((member) => slotExtent(member))),
+    );
+    const extent = widths.reduce((sum, width) => sum + width, 0) + (columnCount - 1) * GAP.sibling;
+    const stackDepth = rows * depth + (rows - 1) * STACK.rowGap;
+    return {
+      key,
+      columns,
+      widths,
+      extent,
+      // Every level the stack reaches into is reserved, including the band where the next
+      // generation's connectors run, so no cousin's line is ever drawn through it.
+      levels: Math.max(1, Math.ceil((stackDepth + GAP.generation) / levelStep)),
+    };
+  };
+
+  const childrenOf = (item: Item): Item[] => {
+    if (item.kind === 'stack') {
+      const part = item.part + 1;
+      return part < item.stack.levels
+        ? [{ kind: 'stack', key: `${item.stack.key}#${String(part)}`, part, stack: item.stack }]
+        : [];
+    }
+    const node = item.node;
+    if (node.key === FOREST_KEY) {
+      return node.children.map((child) => ({ kind: 'slot', key: child.key, node: child }));
+    }
+    if (collapsed.has(node.key)) return [];
+
+    // Children grouped by the family they hang from, in the order the families are held. Within a
+    // family the childless children are stacked when there are enough of them to make the row too
+    // wide; the ones with families of their own stay in the row, in book order, before the stack.
+    const items: Item[] = [];
+    let index = 0;
+    while (index < node.children.length) {
+      const family = node.children[index]?.viaFamilyKey;
+      const group: CoupleNode[] = [];
+      for (
+        let child = node.children[index];
+        child !== undefined && child.viaFamilyKey === family;
+        child = node.children[index]
+      ) {
+        group.push(child);
+        index += 1;
+      }
+      const leaves = group.filter(isLeaf);
+      if (stacking && leaves.length >= STACK_MIN) {
+        for (const child of group) {
+          if (!isLeaf(child)) items.push({ kind: 'slot', key: child.key, node: child });
+        }
+        const key = `${node.key}:stack:${family ?? ''}`;
+        items.push({ kind: 'stack', key, part: 0, stack: stackOf(leaves, key) });
+      } else {
+        for (const child of group) items.push({ kind: 'slot', key: child.key, node: child });
+      }
+    }
+    return items;
+  };
+
+  const extentOf = (item: Item) =>
+    item.kind === 'stack' ? item.stack.extent : slotExtent(item.node);
+
+  const root = hierarchy<Item>({ kind: 'slot', key: FOREST_KEY, node: forest }, childrenOf);
 
   const step = along + GAP.sibling;
-  const laid = tidyTree<CoupleNode>()
-    .nodeSize([step, depth + GAP.generation])
+  const laid = tidyTree<Item>()
+    .nodeSize([step, levelStep])
     .separation((a, b) => {
-      const needed = (slotExtent(a.data) + slotExtent(b.data)) / 2 + GAP.sibling;
+      const needed = (extentOf(a.data) + extentOf(b.data)) / 2 + GAP.sibling;
       return (needed / step) * (a.parent === b.parent ? 1 : COUSIN_SPREAD);
     })(root);
 
   const slots: LaidOutSlot[] = [];
   const unions: LaidOutUnion[] = [];
   const edges: LaidOutParentEdge[] = [];
+  const stacks: LaidOutStack[] = [];
   const slotOfPerson = new Map<string, string>();
   /** Where a family's connector leaves its slot, keyed by family key. */
   const descentPoints = new Map<string, { x: number; y: number }>();
+  /** How a stacked child is reached: down a trunk beside its column and in from the side. */
+  const stackRoutes = new Map<string, StackRoute>();
 
-  laid.each((point: HierarchyPointNode<CoupleNode>) => {
-    if (point.data.key === FOREST_KEY) return;
+  const toPoint = (alongPos: number, depthPos: number): Point =>
+    orientation === 'vertical' ? { x: alongPos, y: depthPos } : { x: depthPos, y: alongPos };
 
-    // The synthetic root occupies depth 0, so every real slot is one deeper than its generation.
-    const depthIndex = point.depth - 1;
-    const extent = slotExtent(point.data);
-    const people = peopleInSlot(point.data);
-
-    const cards: LaidOutCard[] = people.map((person, index) => {
-      const offset = -extent / 2 + index * (along + GAP.spouse);
-      const alongPos = point.x + offset;
-      const depthPos = point.y - (depth + GAP.generation);
+  /** Places one slot whose leading edge is at `alongStart` and whose cards start at `depthPos`. */
+  const placeSlot = (
+    node: CoupleNode,
+    alongStart: number,
+    depthPos: number,
+    depthIndex: number,
+  ) => {
+    const cards: LaidOutCard[] = peopleInSlot(node).map((person, index) => {
+      const at = toPoint(alongStart + index * (along + GAP.spouse), depthPos);
       return {
         personId: person.id,
         person,
-        slotKey: point.data.key,
+        slotKey: node.key,
         role: index === 0 ? 'anchor' : 'spouse',
-        x: orientation === 'vertical' ? alongPos : depthPos,
-        y: orientation === 'vertical' ? depthPos : alongPos,
+        x: at.x,
+        y: at.y,
         width: CARD.width,
         height: CARD.height,
       };
     });
 
-    for (const card of cards) slotOfPerson.set(card.personId, point.data.key);
+    for (const card of cards) slotOfPerson.set(card.personId, node.key);
 
     const box = boundsOf(cards);
     slots.push({
-      key: point.data.key,
-      node: point.data,
+      key: node.key,
+      node,
       cards,
       x: box.minX,
       y: box.minY,
       width: box.maxX - box.minX,
       height: box.maxY - box.minY,
       depth: depthIndex,
-      collapsed: collapsed.has(point.data.key) && point.data.children.length > 0,
+      collapsed: collapsed.has(node.key) && node.children.length > 0,
     });
 
     // A family's connector leaves from the gap between the two cards it joins; a family with no
@@ -233,7 +373,7 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
     if (anchorCard === undefined) return;
 
     let spouseIndex = 0;
-    for (const family of point.data.families) {
+    for (const family of node.families) {
       if (family.spouse === undefined) {
         descentPoints.set(family.key, bottomCentre(anchorCard, orientation));
         continue;
@@ -249,6 +389,52 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
       });
       descentPoints.set(family.key, midpointBetween(left, right, orientation));
     }
+  };
+
+  laid.each((point: HierarchyPointNode<Item>) => {
+    const item = point.data;
+    if (item.key === FOREST_KEY) return;
+
+    // The synthetic root occupies depth 0, so every real slot is one deeper than its generation.
+    const depthIndex = point.depth - 1;
+    const depthPos = point.y - levelStep;
+
+    if (item.kind === 'slot') {
+      placeSlot(item.node, point.x - slotExtent(item.node) / 2, depthPos, depthIndex);
+      return;
+    }
+    // The chain below a stack only reserves room; the stack itself is placed from its first level.
+    if (item.part !== 0) return;
+
+    // Columns side by side, each read top to bottom, each with a trunk down its leading edge that
+    // the connectors run along.
+    const { stack } = item;
+    let columnStart = point.x - stack.extent / 2;
+    let deepest = depthPos;
+    stack.columns.forEach((column, columnIndex) => {
+      column.forEach((member, row) => {
+        const rowDepth = depthPos + row * (depth + STACK.rowGap);
+        placeSlot(member, columnStart + STACK.lead, rowDepth, depthIndex);
+        stackRoutes.set(member.key, {
+          trunk: columnStart + STACK.lead / 2,
+          enter: columnStart + STACK.lead,
+          middle: rowDepth + depth / 2,
+          top: depthPos,
+        });
+        deepest = Math.max(deepest, rowDepth + depth);
+      });
+      columnStart += (stack.widths[columnIndex] ?? 0) + GAP.sibling;
+    });
+
+    const from = toPoint(point.x - stack.extent / 2 - STACK.inset, depthPos - STACK.inset);
+    const to = toPoint(point.x + stack.extent / 2 + STACK.inset, deepest + STACK.inset);
+    stacks.push({
+      key: stack.key,
+      x: Math.min(from.x, to.x),
+      y: Math.min(from.y, to.y),
+      width: Math.abs(to.x - from.x),
+      height: Math.abs(to.y - from.y),
+    });
   });
 
   // Connectors are built after every slot has a position, because an edge needs both ends.
@@ -260,9 +446,13 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
         child.viaFamilyKey === undefined ? undefined : descentPoints.get(child.viaFamilyKey);
       const into = target?.cards[0];
       if (from === undefined || into === undefined) continue;
+      const route = stackRoutes.get(child.key);
       edges.push({
         key: `${slot.key}->${child.key}`,
-        path: elbow(from, topCentre(into, orientation), orientation),
+        path:
+          route === undefined
+            ? elbow(from, topCentre(into, orientation), orientation)
+            : stackElbow(from, route, orientation),
         nature: child.nature ?? 'BIOLOGICAL',
         childSlotKey: child.key,
       });
@@ -274,6 +464,7 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
     slots,
     unions,
     edges,
+    stacks,
     rails: railsOf(slots, orientation),
     bounds: boundsOf(slots.flatMap((slot) => slot.cards)),
     slotOfPerson,
@@ -379,6 +570,28 @@ function elbow(from: Point, to: Point, orientation: Orientation): string {
 }
 
 /**
+ * The connector into a stacked child: down from the parents to the turn, across to the column's
+ * trunk, down the trunk, and in from the side. Every child in a column shares the trunk, so the
+ * column reads as one family hanging from one line.
+ */
+function stackElbow(from: Point, route: StackRoute, orientation: Orientation): string {
+  const fromAlong = orientation === 'vertical' ? from.x : from.y;
+  const fromDepth = orientation === 'vertical' ? from.y : from.x;
+  const turn = fromDepth + (route.top - fromDepth) / 2;
+  const at = (alongPos: number, depthPos: number) =>
+    orientation === 'vertical'
+      ? `${String(alongPos)} ${String(depthPos)}`
+      : `${String(depthPos)} ${String(alongPos)}`;
+  return [
+    `M ${at(fromAlong, fromDepth)}`,
+    `L ${at(fromAlong, turn)}`,
+    `L ${at(route.trunk, turn)}`,
+    `L ${at(route.trunk, route.middle)}`,
+    `L ${at(route.enter, route.middle)}`,
+  ].join(' ');
+}
+
+/**
  * One rail per layout depth, labelled with the *đời* the people on it actually carry.
  *
  * Labelled from the data rather than from the depth, because the two are not the same number: a
@@ -401,7 +614,7 @@ function railsOf(slots: LaidOutSlot[], orientation: Orientation): GenerationRail
     byDepth.set(slot.depth, rail);
   }
 
-  return [...byDepth.entries()]
+  const rails = [...byDepth.entries()]
     .sort((left, right) => left[0] - right[0])
     .map(([depth, rail]) => {
       let generation: number | undefined;
@@ -418,4 +631,27 @@ function railsOf(slots: LaidOutSlot[], orientation: Orientation): GenerationRail
         ...(generation === undefined ? {} : { generation }),
       };
     });
+
+  // A rail where nobody carries a đời still sits a known number of steps from one that does — the
+  // depth axis *is* the generation axis — so it is labelled by counting from the nearest numbered
+  // rail rather than shown as unknown. Only when no rail at all has a number is there nothing to
+  // count from, and then the first rail is đời 1.
+  const numbered = rails.filter((rail) => rail.generation !== undefined);
+  return rails.map((rail) => {
+    if (rail.generation !== undefined) return rail;
+    let nearest: GenerationRail | undefined;
+    for (const candidate of numbered) {
+      if (
+        nearest === undefined ||
+        Math.abs(candidate.depth - rail.depth) < Math.abs(nearest.depth - rail.depth)
+      ) {
+        nearest = candidate;
+      }
+    }
+    const generation =
+      nearest?.generation === undefined
+        ? rail.depth + 1
+        : nearest.generation + (rail.depth - nearest.depth);
+    return generation >= 1 ? { ...rail, generation } : rail;
+  });
 }

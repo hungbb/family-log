@@ -192,7 +192,13 @@ export function buildGraph(tree: Tree): TreeGraph {
     .filter((id) => !marriedInto.has(id))
     .map((id) => personsById.get(id))
     .filter((person): person is PersonSummary => person !== undefined)
-    .sort(inBookOrder)
+    // The founding ancestor first: he and his wife are both parentless roots, and whichever is
+    // built first anchors the slot. In plain book order a wife born the same year with an
+    // earlier-sorting name took the slot, drawing the founder as her spouse (#60).
+    .sort(
+      (left, right) =>
+        Number(right.foundingAncestor) - Number(left.foundingAncestor) || inBookOrder(left, right),
+    )
     .map((person) => build(person.id, undefined, undefined))
     .filter((node): node is CoupleNode => node !== null);
 
