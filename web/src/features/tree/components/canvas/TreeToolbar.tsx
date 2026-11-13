@@ -6,7 +6,10 @@ import {
   FullscreenExitOutlined,
   FullscreenOutlined,
   MinusOutlined,
+  MoonOutlined,
   PlusOutlined,
+  PrinterOutlined,
+  SunOutlined,
 } from '@ant-design/icons';
 import { Button, Select, Space, Tooltip } from 'antd';
 import { useMemo } from 'react';
@@ -45,6 +48,8 @@ interface TreeToolbarProps {
   levels: number;
   /** Show this many generations, or all of them for null. */
   onLimitGenerations: (levels: number | null) => void;
+  /** Opens the print and export dialog (#61). */
+  onPrint: () => void;
   disabled: boolean;
 }
 
@@ -56,6 +61,7 @@ export function TreeToolbar({
   onFit,
   levels,
   onLimitGenerations,
+  onPrint,
   disabled,
 }: TreeToolbarProps) {
   const { t } = useTranslation();
@@ -71,6 +77,9 @@ export function TreeToolbar({
   const fullscreen = useTreeViewStore((state) => state.fullscreen);
   const setFullscreen = useTreeViewStore((state) => state.setFullscreen);
   const generationLimit = useTreeViewStore((state) => state.generationLimit);
+  const scheme = useTreeViewStore((state) => state.scheme);
+  const setScheme = useTreeViewStore((state) => state.setScheme);
+  const nextScheme = scheme === 'light' ? 'dark' : 'light';
 
   // "All", then every depth short of the full tree — showing all N levels is the same as "All".
   const generationOptions = useMemo(
@@ -206,6 +215,28 @@ export function TreeToolbar({
           />
         </Tooltip>
       </Space.Compact>
+
+      {/* The canvas's own scheme (#61): a long read of a large clan is easier on dark, and the
+          forms around it are unaffected. */}
+      <Tooltip title={t(`tree.canvas.scheme.${nextScheme}`)}>
+        <Button
+          icon={scheme === 'light' ? <MoonOutlined /> : <SunOutlined />}
+          aria-label={t(`tree.canvas.scheme.${nextScheme}`)}
+          aria-pressed={scheme === 'dark'}
+          onClick={() => {
+            setScheme(nextScheme);
+          }}
+        />
+      </Tooltip>
+
+      <Tooltip title={t('tree.print.open')}>
+        <Button
+          icon={<PrinterOutlined />}
+          disabled={disabled}
+          aria-label={t('tree.print.open')}
+          onClick={onPrint}
+        />
+      </Tooltip>
 
       <Tooltip title={t(fullscreen ? 'tree.canvas.exitFullscreen' : 'tree.canvas.fullscreen')}>
         <Button

@@ -221,11 +221,29 @@ GET /tree (flat: persons, parentages, unions, branches)
 
 ### 7.3 Styling exception
 
-Zoom/pan uses a dynamic `transform` on one `<g>` element, applied through the `style` attribute because it changes every animation frame — creating styled-component classes per frame would thrash the stylesheet. This is the **only** sanctioned inline style in the codebase, is confined to `TreeCanvas.tsx`, and carries an explicit ESLint disable comment with this rationale. All other tree styling (node cards, edges, labels, rails) is styled-components.
+Zoom/pan uses a dynamic `transform` on one `<g>` element. It is set as the SVG `transform` **attribute**, not the `style` prop, so no inline-style exception or ESLint disable is needed. The same applies to per-zoom connector widths (a `stroke-width` attribute on the connector layer) and to the per-frame offsets of the layout glide. All other tree styling (node cards, edges, labels, rails) is styled-components.
 
 ### 7.4 Accessibility (NFR-7)
 
 The canvas is `role="tree"` with keyboard navigation (arrows move between siblings/generations, Enter opens detail). A "List view" toggle renders the same data as an AntD `Table` grouped by generation — the accessible, printable, screen-reader-friendly alternative.
+
+### 7.5 Palette, motion, print and the visual vocabulary (#61, ADR 0006)
+
+- **Palette.** The canvas carries its own light and dark sets (`tokens.tree`), published as `--tree-*` custom properties on the canvas frame; every canvas part reads those. The app chrome stays light. Print and exports always use the light set.
+- **Connectors** are `non-scaling-stroke`, with a width that follows the zoom but never drops below ~1.25px (`model/visual.ts` `screenStroke`), so the structure stays visible at the 0.08 zoom floor.
+- **Đời labels** are drawn in screen space, pinned to the frame's leading edge, at a fixed size.
+- **Motion** (`model/motion.ts`): collapse/expand glides (~260 ms), jump/fit tween the camera (~300 ms); pan and wheel are never eased; all of it is off under `prefers-reduced-motion`.
+- **Print/export**: `PrintDialog` → `planPrint` re-lays the tree out in both orientations and picks the arrangement with the fewest pages at a legible scale (or fits one page); pages are vector SVG sized in mm. "Save as PDF" in the print dialog is the PDF export; SVG and PNG download directly.
+- **Visual vocabulary** — one definition (`model/visual.ts`), explained by the on-canvas legend and used by the canvas, minimap, list view and print. Colour is never the only carrier:
+
+| Category | Colour | Second channel |
+|---|---|---|
+| Male / female / other / unknown | rail + avatar outline hue | avatar shape: square / circle / diamond / dashed circle (pedigree convention) |
+| Deceased | muted name and avatar | mourning band across the card's top-left corner |
+| You | accent ring | "Bạn / You" tag above the card; accent dot on the minimap |
+| Linked to an account | green ring | ring present at all |
+| Adopted / step / foster | — | dashed connector |
+| Secondary marriage / remarriage | lighter | thinner, dashed bar |
 
 ## 8. Routing & Guards
 

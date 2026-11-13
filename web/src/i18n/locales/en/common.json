@@ -692,7 +692,63 @@
         "add-spouse": "Add a spouse for {{name}}",
         "edit": "Edit {{name}}",
         "delete": "Remove {{name}} from the tree"
+      },
+      "you": "You",
+      "scheme": {
+        "light": "Switch the tree to a light background",
+        "dark": "Switch the tree to a dark background"
       }
+    },
+    "legend": {
+      "title": "Legend",
+      "people": "People",
+      "gender": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other gender",
+        "UNKNOWN": "Gender unknown"
+      },
+      "deceased": "Deceased (mourning band on the card's corner)",
+      "self": "You — the signed-in account",
+      "linked": "Linked to an account",
+      "relations": "Relationships",
+      "unionPrimary": "Primary marriage",
+      "unionSecondary": "Secondary marriage or remarriage",
+      "biological": "Biological child",
+      "adoptive": "Adopted, step or foster child"
+    },
+    "print": {
+      "open": "Print or export",
+      "title": "Print the family tree",
+      "scope": "What to print",
+      "scopeAll": "The whole tree (re-open collapsed branches)",
+      "scopeShown": "As currently shown",
+      "paper": "Paper",
+      "letter": "Letter",
+      "mode": "Layout",
+      "modePages": "Legible text, across several pages",
+      "modeFit": "Fit on one page",
+      "modeHelp": {
+        "pages": "Keeps names large enough to read; a large tree is tiled across pages that overlap slightly so they can be joined.",
+        "fit": "Shrinks the whole tree onto one sheet; a large tree will have very small text."
+      },
+      "summary_one": "{{count}} {{paper}} page, {{paperOrientation}} ({{columns}} × {{rows}}), {{orientation}}.",
+      "summary_other": "{{count}} {{paper}} pages, {{paperOrientation}} ({{columns}} columns × {{rows}} rows), {{orientation}}.",
+      "paperOrientation": {
+        "portrait": "portrait",
+        "landscape": "landscape"
+      },
+      "treeOrientation": {
+        "vertical": "generations running down",
+        "horizontal": "generations running across"
+      },
+      "tooSmall": "Fitting the whole tree on one page makes the names too small to read. Choose \"Legible text, across several pages\" or A3 paper.",
+      "pdfHint": "For a PDF, press Print and choose \"Save as PDF\" in the print dialog. The print is vector, so it stays sharp at any size.",
+      "print": "Print",
+      "exportSvg": "Download SVG",
+      "exportPng": "Download PNG",
+      "exportFailed": "The image could not be exported. Try again, or use Print → Save as PDF.",
+      "pageOf": "Page {{page}} of {{pages}} · row {{row}}, column {{column}}"
     }
   },
   "claims": {
