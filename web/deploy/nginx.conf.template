@@ -1,5 +1,16 @@
 # Rendered at container start by the nginx image (envsubst over ${API_UPSTREAM}, ${LISTEN_PORT}).
 
+# In production a second nginx (on the host) terminates TLS and proxies here over plain HTTP, so
+# $scheme is "http" inside this container and would downgrade what Spring sees behind it. Honour
+# the header the outer proxy sent, and fall back to $scheme when there is no outer proxy (staging).
+# This trusts whatever reaches this container with the header, so the only thing that should be
+# able to is the proxy in front of it — on staging, where nginx is exposed directly, a client could
+# claim https. Nothing authorizes on the scheme; it only shapes the URLs Spring builds.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
 server {
     listen ${LISTEN_PORT};
     server_name _;
@@ -20,7 +31,7 @@ server {
         proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_set_header X-Forwarded-Host  $http_host;
         proxy_read_timeout 60s;
     }
@@ -29,7 +40,7 @@ server {
     location = /actuator/health {
         proxy_pass ${API_UPSTREAM};
         proxy_set_header Host $http_host;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
     }
 
     # API docs (enabled on staging via SWAGGER_UI_ENABLED).
@@ -37,7 +48,7 @@ server {
         proxy_pass ${API_UPSTREAM};
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_set_header X-Forwarded-Host  $http_host;
     }
 
