@@ -142,6 +142,8 @@ export interface LaidOutSlot {
 /** The bar between two people who married. Its type decides how it is drawn, not where. */
 export interface LaidOutUnion {
   key: string;
+  /** The slot both partners stand in — the bar moves with it when the layout animates. */
+  slotKey: string;
   unionType: UnionType;
   x1: number;
   y1: number;
@@ -154,6 +156,8 @@ export interface LaidOutParentEdge {
   key: string;
   path: string;
   nature: ParentageNature;
+  /** The slot the connector leaves from. */
+  parentSlotKey: string;
   childSlotKey: string;
 }
 
@@ -384,6 +388,7 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
       if (left === undefined || right === undefined) continue;
       unions.push({
         key: family.key,
+        slotKey: node.key,
         unionType: family.union?.unionType ?? 'PRIMARY',
         ...connector(left, right, orientation),
       });
@@ -454,6 +459,7 @@ export function layoutTree(roots: CoupleNode[], options: LayoutOptions): TreeLay
             ? elbow(from, topCentre(into, orientation), orientation)
             : stackElbow(from, route, orientation),
         nature: child.nature ?? 'BIOLOGICAL',
+        parentSlotKey: slot.key,
         childSlotKey: child.key,
       });
     }

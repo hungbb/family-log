@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
 
 import { type TreeGraph } from '../../model/buildGraph';
+import { estimateTextWidth } from '../../model/fitText';
+import { formatGeneration } from '../../model/format';
 import {
   boxOf,
   intersects,
@@ -22,22 +24,23 @@ import {
   type TreeBounds,
   type TreeLayout,
 } from '../../model/layout';
+import {
+  DURATION,
+  easeOutCubic,
+  MAX_ANIMATED_SLOTS,
+  prefersReducedMotion,
+  transitionBetween,
+  viewportBetween,
+  type LayoutTransition,
+  type Viewport,
+} from '../../model/motion';
 import { ZOOM, useTreeViewStore } from '../../stores/useTreeViewStore';
 
+import { Legend } from './Legend';
 import { MiniMap, MINIMAP_THRESHOLD } from './MiniMap';
-import { PersonNode, type NodeAction } from './PersonNode';
-import {
-  CanvasFrame,
-  CanvasSurface,
-  CollapsedCount,
-  CollapseToggle,
-  ParentEdgePath,
-  RailLabel,
-  RailLine,
-  StackPanel,
-  UnionLine,
-  VisuallyHidden,
-} from './styles';
+import { type NodeAction } from './PersonNode';
+import { CanvasFrame, CanvasSurface, RailLabel, RailLabelPill, VisuallyHidden } from './styles';
+import { TreeScene } from './TreeScene';
 
 /**
  * The tree, drawn (F5.3, F5.4, F5.6, F5.7, F5.8, F5.15).
@@ -66,6 +69,15 @@ import {
  * `requestAnimationFrame`, so a burst of pointer events produces one render rather than forty. And
  * only slots intersecting the viewport — plus a margin, so nothing pops in at the edge — are in the
  * document at all.
+ *
+ * ## Motion (#61)
+ *
+ * Panning and wheel zoom are never eased — the tree follows the hand. Discrete changes are: a
+ * collapse or expand glides the cards from where they were to where they now belong for about a
+ * quarter of a second, children growing out of (or folding into) the handle that was pressed; and
+ * jump-to-person and fit move the camera rather than cut to it. Both are skipped under
+ * `prefers-reduced-motion`, and the layout glide is skipped when too much is on screen to move
+ * smoothly (see `model/motion.ts`). The drawing itself is `TreeScene`, shared with the print sheet.
  */
 
 export interface TreeCanvasHandle {
@@ -158,6 +170,18 @@ export function TreeCanvas({
   const focusedSlotKey = useTreeViewStore((state) => state.focusedSlotKey);
   const focusSlot = useTreeViewStore((state) => state.focusSlot);
   const highlightBranchId = useTreeViewStore((state) => state.highlightBranchId);
+  const scheme = useTreeViewStore((state) => state.scheme);
+  const legendOpen = useTreeViewStore((state) => state.legendOpen);
+  const setLegendOpen = useTreeViewStore((state) => state.setLegendOpen);
+
+  // --- the camera (#61) --------------------------------------------------------------------------
+
+  /** The camera move in flight, if any. Any direct manipulation cancels it. */
+  const cameraRef = useRef<number | null>(null);
+  const stopCamera = useCallback(() => {
+    if (cameraRef.current !== null) window.cancelAnimationFrame(cameraRef.current);
+    cameraRef.current = null;
+  }, []);
 
   // --- the frame's size, which every fit and every viewport calculation needs -------------------
 
@@ -173,6 +197,8 @@ export function TreeCanvas({
       const last = lastSizeRef.current;
       lastSizeRef.current = next;
       if (last.width > 0 && last.height > 0) {
+        if (cameraRef.current !== null) window.cancelAnimationFrame(cameraRef.current);
+        cameraRef.current = null;
         const view = useTreeViewStore.getState();
         view.setViewport({
           scale: view.scale,
@@ -208,46 +234,80 @@ export function TreeCanvas({
     [layout.slots, viewport, margin],
   );
 
-  const visibleSlotKeys = useMemo(
-    () => new Set(visibleSlots.map((slot) => slot.key)),
-    [visibleSlots],
-  );
-
   // --- moving the viewport ---------------------------------------------------------------------
 
+  /** Moves the camera to `target`, easing unless the person asked for less motion. */
+  const moveCamera = useCallback(
+    (target: Viewport) => {
+      stopCamera();
+      const view = useTreeViewStore.getState();
+      const from: Viewport = { scale: view.scale, translate: view.translate };
+      if (prefersReducedMotion() || size.width === 0) {
+        setViewport(target);
+        return;
+      }
+      const frame = { width: size.width, height: size.height };
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = (now - start) / DURATION.camera;
+        setViewport(viewportBetween(from, target, frame, easeOutCubic(progress)));
+        cameraRef.current = progress < 1 ? window.requestAnimationFrame(tick) : null;
+      };
+      cameraRef.current = window.requestAnimationFrame(tick);
+    },
+    [size, setViewport, stopCamera],
+  );
+
   const centreOn = useCallback(
-    (point: { x: number; y: number }, nextScale?: number) => {
-      const effective = nextScale ?? scale;
-      setViewport({
+    (point: { x: number; y: number }, nextScale?: number, animate = false) => {
+      const effective = nextScale ?? useTreeViewStore.getState().scale;
+      const target = {
         scale: effective,
         translate: {
           x: size.width / 2 - point.x * effective,
           y: size.height / 2 - point.y * effective,
         },
-      });
+      };
+      if (animate) {
+        moveCamera(target);
+      } else {
+        stopCamera();
+        setViewport(target);
+      }
     },
-    [scale, size, setViewport],
+    [size, setViewport, moveCamera, stopCamera],
+  );
+
+  const fitTo = useCallback(
+    (animate: boolean) => {
+      if (size.width === 0 || layout.slots.length === 0) return;
+      const width = Math.max(1, layout.bounds.maxX - layout.bounds.minX);
+      const height = Math.max(1, layout.bounds.maxY - layout.bounds.minY);
+      const next = Math.min(
+        ZOOM.max,
+        Math.max(
+          ZOOM.min,
+          Math.min(
+            (size.width - FIT_PADDING * 2) / width,
+            (size.height - FIT_PADDING * 2) / height,
+          ),
+        ),
+      );
+      centreOn(
+        {
+          x: (layout.bounds.minX + layout.bounds.maxX) / 2,
+          y: (layout.bounds.minY + layout.bounds.maxY) / 2,
+        },
+        next,
+        animate,
+      );
+    },
+    [size, layout, centreOn],
   );
 
   const fit = useCallback(() => {
-    if (size.width === 0 || layout.slots.length === 0) return;
-    const width = Math.max(1, layout.bounds.maxX - layout.bounds.minX);
-    const height = Math.max(1, layout.bounds.maxY - layout.bounds.minY);
-    const next = Math.min(
-      ZOOM.max,
-      Math.max(
-        ZOOM.min,
-        Math.min((size.width - FIT_PADDING * 2) / width, (size.height - FIT_PADDING * 2) / height),
-      ),
-    );
-    centreOn(
-      {
-        x: (layout.bounds.minX + layout.bounds.maxX) / 2,
-        y: (layout.bounds.minY + layout.bounds.maxY) / 2,
-      },
-      next,
-    );
-  }, [size, layout, centreOn]);
+    fitTo(true);
+  }, [fitTo]);
 
   /**
    * Centres on a person and selects their slot, returning it — or null if they are not drawn.
@@ -258,12 +318,12 @@ export function TreeCanvas({
    * the null lets the caller decide what to do instead.
    */
   const centreOnPerson = useCallback(
-    (personId: string): LaidOutSlot | null => {
+    (personId: string, animate: boolean): LaidOutSlot | null => {
       const slotKey = layout.slotOfPerson.get(personId);
       const slot = layout.slots.find((candidate) => candidate.key === slotKey);
       if (slot === undefined) return null;
       focusSlot(slot.key);
-      centreOn({ x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 });
+      centreOn({ x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 }, undefined, animate);
       return slot;
     },
     [layout, centreOn, focusSlot],
@@ -271,7 +331,7 @@ export function TreeCanvas({
 
   const jumpTo = useCallback(
     (personId: string) => {
-      const slot = centreOnPerson(personId);
+      const slot = centreOnPerson(personId, true);
       if (slot !== null) setAnnouncement(slot.node.anchor.fullName);
     },
     [centreOnPerson],
@@ -297,9 +357,10 @@ export function TreeCanvas({
       return;
     }
     positionedFor.current = signature;
-    if (focusPersonId !== undefined && centreOnPerson(focusPersonId) !== null) return;
-    fit();
-  }, [layout, size, fit, centreOnPerson, focusPersonId]);
+    // The first frame is placed, not flown to: there is nothing on screen yet to move from.
+    if (focusPersonId !== undefined && centreOnPerson(focusPersonId, false) !== null) return;
+    fitTo(false);
+  }, [layout, size, fitTo, centreOnPerson, focusPersonId]);
 
   // --- collapsing without losing your place -------------------------------------------------------
 
@@ -310,13 +371,21 @@ export function TreeCanvas({
    * somebody just clicked jumps sideways — on a wide clan, often off the screen entirely.
    */
   const pinnedRef = useRef<{ key: string; x: number; y: number } | null>(null);
+  /**
+   * The same slot, for the glide: which layout it was toggled in. Kept as state rather than read
+   * from the ref because the transition is derived during render, where refs are off limits; tying
+   * it to the layout it was pressed in means it can never be applied to a later, unrelated change.
+   */
+  const [pin, setPin] = useState<{ key: string; before: TreeLayout } | null>(null);
   const toggleAnchored = useCallback(
     (slotKey: string) => {
+      stopCamera();
       const slot = layout.slots.find((candidate) => candidate.key === slotKey);
       if (slot !== undefined) pinnedRef.current = { key: slotKey, x: slot.x, y: slot.y };
+      setPin({ key: slotKey, before: layout });
       toggleCollapsed(slotKey);
     },
-    [layout.slots, toggleCollapsed],
+    [layout, toggleCollapsed, stopCamera],
   );
 
   useLayoutEffect(() => {
@@ -347,6 +416,7 @@ export function TreeCanvas({
 
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return;
+    stopCamera();
     // Not captured yet, and not a pan yet: this press may still turn out to be a click on a card or
     // one of its actions, and capturing here would take that click away from them (see `Drag`).
     dragRef.current = {
@@ -417,6 +487,7 @@ export function TreeCanvas({
     if (surface === null) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      stopCamera();
       const box = surface.getBoundingClientRect();
       zoomBy(Math.exp(-event.deltaY * 0.0015), {
         x: event.clientX - box.left,
@@ -427,7 +498,9 @@ export function TreeCanvas({
     return () => {
       surface.removeEventListener('wheel', onWheel);
     };
-  }, [zoomBy]);
+  }, [zoomBy, stopCamera]);
+
+  useEffect(() => stopCamera, [stopCamera]);
 
   // --- keyboard navigation (F5.8) ----------------------------------------------------------------
 
@@ -485,23 +558,92 @@ export function TreeCanvas({
         return;
       case '+':
         event.preventDefault();
+        stopCamera();
         zoomBy(ZOOM.step);
         return;
       case '-':
         event.preventDefault();
+        stopCamera();
         zoomBy(1 / ZOOM.step);
         return;
       default:
     }
   };
 
+  // --- the layout glide (#61) ------------------------------------------------------------------
+
+  /**
+   * The layout on screen and the change being animated into it.
+   *
+   * Derived during render — React's "storing information from previous renders" pattern — so the
+   * first frame of a new layout is already drawn at the old positions. Detecting the change in an
+   * effect instead would paint one frame of the final layout before the glide began: a flash of the
+   * very jump this exists to remove.
+   */
+  const [shown, setShown] = useState<{
+    layout: TreeLayout;
+    transition: LayoutTransition | null;
+    progress: number;
+    connectorKey: number;
+  }>({ layout, transition: null, progress: 1, connectorKey: 0 });
+  if (shown.layout !== layout) {
+    const pinKey = pin !== null && pin.before === shown.layout ? pin.key : null;
+    const id = (shown.transition?.id ?? shown.connectorKey) + 1;
+    const transition =
+      prefersReducedMotion() || visibleSlots.length > MAX_ANIMATED_SLOTS
+        ? null
+        : transitionBetween(shown.layout, layout, pinKey, id);
+    setShown({ layout, transition, progress: 0, connectorKey: shown.connectorKey });
+  }
+  const transition = shown.layout === layout ? shown.transition : null;
+
+  useEffect(() => {
+    const running = shown.transition;
+    if (running === null) return;
+    const start = performance.now();
+    let frame = window.requestAnimationFrame(function tick(now) {
+      const progress = Math.min(1, (now - start) / DURATION.layout);
+      setShown((current) =>
+        current.transition !== running
+          ? current
+          : progress < 1
+            ? { ...current, progress }
+            : { ...current, transition: null, progress: 1, connectorKey: running.id },
+      );
+      if (progress < 1) frame = window.requestAnimationFrame(tick);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [shown.transition]);
+
   // --- render -------------------------------------------------------------------------------------
 
-  const dimmedSlot = (slot: LaidOutSlot) =>
-    highlightBranchId !== null && slot.node.anchor.branchId !== highlightBranchId;
+  /** Stable, so the memoized cards keep their memo across pans (F5.15). */
+  const openCard = useCallback(
+    (personId: string) => {
+      const slotKey = layout.slotOfPerson.get(personId);
+      if (slotKey !== undefined) focusSlot(slotKey);
+      onOpenPerson(personId);
+    },
+    [layout.slotOfPerson, focusSlot, onOpenPerson],
+  );
+
+  const interaction = useMemo(
+    () => ({
+      focusedSlotKey,
+      collapsed,
+      onOpen: openCard,
+      onAction: onNodeAction,
+      onToggle: toggleAnchored,
+    }),
+    [focusedSlotKey, collapsed, openCard, onNodeAction, toggleAnchored],
+  );
+
+  const selfSlotKey = myPersonId === undefined ? undefined : layout.slotOfPerson.get(myPersonId);
 
   return (
-    <CanvasFrame ref={frameRef}>
+    <CanvasFrame ref={frameRef} $scheme={scheme}>
       <CanvasSurface
         ref={surfaceRef}
         $panning={panning}
@@ -518,139 +660,33 @@ export function TreeCanvas({
         <desc id={hintId}>{t('tree.canvas.hint')}</desc>
 
         <g transform={`translate(${translate.x}, ${translate.y}) scale(${scale})`}>
-          {layout.rails.map((rail) => {
-            const from = layout.bounds.minX - 24;
-            const to = layout.bounds.maxX + 24;
-            return layout.orientation === 'vertical' ? (
-              <g key={rail.depth}>
-                <RailLine x1={from} y1={rail.position - 22} x2={to} y2={rail.position - 22} />
-                <RailLabel x={from} y={rail.position - 28}>
-                  {railLabel(rail.generation, t)}
-                </RailLabel>
-              </g>
-            ) : (
-              <g key={rail.depth}>
-                <RailLine
-                  x1={rail.position - 22}
-                  y1={layout.bounds.minY - 24}
-                  x2={rail.position - 22}
-                  y2={layout.bounds.maxY + 24}
-                />
-                <RailLabel x={rail.position - 18} y={layout.bounds.minY - 30}>
-                  {railLabel(rail.generation, t)}
-                </RailLabel>
-              </g>
-            );
-          })}
-
-          {layout.stacks.map((stack) =>
-            intersects(
-              {
-                minX: stack.x,
-                minY: stack.y,
-                maxX: stack.x + stack.width,
-                maxY: stack.y + stack.height,
-              },
-              viewport,
-              margin,
-            ) ? (
-              <StackPanel
-                key={stack.key}
-                x={stack.x}
-                y={stack.y}
-                width={stack.width}
-                height={stack.height}
-                rx={12}
-              />
-            ) : null,
-          )}
-
-          {layout.edges.map((edge) =>
-            visibleSlotKeys.has(edge.childSlotKey) ? (
-              <ParentEdgePath
-                key={edge.key}
-                d={edge.path}
-                $dashed={edge.nature !== 'BIOLOGICAL'}
-                $dimmed={highlightBranchId !== null}
-              />
-            ) : null,
-          )}
-
-          {layout.unions.map((union) => (
-            <UnionLine
-              key={union.key}
-              x1={union.x1}
-              y1={union.y1}
-              x2={union.x2}
-              y2={union.y2}
-              $secondary={union.unionType !== 'PRIMARY'}
-              $dimmed={highlightBranchId !== null}
-            />
-          ))}
-
-          {visibleSlots.map((slot) => (
-            <g key={slot.key}>
-              {slot.cards.map((card) => (
-                <PersonNode
-                  key={card.personId}
-                  card={card}
-                  dimmed={dimmedSlot(slot)}
-                  selected={focusedSlotKey === slot.key}
-                  {...branchNameProp(graph.branchNames, card.person.branchId)}
-                  branchHighlighted={
-                    highlightBranchId !== null && card.person.branchId === highlightBranchId
-                  }
-                  isSelf={card.personId === myPersonId}
-                  onOpen={(personId) => {
-                    focusSlot(slot.key);
-                    onOpenPerson(personId);
-                  }}
-                  onAction={onNodeAction}
-                />
-              ))}
-
-              {slot.node.children.length > 0 && (
-                <CollapseToggle
-                  transform={toggleAt(slot, layout.orientation)}
-                  role="button"
-                  tabIndex={-1}
-                  aria-expanded={!collapsed.has(slot.key)}
-                  aria-label={t(
-                    collapsed.has(slot.key) ? 'tree.canvas.expand' : 'tree.canvas.collapse',
-                    { name: slot.node.anchor.fullName },
-                  )}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleAnchored(slot.key);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return;
-                    event.preventDefault();
-                    toggleAnchored(slot.key);
-                  }}
-                >
-                  <title>
-                    {t(collapsed.has(slot.key) ? 'tree.canvas.expand' : 'tree.canvas.collapse', {
-                      name: slot.node.anchor.fullName,
-                    })}
-                  </title>
-                  <circle r={9} />
-                  <path d={collapsed.has(slot.key) ? 'M -4 0 H 4 M 0 -4 V 4' : 'M -4 0 H 4'} />
-                  {collapsed.has(slot.key) && (
-                    <CollapsedCount y={22}>{slot.node.children.length}</CollapsedCount>
-                  )}
-                </CollapseToggle>
-              )}
-            </g>
-          ))}
+          <TreeScene
+            layout={layout}
+            slots={visibleSlots}
+            window={viewport}
+            margin={margin}
+            scale={scale}
+            branchNames={graph.branchNames}
+            highlightBranchId={highlightBranchId}
+            {...(myPersonId === undefined ? {} : { myPersonId })}
+            transition={transition}
+            progress={easeOutCubic(shown.progress)}
+            connectorKey={shown.connectorKey}
+            interaction={interaction}
+          />
         </g>
+
+        <RailLabels layout={layout} scale={scale} translate={translate} size={size} t={t} />
       </CanvasSurface>
+
+      <Legend open={legendOpen} onToggle={setLegendOpen} showSelf={myPersonId !== undefined} />
 
       {layout.slots.length >= MINIMAP_THRESHOLD && (
         <MiniMap
           layout={layout}
           viewport={viewport}
           highlightBranchId={highlightBranchId}
+          {...(selfSlotKey === undefined ? {} : { selfSlotKey })}
           onJumpTo={(point) => {
             centreOn(point);
           }}
@@ -662,36 +698,57 @@ export function TreeCanvas({
   );
 }
 
+/** The font size of `RailLabel`, and the pill's padding around it. */
+const RAIL_LABEL = { fontSize: 12, padX: 9, height: 20, inset: 10 } as const;
+
 /**
- * `branchName` only when there is one.
+ * The *đời* labels, in screen space (#61).
  *
- * `exactOptionalPropertyTypes` is on, so an optional prop is either absent or a string — passing an
- * explicit `undefined` is a different thing and does not compile. Worth the ceremony: "unplaced" and
- * "placed in a branch we failed to look up" are different states, and the card renders them
- * differently.
+ * Drawn outside the zoomed group so they are the same legible size at every zoom, and pinned to the
+ * frame's leading edge — the left when generations run down, the top when they run across — so the
+ * reader always knows which generation they are looking at, however far they have panned. The rail
+ * *lines* stay in canvas space with the tree.
  */
-function branchNameProp(
-  names: Map<string, string>,
-  branchId: string | undefined,
-): { branchName?: string } {
-  if (branchId === undefined) return {};
-  const name = names.get(branchId);
-  return name === undefined ? {} : { branchName: name };
-}
-
-/** Where the collapse handle sits: under the slot when vertical, to its right when horizontal. */
-function toggleAt(slot: LaidOutSlot, orientation: 'vertical' | 'horizontal'): string {
-  const anchor = slot.cards[0];
-  if (anchor === undefined) return `translate(${slot.x}, ${slot.y})`;
-  return orientation === 'vertical'
-    ? `translate(${anchor.x + anchor.width / 2}, ${slot.y + slot.height + 12})`
-    : `translate(${slot.x + slot.width + 12}, ${anchor.y + anchor.height / 2})`;
-}
-
-function railLabel(generation: number | undefined, t: TFunction): string {
-  return generation === undefined
-    ? t('tree.generation.unknown')
-    : t('tree.generation.value', { generation });
+function RailLabels({
+  layout,
+  scale,
+  translate,
+  size,
+  t,
+}: {
+  layout: TreeLayout;
+  scale: number;
+  translate: { x: number; y: number };
+  size: { width: number; height: number };
+  t: TFunction;
+}) {
+  const vertical = layout.orientation === 'vertical';
+  const extent = vertical ? size.height : size.width;
+  // Zoomed far out the rails crowd together; a label is drawn only where it has room, so the
+  // ones shown never overlap. The first rail always gets one.
+  let lastEnd = -Infinity;
+  const labels = [];
+  for (const rail of layout.rails) {
+    const at = (rail.position - 22) * scale + (vertical ? translate.y : translate.x);
+    if (at < -RAIL_LABEL.height || at > extent + RAIL_LABEL.height) continue;
+    const label = formatGeneration(rail.generation, t);
+    const width = estimateTextWidth(label, RAIL_LABEL.fontSize) * 1.1 + RAIL_LABEL.padX * 2;
+    const start = vertical ? at - RAIL_LABEL.height / 2 : at - width / 2;
+    const span = vertical ? RAIL_LABEL.height : width;
+    if (start < lastEnd + 4) continue;
+    lastEnd = start + span;
+    const x = vertical ? RAIL_LABEL.inset : start;
+    const y = vertical ? start : RAIL_LABEL.inset;
+    labels.push(
+      <g key={rail.depth} transform={`translate(${x}, ${y})`}>
+        <RailLabelPill width={width} height={RAIL_LABEL.height} rx={RAIL_LABEL.height / 2} />
+        <RailLabel x={RAIL_LABEL.padX} y={RAIL_LABEL.height / 2 + RAIL_LABEL.fontSize * 0.36}>
+          {label}
+        </RailLabel>
+      </g>,
+    );
+  }
+  return <g aria-hidden="true">{labels}</g>;
 }
 
 /**

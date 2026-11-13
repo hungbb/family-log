@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type TreeBounds, type TreeLayout } from '../../model/layout';
 
-import { MiniMapFrame, MiniMapNode, MiniMapSurface, MiniMapViewport } from './styles';
+import { MiniMapFrame, MiniMapNode, MiniMapSelf, MiniMapSurface, MiniMapViewport } from './styles';
 
 /**
  * The whole tree at a glance, with the viewport drawn on it (F5.10).
@@ -32,11 +32,19 @@ interface MiniMapProps {
   viewport: TreeBounds;
   /** Branch to pick out, matching the canvas's highlighting. */
   highlightBranchId: string | null;
+  /** The slot holding the viewer's own node, marked as it is on the canvas (#61). */
+  selfSlotKey?: string;
   /** Called with a point in canvas space when somebody clicks the map. */
   onJumpTo: (point: { x: number; y: number }) => void;
 }
 
-function MiniMapComponent({ layout, viewport, highlightBranchId, onJumpTo }: MiniMapProps) {
+function MiniMapComponent({
+  layout,
+  viewport,
+  highlightBranchId,
+  selfSlotKey,
+  onJumpTo,
+}: MiniMapProps) {
   const { t } = useTranslation();
   const { bounds } = layout;
 
@@ -64,6 +72,12 @@ function MiniMapComponent({ layout, viewport, highlightBranchId, onJumpTo }: Min
   });
 
   const view = toMap(viewport.minX, viewport.minY);
+  const selfSlot =
+    selfSlotKey === undefined ? undefined : layout.slots.find((slot) => slot.key === selfSlotKey);
+  const selfAt =
+    selfSlot === undefined
+      ? undefined
+      : toMap(selfSlot.x + selfSlot.width / 2, selfSlot.y + selfSlot.height / 2);
 
   return (
     <MiniMapFrame>
@@ -101,6 +115,8 @@ function MiniMapComponent({ layout, viewport, highlightBranchId, onJumpTo }: Min
             />
           );
         })}
+
+        {selfAt !== undefined && <MiniMapSelf cx={selfAt.x} cy={selfAt.y} r={4} />}
 
         <MiniMapViewport
           x={view.x}

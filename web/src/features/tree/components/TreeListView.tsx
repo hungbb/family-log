@@ -6,7 +6,10 @@ import { type PersonSummary } from '@/api/endpoints/persons.ts';
 import { buildTreeNodes, type Tree, type TreeNode } from '@/api/endpoints/tree.ts';
 
 import { formatGeneration, formatLifespan } from '../model/format';
+import { visualOf } from '../model/visual';
 
+import { GenderGlyph, MourningGlyph } from './canvas/Glyphs';
+import { GlyphScope, VisuallyHidden } from './canvas/styles';
 import { PersonMeta, PersonName, TreeTable } from './styles';
 
 /**
@@ -18,13 +21,17 @@ import { PersonMeta, PersonName, TreeTable } from './styles';
  * phone, the one that will print, and the fastest way to audit a family's data.
  *
  * It shares the canvas's data hook — the same payload, the same `canEdit` flags, the same
- * invalidation — so the two views can never disagree about what the tree contains.
+ * invalidation — so the two views can never disagree about what the tree contains. It also shares
+ * the canvas's visual vocabulary (#61): the same gender shapes, the same mourning band and the same
+ * "You" marker, each with its meaning in words for a screen reader.
  */
 
 interface TreeListViewProps {
   tree: Tree | undefined;
   loading: boolean;
   branchNames: Map<string, string>;
+  /** The node linked to the signed-in account, marked as it is on the canvas. */
+  myPersonId?: string;
   onOpenPerson: (personId: string) => void;
 }
 
@@ -36,7 +43,13 @@ interface TreeRow {
   children?: TreeRow[];
 }
 
-export function TreeListView({ tree, loading, branchNames, onOpenPerson }: TreeListViewProps) {
+export function TreeListView({
+  tree,
+  loading,
+  branchNames,
+  myPersonId,
+  onOpenPerson,
+}: TreeListViewProps) {
   const { t } = useTranslation();
 
   const rows = useMemo<TreeRow[]>(
@@ -61,18 +74,36 @@ export function TreeListView({ tree, loading, branchNames, onOpenPerson }: TreeL
           {
             title: t('tree.column.name'),
             key: 'name',
-            render: (_, row: TreeRow) => (
-              <>
-                <PersonName $readOnly={!row.person.canEdit}>{row.person.fullName}</PersonName>
-                {row.spouses.length > 0 && (
-                  <PersonMeta>
-                    {t('tree.column.marriedTo', {
-                      names: row.spouses.map((spouse) => spouse.fullName).join(', '),
-                    })}
-                  </PersonMeta>
-                )}
-              </>
-            ),
+            render: (_, row: TreeRow) => {
+              const visual = visualOf(row.person, row.person.id === myPersonId);
+              return (
+                <>
+                  <GlyphScope>
+                    <GenderGlyph gender={visual.gender} deceased={visual.deceased} />
+                    {visual.deceased && <MourningGlyph />}
+                  </GlyphScope>
+                  <VisuallyHidden>
+                    {[
+                      t(`tree.legend.gender.${visual.gender}`),
+                      ...(visual.deceased ? [t('tree.legend.deceased')] : []),
+                    ].join(', ')}
+                  </VisuallyHidden>
+                  <PersonName $readOnly={!row.person.canEdit}>{row.person.fullName}</PersonName>
+                  {visual.self && (
+                    <Tag color="volcano" bordered={false}>
+                      {t('tree.canvas.you')}
+                    </Tag>
+                  )}
+                  {row.spouses.length > 0 && (
+                    <PersonMeta>
+                      {t('tree.column.marriedTo', {
+                        names: row.spouses.map((spouse) => spouse.fullName).join(', '),
+                      })}
+                    </PersonMeta>
+                  )}
+                </>
+              );
+            },
           },
           {
             title: t('tree.column.generation'),

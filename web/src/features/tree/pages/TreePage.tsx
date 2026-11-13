@@ -17,6 +17,7 @@ import { toMessage } from '@/lib/apiErrors.ts';
 import { personIdIn, withPerson } from '@/router/paths.ts';
 
 import { type NodeAction } from '../components/canvas/PersonNode';
+import { PrintDialog } from '../components/canvas/PrintDialog';
 import {
   CanvasFrame,
   CanvasOverlay,
@@ -62,7 +63,7 @@ export function TreePage() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const { clanId = '' } = useParams();
-  const { can } = useActiveClan();
+  const { can, clan } = useActiveClan();
   const { user } = useAuth();
 
   const { data: tree, isPending, error } = useTree(clanId);
@@ -77,6 +78,9 @@ export function TreePage() {
   const openClan = useTreeViewStore((state) => state.openClan);
   const fullscreen = useTreeViewStore((state) => state.fullscreen);
   const setFullscreen = useTreeViewStore((state) => state.setFullscreen);
+  const scheme = useTreeViewStore((state) => state.scheme);
+  const collapsed = useTreeViewStore((state) => state.collapsed);
+  const [printOpen, setPrintOpen] = useState(false);
 
   useFullscreen(fullscreen && mode === 'canvas', setFullscreen);
 
@@ -246,6 +250,9 @@ export function TreePage() {
             }}
             levels={levels}
             onLimitGenerations={onLimitGenerations}
+            onPrint={() => {
+              setPrintOpen(true);
+            }}
           />
 
           {graph !== null && !isEmpty ? (
@@ -262,7 +269,7 @@ export function TreePage() {
             // The overlay is `position: absolute; inset: 0`, so it needs the relatively-positioned
             // frame around it. Rendered bare it would anchor to the viewport and cover the whole
             // shell, including the sidebar (#20).
-            <CanvasFrame>
+            <CanvasFrame $scheme={scheme}>
               <CanvasOverlay>
                 {isPending ? (
                   <Skeleton active paragraph={{ rows: 4 }} />
@@ -301,6 +308,7 @@ export function TreePage() {
             tree={tree}
             loading={isPending}
             branchNames={graph?.branchNames ?? new Map()}
+            {...(myPersonId === undefined ? {} : { myPersonId })}
             onOpenPerson={openPerson}
           />
         </SectionCard>
@@ -328,6 +336,19 @@ export function TreePage() {
             </div>
           ))}
         </SectionCard>
+      )}
+
+      {graph !== null && (
+        <PrintDialog
+          open={printOpen}
+          onClose={() => {
+            setPrintOpen(false);
+          }}
+          graph={graph}
+          collapsed={collapsed}
+          title={clan?.name ?? t('tree.title')}
+          {...(myPersonId === undefined ? {} : { myPersonId })}
+        />
       )}
 
       <PersonDrawer

@@ -7,22 +7,26 @@ import { type PersonSummary } from '@/api/endpoints/persons.ts';
 import { estimateTextWidth, fitFirst, fitName, fitText, fitWords } from '../../model/fitText';
 import { formatCompactLifespan, formatGeneration, formatLifespan } from '../../model/format';
 import { CARD, type LaidOutCard } from '../../model/layout';
+import { GENDER_STYLE, genderShapePath, visualOf } from '../../model/visual';
 
 import {
   ActionBridge,
   ActionButton,
   ActionLayer,
   ActionStrip,
-  AvatarCircle,
   AvatarInitials,
+  AvatarShape,
   BranchPill,
   BranchPillText,
   GenderRail,
   LinkRing,
+  MourningBand,
   NodeCard,
   NodeGroup,
   NodeMeta,
   NodeName,
+  NodeShadow,
+  SelfTag,
 } from './styles';
 
 /** Where the text column starts: past the avatar and its gap. */
@@ -38,6 +42,15 @@ const PILL_FONT_SIZE = 10;
 
 /** The space inside the branch pill on either side of its label. */
 const PILL_PADDING = 7;
+
+/** The avatar's centre and size. */
+const AVATAR = { cx: 30, cy: 26, r: 14 } as const;
+
+/** The "You" tag above the viewer's own card. */
+const SELF_TAG = { x: 10, y: -9, height: 15, padding: 7, fontSize: 10 } as const;
+
+/** The mourning band across the top-left corner of a deceased person's card (#61). */
+const MOURNING_BAND = 'M 0 16 L 16 0 L 23 0 L 0 23 Z';
 
 /**
  * One person's card on the canvas (F5.5, F5.11, F5.12).
@@ -66,8 +79,13 @@ interface PersonNodeProps {
   branchHighlighted: boolean;
   /** True when this node is the signed-in account's own — the ring is drawn in the accent (F6.7). */
   isSelf: boolean;
-  onOpen: (personId: string) => void;
-  onAction: (action: NodeAction, person: PersonSummary) => void;
+  /**
+   * False on the print sheet and in exports: no actions, no focus, no click — a picture of the
+   * card rather than a control. Defaults to true.
+   */
+  interactive?: boolean;
+  onOpen?: (personId: string) => void;
+  onAction?: (action: NodeAction, person: PersonSummary) => void;
 }
 
 /** Icon paths, drawn in a 20×20 box centred on the origin. */
@@ -91,12 +109,19 @@ function PersonNodeComponent({
   branchName,
   branchHighlighted,
   isSelf,
+  interactive = true,
   onOpen,
   onAction,
 }: PersonNodeProps) {
   const { t } = useTranslation();
   const person = card.person;
-  const deceased = person.lifeStatus === 'DECEASED';
+  const visual = visualOf(person, isSelf);
+  const { deceased } = visual;
+  const gender = GENDER_STYLE[visual.gender];
+  const selfLabel = t('tree.canvas.you');
+  const selfTagWidth =
+    estimateTextWidth(selfLabel, SELF_TAG.fontSize) * 1.15 + SELF_TAG.padding * 2;
+  const label = describe(person, branchName, isSelf, t);
   // As much of the lifespan as there is room for: with its lunar readings, then without them, and
   // cut only if even the bare years do not fit. With no dates at all, the đời.
   const metaLine =
@@ -115,25 +140,33 @@ function PersonNodeComponent({
     estimateTextWidth(pillLabel, PILL_FONT_SIZE) + 2 * PILL_PADDING,
   );
 
+  const interaction = interactive
+    ? {
+        role: 'button' as const,
+        tabIndex: -1,
+        'aria-label': label,
+        onClick: () => {
+          onOpen?.(person.id);
+        },
+        onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onOpen?.(person.id);
+          }
+        },
+      }
+    : {};
+
   return (
     <NodeGroup
       transform={`translate(${card.x}, ${card.y})`}
       $dimmed={dimmed}
-      role="button"
-      tabIndex={-1}
-      aria-label={describe(person, branchName, isSelf, t)}
-      onClick={() => {
-        onOpen(person.id);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen(person.id);
-        }
-      }}
+      $interactive={interactive}
+      {...interaction}
     >
-      <title>{describe(person, branchName, isSelf, t)}</title>
+      <title>{label}</title>
 
+      <NodeShadow x={1} y={2} width={card.width} height={card.height} rx={10} />
       <NodeCard
         width={card.width}
         height={card.height}
@@ -141,20 +174,31 @@ function PersonNodeComponent({
         $selected={selected}
         $readOnly={!person.canEdit}
       />
-      <GenderRail
-        x={1}
-        y={10}
-        width={3}
-        height={card.height - 20}
-        rx={1.5}
-        $gender={person.gender}
-      />
+      <GenderRail x={1} y={10} width={3} height={card.height - 20} rx={1.5} $tone={gender.tone} />
+      {deceased && <MourningBand d={MOURNING_BAND} />}
 
-      <AvatarCircle cx={30} cy={26} r={14} $deceased={deceased} />
-      {person.linkedUserId !== undefined && <LinkRing cx={30} cy={26} r={16.5} $self={isSelf} />}
-      <AvatarInitials x={30} y={26}>
+      {/* The shape is the gender (square, circle, diamond, open): legible without its colour. */}
+      <AvatarShape
+        d={genderShapePath(gender.shape, AVATAR.cx, AVATAR.cy, AVATAR.r)}
+        $tone={gender.tone}
+        $deceased={deceased}
+        $open={gender.shape === 'open'}
+      />
+      {visual.linked && (
+        <LinkRing cx={AVATAR.cx} cy={AVATAR.cy} r={AVATAR.r + 3.5} $self={isSelf} />
+      )}
+      <AvatarInitials x={AVATAR.cx} y={AVATAR.cy}>
         {initialsOf(person.fullName)}
       </AvatarInitials>
+
+      {isSelf && (
+        <SelfTag transform={`translate(${SELF_TAG.x}, ${SELF_TAG.y})`}>
+          <rect width={selfTagWidth} height={SELF_TAG.height} rx={SELF_TAG.height / 2} />
+          <text x={SELF_TAG.padding} y={SELF_TAG.height / 2 + SELF_TAG.fontSize * 0.36}>
+            {selfLabel}
+          </text>
+        </SelfTag>
+      )}
 
       {/*
         The text column, as a nested viewport. An inner <svg> clips to its own box, which is the
@@ -187,7 +231,7 @@ function PersonNodeComponent({
         )}
       </svg>
 
-      {person.canEdit && (
+      {interactive && onAction !== undefined && person.canEdit && (
         <ActionLayer transform={`translate(${card.width - 10}, -10)`}>
           {/*
             One solid strip under the buttons, reaching down into the card. Without it the gaps

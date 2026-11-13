@@ -689,7 +689,62 @@
         "add-spouse": "Thêm vợ/chồng cho {{name}}",
         "edit": "Sửa thông tin {{name}}",
         "delete": "Gỡ {{name}} khỏi cây"
+      },
+      "you": "Bạn",
+      "scheme": {
+        "light": "Chuyển sơ đồ sang nền sáng",
+        "dark": "Chuyển sơ đồ sang nền tối"
       }
+    },
+    "legend": {
+      "title": "Chú giải",
+      "people": "Người",
+      "gender": {
+        "MALE": "Nam",
+        "FEMALE": "Nữ",
+        "OTHER": "Giới tính khác",
+        "UNKNOWN": "Chưa rõ giới tính"
+      },
+      "deceased": "Đã mất (dải tang ở góc thẻ)",
+      "self": "Bạn — tài khoản đang đăng nhập",
+      "linked": "Đã gắn với một tài khoản",
+      "relations": "Quan hệ",
+      "unionPrimary": "Chính thất / hôn nhân chính",
+      "unionSecondary": "Thứ thất / tái hôn",
+      "biological": "Con ruột",
+      "adoptive": "Con nuôi, con riêng, con đỡ đầu"
+    },
+    "print": {
+      "open": "In hoặc xuất ảnh",
+      "title": "In gia phả",
+      "scope": "Phần cây",
+      "scopeAll": "Cả cây (mở mọi nhánh đã thu)",
+      "scopeShown": "Như đang hiển thị",
+      "paper": "Khổ giấy",
+      "letter": "Letter",
+      "mode": "Cách in",
+      "modePages": "Chữ dễ đọc, chia nhiều trang",
+      "modeFit": "Gói vào một trang",
+      "modeHelp": {
+        "pages": "Giữ chữ đủ to để đọc; cây lớn được chia thành nhiều trang có phần chờm nhau để ghép lại.",
+        "fit": "Thu nhỏ cả cây vào một tờ; cây lớn sẽ có chữ rất nhỏ."
+      },
+      "summary": "{{count}} trang {{paper}} {{paperOrientation}} ({{columns}} cột × {{rows}} hàng), sơ đồ {{orientation}}.",
+      "paperOrientation": {
+        "portrait": "dọc",
+        "landscape": "ngang"
+      },
+      "treeOrientation": {
+        "vertical": "các đời từ trên xuống",
+        "horizontal": "các đời từ trái sang"
+      },
+      "tooSmall": "Gói cả cây vào một trang sẽ làm chữ quá nhỏ để đọc. Nên chọn \"Chữ dễ đọc, chia nhiều trang\" hoặc khổ A3.",
+      "pdfHint": "Muốn có tệp PDF: bấm In rồi chọn \"Lưu thành PDF\" trong hộp thoại in. Bản in là hình vector nên phóng to vẫn nét.",
+      "print": "In",
+      "exportSvg": "Tải SVG",
+      "exportPng": "Tải PNG",
+      "exportFailed": "Không xuất được ảnh. Hãy thử lại, hoặc dùng In → Lưu thành PDF.",
+      "pageOf": "Trang {{page}}/{{pages}} · hàng {{row}}, cột {{column}}"
     }
   },
   "claims": {

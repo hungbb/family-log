@@ -1,3 +1,83 @@
+/** The tree canvas's light scheme — see `tokens.tree`. */
+const treeLight = {
+  surface: '#FAFAF9',
+  rail: '#D2D2CE',
+  railLabel: '#5F646C',
+  railLabelBg: '#F2F2F0',
+  edge: '#767C85',
+  union: '#4E545C',
+  unionSecondary: '#767C85',
+  stackPanel: '#F2F2F0',
+  stackBorder: '#DCDCD8',
+  card: '#FFFFFF',
+  cardReadOnly: '#FAFAF9',
+  cardBorder: '#E1E0DC',
+  cardBorderHover: '#B9B8B3',
+  cardShadow: 'rgba(23, 25, 28, 0.06)',
+  ink: '#17191C',
+  inkMuted: '#5F646C',
+  inkSubtle: '#737982',
+  avatar: '#F7EEEB',
+  avatarDeceased: '#ECECE9',
+  avatarStroke: '#D2D2CE',
+  male: '#3D6389',
+  female: '#8A4A66',
+  other: '#6B5A99',
+  unknown: '#8F959E',
+  deceased: '#737982',
+  mourning: '#3A3D42',
+  accent: '#A6503F',
+  accentSubtle: '#F7EEEB',
+  accentBorder: '#E4CCC5',
+  accentInk: '#FFFFFF',
+  linked: '#2F7D5C',
+  pill: '#F2F2F0',
+  control: '#FFFFFF',
+  controlBorder: '#B9B8B3',
+  minimapNode: '#BDBDB8',
+  minimapViewport: 'rgba(166, 80, 63, 0.14)',
+};
+
+/** The tree canvas's dark scheme. `satisfies` holds it to exactly the light scheme's roles. */
+const treeDark = {
+  surface: '#121518',
+  rail: '#2F353D',
+  railLabel: '#AEB5BF',
+  railLabelBg: '#1D2126',
+  edge: '#8B95A2',
+  union: '#C3CAD3',
+  unionSecondary: '#8B95A2',
+  stackPanel: '#171B1F',
+  stackBorder: '#2A3038',
+  card: '#1C2026',
+  cardReadOnly: '#181B20',
+  cardBorder: '#2F353D',
+  cardBorderHover: '#4C5562',
+  cardShadow: 'rgba(0, 0, 0, 0.35)',
+  ink: '#ECEEF1',
+  inkMuted: '#AEB5BF',
+  inkSubtle: '#8A939F',
+  avatar: '#3A2925',
+  avatarDeceased: '#252A30',
+  avatarStroke: '#3A414B',
+  male: '#7FA6D1',
+  female: '#D195B2',
+  other: '#B4A0DC',
+  unknown: '#8A939F',
+  deceased: '#8A939F',
+  mourning: '#C9CED6',
+  accent: '#E08A76',
+  accentSubtle: '#3A2622',
+  accentBorder: '#6B3D33',
+  accentInk: '#121518',
+  linked: '#5FB892',
+  pill: '#252A30',
+  control: '#1C2026',
+  controlBorder: '#4C5562',
+  minimapNode: '#4C5562',
+  minimapViewport: 'rgba(224, 138, 118, 0.18)',
+} satisfies Record<keyof typeof treeLight, string>;
+
 /**
  * The single source of design tokens.
  *
@@ -10,7 +90,8 @@
  * the heritage warmth the product wants without the lacquered, folk-art register — and it is
  * nobody's idea of stock Ant Design blue.
  *
- * Dark mode is out of scope for v1, but every value below is a role rather than a literal, so a
+ * The app chrome is light-only in v1 (the tree canvas carries its own light and dark sets, see
+ * `tree` below), but every value is a role rather than a literal, so a
  * second token set can be swapped in through `ThemeProvider` without touching a component.
  */
 export const tokens = {
@@ -52,8 +133,28 @@ export const tokens = {
     /** Lineage semantics — the tree's gender rails and the muted treatment for the deceased. */
     male: '#3D6389',
     female: '#8A4A66',
+    otherGender: '#6B5A99',
     unknownGender: '#8F959E',
     deceased: '#8F959E',
+  },
+
+  /**
+   * The tree canvas's own palette, light and dark (#61).
+   *
+   * The canvas is the one surface that carries its own scheme: somebody reading a large *gia phả*
+   * for an hour may want it dark while the forms around it stay light, and printing always wants
+   * light whatever the screen shows. So these are not swapped through `ThemeProvider` — the canvas
+   * frame publishes the chosen set as `--tree-*` custom properties and every part inside it reads
+   * those (see `components/canvas/styles.ts`), which is also what lets the print sheet force
+   * `light` without re-rendering anything with a different theme.
+   *
+   * Every role has a value in both sets; `TreePalette` is what keeps it that way. Edges are a
+   * deliberate step darker (light) or lighter (dark) than the app's hairlines: in a family tree they
+   * are content, and they must clear 3:1 against the surface (WCAG 1.4.11).
+   */
+  tree: {
+    light: treeLight,
+    dark: treeDark,
   },
 
   /** A 4px rhythm. `space(3)` reads better than `12px` and cannot drift. */
@@ -127,3 +228,7 @@ export const tokens = {
 } as const;
 
 export type Tokens = typeof tokens;
+
+/** One of the canvas's two schemes. Both must name every role, so the type is the light set's. */
+export type TreeScheme = keyof typeof tokens.tree;
+export type TreePalette = Record<keyof typeof tokens.tree.light, string>;

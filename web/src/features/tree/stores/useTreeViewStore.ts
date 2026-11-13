@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { type TreeScheme } from '@/theme/tokens.ts';
+
 import { type Orientation } from '../model/layout';
 
 /**
@@ -20,6 +22,8 @@ import { type Orientation } from '../model/layout';
  *
  * Deliberately not persisted. Where somebody was looking three days ago is not a preference, and
  * restoring a scroll position into a tree that has since been edited lands them somewhere arbitrary.
+ * The two exceptions are preferences rather than positions — the canvas's light or dark scheme and
+ * whether the legend is open (#61) — and they survive both a reload and a change of clan.
  */
 
 export type ViewMode = 'canvas' | 'list';
@@ -46,6 +50,10 @@ interface TreeViewState {
    * is the starting point somebody chose, not a rule the canvas keeps enforcing.
    */
   generationLimit: number | null;
+  /** The canvas's own colour scheme (#61). Independent of the app chrome, which is light-only. */
+  scheme: TreeScheme;
+  /** Whether the on-canvas legend is expanded. */
+  legendOpen: boolean;
 
   openClan: (clanId: string) => void;
   setMode: (mode: ViewMode) => void;
@@ -59,6 +67,8 @@ interface TreeViewState {
   focusSlot: (slotKey: string | null) => void;
   highlightBranch: (branchId: string | null) => void;
   setFullscreen: (fullscreen: boolean) => void;
+  setScheme: (scheme: TreeScheme) => void;
+  setLegendOpen: (open: boolean) => void;
 }
 
 /** Far enough out to see a five-thousand-person clan, far enough in to read a lunar date. */
@@ -76,9 +86,46 @@ const INITIAL = {
   generationLimit: null,
 };
 
+const SCHEME_KEY = 'giaky.treeScheme';
+const LEGEND_KEY = 'giaky.treeLegend';
+
+/**
+ * Reads a stored preference. Storage can be missing or throw (a private window, blocked site data,
+ * a test environment), and a preference that cannot be read is simply the default.
+ */
+function readPreference(key: string): string | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePreference(key: string, value: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+  } catch {
+    // Not remembered across reloads; the choice still applies now.
+  }
+}
+
+/** The stored scheme, else the system's, else light. */
+function initialScheme(): TreeScheme {
+  const stored = readPreference(SCHEME_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  const prefersDark =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return prefersDark ? 'dark' : 'light';
+}
+
 export const useTreeViewStore = create<TreeViewState>((set) => ({
   clanId: null,
   ...INITIAL,
+  scheme: initialScheme(),
+  // Closed until asked for: it would otherwise cover part of the tree on every first visit.
+  legendOpen: readPreference(LEGEND_KEY) === 'open',
 
   openClan: (clanId) => {
     set((state) => (state.clanId === clanId ? state : { clanId, ...INITIAL }));
@@ -145,6 +192,16 @@ export const useTreeViewStore = create<TreeViewState>((set) => ({
 
   setFullscreen: (fullscreen) => {
     set({ fullscreen });
+  },
+
+  setScheme: (scheme) => {
+    writePreference(SCHEME_KEY, scheme);
+    set({ scheme });
+  },
+
+  setLegendOpen: (legendOpen) => {
+    writePreference(LEGEND_KEY, legendOpen ? 'open' : 'closed');
+    set({ legendOpen });
   },
 }));
 
