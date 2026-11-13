@@ -11,9 +11,10 @@ Staging runs on the Jenkins host, `192.168.1.100`, at **<http://192.168.1.100:80
 | Swagger UI | <http://192.168.1.100:8081/swagger-ui.html> |
 
 Files: `api/Dockerfile`, `web/Dockerfile`, `web/deploy/nginx.conf.template`, `deploy/staging/docker-compose.yml`,
-`Jenkinsfile` (pipeline), `deploy/staging/jenkins-job.xml` (the job that runs it),
-`deploy/staging/seed.py` + `Jenkinsfile.seed` + `jenkins-seed-job.xml` (demo data).
-Production is a separate job, `giaky-prod`: see `deploy/prod/README.md`.
+`Jenkinsfile` (pipeline), `deploy/staging/seed.py` + `Jenkinsfile.demo-data` (demo data).
+The jobs themselves (`giaky-staging`, `giaky-staging-demo-data`) are defined in
+`deploy/jenkins/jobs.groovy` and created by the `giaky-seed` job: see `deploy/jenkins/README.md`.
+Production is `giaky-prod`: see `deploy/prod/README.md`.
 
 ## One-time Jenkins setup
 
@@ -22,15 +23,9 @@ Production is a separate job, `giaky-prod`: see `deploy/prod/README.md`.
    - `giaky-staging-jwt-secret`: *Secret text*, the output of `openssl rand -base64 32`.
    - `github-ssh`: *SSH username with private key*, user `git`, a key with read access to
      `hungbb/family-log` (a repository deploy key is enough).
-2. **Job**: create it from the XML, using an API token from your Jenkins user page:
-
-   ```bash
-   curl -fsS -u "<user>:<api-token>" -H "Content-Type: application/xml" \
-     --data-binary @deploy/staging/jenkins-job.xml \
-     "http://192.168.1.100:8080/createItem?name=giaky-staging"
-   ```
-
-   The job polls `main` every ~5 minutes and reads the `Jenkinsfile` from the commit it builds.
+2. **Job**: `giaky-staging` is created by the `giaky-seed` job from `deploy/jenkins/jobs.groovy`
+   (setup in `deploy/jenkins/README.md`). It polls `main` every ~5 minutes and reads the
+   `Jenkinsfile` from the commit it builds.
 
 ## Pipeline
 
@@ -43,15 +38,9 @@ To deploy without tests, run **Build with Parameters** and untick `RUN_TESTS`.
 ## Demo data
 
 `deploy/staging/seed.py` fills staging with a demo clan (about 80 people over six generations)
-and four test accounts, through the public API. Run it from Jenkins with the `giaky-staging-seed`
-job (`deploy/staging/Jenkinsfile.seed`), which is manual and safe to rerun: the script stops if
-the demo clan already exists. Create the job once:
-
-```bash
-curl -fsS -u "<user>:<api-token>" -H "Content-Type: application/xml" \
-  --data-binary @deploy/staging/jenkins-seed-job.xml \
-  "http://192.168.1.100:8080/createItem?name=giaky-staging-seed"
-```
+and four test accounts, through the public API. Run it from Jenkins with **Build with
+Parameters** on `giaky-staging-demo-data` (`deploy/staging/Jenkinsfile.demo-data`). It is manual
+and safe to rerun: the script stops if the demo clan already exists.
 
 Or run it from any machine with Python 3.10+: `python3 deploy/staging/seed.py`. The accounts and
 password are listed at the top of the script.
