@@ -1,0 +1,236 @@
+// Gia Ký — production pipeline. Builds and tests on the Jenkins host (192.168.1.100), pushes the
+// images to the DigitalOcean registry, then deploys them over SSH onto the ezgo host
+// (etopfunvalue.com), where they run beside ezgo and share its managed PostgreSQL cluster —
+// same cluster, same credentials, a `giaky` database of our own.
+//
+// Reached at https://giaky.etopfunvalue.com through the host's nginx (deploy/prod/nginx-giaky.conf).
+// The containers publish nothing but 127.0.0.1:8082, so that nginx is the only way in.
+//
+// Jenkins credentials this expects (all but the last already exist, for ezgo):
+//   do-registry-token               — Secret text, DigitalOcean API token with registry write
+//   ezvalue-ssh-key                 — SSH private key, root@etopfunvalue.com
+//   spring-datasource-password-do   — Secret text, the `doadmin` password (shared with ezgo)
+//   giaky-prod-jwt-secret           — Secret text, `openssl rand -base64 32`; NOT the staging one
+//
+// Deploying is manual: this job has no SCM trigger. Build with Parameters → Build.
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    parameters {
+        booleanParam(name: 'RUN_TESTS', defaultValue: true,
+                description: 'Run ./mvnw verify (incl. Testcontainers ITs) and the web verify stage before building.')
+        string(name: 'ROLLBACK_TAG', defaultValue: '',
+                description: 'Redeploy an image tag already in the registry (e.g. build-17), skipping test, build and push. Empty = a normal build of main.')
+    }
+
+    environment {
+        REGISTRY        = 'registry.digitalocean.com/courier'
+        IMAGE_TAG       = "${params.ROLLBACK_TAG?.trim() ?: 'build-' + env.BUILD_NUMBER}"
+        API_IMAGE       = "${REGISTRY}/giaky-api"
+        WEB_IMAGE       = "${REGISTRY}/giaky-web"
+
+        PROD_HOST       = 'etopfunvalue.com'
+        PROD_USER       = 'root'
+        PUBLIC_URL      = 'https://giaky.etopfunvalue.com'
+        WEB_PORT        = '8082'                        // loopback only; ezgo holds 8081
+        REMOTE_DIR      = '/etc/giaky'
+        COMPOSE_FILE    = '/etc/giaky/docker-compose.yml'
+        ENV_FILE        = '/etc/giaky/giaky.env'
+
+        // ezgo's cluster, a separate database. sslmode=require: DigitalOcean refuses plaintext, and
+        // `require` encrypts without needing the CA bundle installed on the host.
+        DB_URL          = 'jdbc:postgresql://db-postgresql-sgp1-26151-do-user-650903-0.j.db.ondigitalocean.com:25060/giaky?sslmode=require'
+        DB_USERNAME     = 'doadmin'
+
+        // Trust the host key on first use and fail if it ever changes, instead of never checking it.
+        SSH_OPTS        = '-o StrictHostKeyChecking=accept-new -o BatchMode=yes'
+        DOCKER_BUILDKIT = '1'
+    }
+
+    stages {
+        stage('Test API') {
+            when { expression { params.RUN_TESTS && !params.ROLLBACK_TAG?.trim() } }
+            steps {
+                // `verify`, not `test`: the *IT suites are bound to verify (ADR 0001).
+                // Testcontainers drives the host daemon through the mounted socket; host networking
+                // lets it reach the ports it maps. Running as the jenkins uid keeps target/ removable,
+                // and ~/.m2 is shared across builds as the Maven cache.
+                sh '''
+                    mkdir -p "$HOME/.m2"
+                    docker run --rm --network host \
+                        -u "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v "$WORKSPACE/api:/src" -w /src \
+                        -v "$HOME/.m2:/m2" -e MAVEN_USER_HOME=/m2 -e HOME=/tmp \
+                        eclipse-temurin:21-jdk \
+                        sh -c 'chmod +x mvnw && ./mvnw -B -ntp -Dmaven.repo.local=/m2/repository verify'
+                '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true,
+                          testResults: 'api/target/surefire-reports/*.xml, api/target/failsafe-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Verify web') {
+            when { expression { params.RUN_TESTS && !params.ROLLBACK_TAG?.trim() } }
+            steps {
+                sh 'docker build --target verify --build-context repo-root=. -t giaky-web:verify web'
+            }
+        }
+
+        stage('Build images') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
+            parallel {
+                stage('api') {
+                    steps {
+                        sh 'docker build -t "$API_IMAGE:$IMAGE_TAG" -t "$API_IMAGE:latest" api'
+                    }
+                }
+                stage('web') {
+                    steps {
+                        // No VITE_API_BASE_URL: the bundle calls its own origin, which nginx proxies.
+                        sh 'docker build --target runtime -t "$WEB_IMAGE:$IMAGE_TAG" -t "$WEB_IMAGE:latest" web'
+                    }
+                }
+            }
+        }
+
+        stage('Push') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
+            steps {
+                // doctl reads the token from the environment, so it is neither on a command line nor saved to disk.
+                withCredentials([string(credentialsId: 'do-registry-token', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                    sh '''
+                        set -eu
+                        doctl registry login
+                        docker push "$API_IMAGE:$IMAGE_TAG"
+                        docker push "$API_IMAGE:latest"
+                        docker push "$WEB_IMAGE:$IMAGE_TAG"
+                        docker push "$WEB_IMAGE:latest"
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ezvalue-ssh-key', keyFileVariable: 'SSH_KEY'),
+                    string(credentialsId: 'do-registry-token',             variable: 'DO_TOKEN'),
+                    string(credentialsId: 'spring-datasource-password-do', variable: 'DB_PASSWORD'),
+                    string(credentialsId: 'giaky-prod-jwt-secret',         variable: 'JWT_SECRET'),
+                ]) {
+                    // Single-quoted so Groovy never interpolates a secret into the script, and so the
+                    // build log never sees one: they reach the host over stdin, not a command line.
+                    sh '''
+                        set -eu
+                        SSH="ssh $SSH_OPTS -i $SSH_KEY $PROD_USER@$PROD_HOST"
+
+                        # Compose v2 is what this deploy is written against; say so plainly if it is absent.
+                        $SSH 'docker compose version >/dev/null 2>&1 || { echo "docker compose v2 is missing on this host. Install it with: apt-get install -y docker-compose-plugin" >&2; exit 1; }'
+
+                        $SSH "mkdir -p $REMOTE_DIR && chmod 700 $REMOTE_DIR"
+
+                        # The whole runtime configuration, rewritten on every deploy so what is on the
+                        # host is never out of step with this pipeline.
+                        printf '%s\\n' \\
+                            "REGISTRY=$REGISTRY" \\
+                            "IMAGE_TAG=$IMAGE_TAG" \\
+                            "WEB_PORT=$WEB_PORT" \\
+                            "PUBLIC_URL=$PUBLIC_URL" \\
+                            "DB_URL=$DB_URL" \\
+                            "DB_USERNAME=$DB_USERNAME" \\
+                            "DB_PASSWORD=$DB_PASSWORD" \\
+                            "DB_POOL_SIZE=10" \\
+                            "JWT_SECRET=$JWT_SECRET" \\
+                            "JWT_ISSUER=giaky" \\
+                            "BCRYPT_COST=12" \\
+                          | $SSH "umask 077 && cat > $ENV_FILE"
+
+                        $SSH "umask 077 && cat > $COMPOSE_FILE" < deploy/prod/docker-compose.yml
+
+                        printf '%s\\n' "$DO_TOKEN" \\
+                            | $SSH 'IFS= read -r DIGITALOCEAN_ACCESS_TOKEN && export DIGITALOCEAN_ACCESS_TOKEN && doctl registry login'
+
+                        # Flyway migrates the giaky database as the API starts.
+                        $SSH "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE pull && docker compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d --remove-orphans"
+                    '''
+                }
+            }
+        }
+
+        stage('Smoke test') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ezvalue-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    // On the host's loopback port, so a failure here is the deploy's own and not DNS's
+                    // or the certificate's. The public URL is checked after it, and only warns.
+                    sh '''
+                        set -eu
+                        SSH="ssh $SSH_OPTS -i $SSH_KEY $PROD_USER@$PROD_HOST"
+
+                        $SSH "WEB_PORT='$WEB_PORT' ENV_FILE='$ENV_FILE' COMPOSE_FILE='$COMPOSE_FILE' bash -s" <<'ENDSSH'
+set -uo pipefail
+for i in $(seq 1 60); do
+    if curl -fsS "http://127.0.0.1:$WEB_PORT/actuator/health" | grep -q '"status":"UP"'; then
+        echo "API healthy through the web container after $((i * 3))s"
+        curl -fsS -o /dev/null "http://127.0.0.1:$WEB_PORT/" && echo "Web client served"
+        exit 0
+    fi
+    sleep 3
+done
+echo "Production did not become healthy in 180s" >&2
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=200 api
+exit 1
+ENDSSH
+
+                        curl -fsS -o /dev/null --max-time 20 "$PUBLIC_URL/" \\
+                            && echo "$PUBLIC_URL is serving" \\
+                            || echo "WARNING: $PUBLIC_URL did not answer. The containers are healthy; check DNS, the nginx vhost and the certificate (deploy/prod/README.md)."
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Production deployed: ${env.PUBLIC_URL}  (image tag ${env.IMAGE_TAG})"
+            withCredentials([sshUserPrivateKey(credentialsId: 'ezvalue-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                // Keep the three newest build tags on the host for a rollback; the registry keeps the
+                // rest. The tag just deployed is never among those removed.
+                sh '''
+                    set -eu
+                    ssh $SSH_OPTS -i "$SSH_KEY" "$PROD_USER@$PROD_HOST" \\
+                        "IMAGE_TAG='$IMAGE_TAG' API_IMAGE='$API_IMAGE' WEB_IMAGE='$WEB_IMAGE' bash -s" <<'ENDSSH'
+set -uo pipefail
+for image in "$API_IMAGE" "$WEB_IMAGE"; do
+    docker images "$image" --format '{{.Tag}}' \
+        | grep -E '^build-[0-9]+$' | grep -vx "$IMAGE_TAG" | sort -t- -k2 -n -r | tail -n +3 \
+        | sed "s|^|$image:|" | xargs -r docker rmi || true
+done
+docker image prune -f >/dev/null || true
+ENDSSH
+                '''
+            }
+        }
+        always {
+            // The build host only pushed these images; nothing runs from them here.
+            sh '''
+                docker rmi "$API_IMAGE:$IMAGE_TAG" "$WEB_IMAGE:$IMAGE_TAG" >/dev/null 2>&1 || true
+                docker image prune -f >/dev/null || true
+            '''
+        }
+    }
+}
