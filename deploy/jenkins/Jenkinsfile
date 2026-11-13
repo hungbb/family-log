@@ -1,0 +1,28 @@
+// Gia Ký — the seed job (giaky-seed). Applies deploy/jenkins/jobs.groovy with the Job DSL plugin,
+// creating or updating every giaky-* job from it.
+//
+// Created by hand once (deploy/jenkins/README.md); after its first run it manages itself as well.
+// A job removed from jobs.groovy is disabled, not deleted, so its build history survives a mistake.
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 10, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Apply job definitions') {
+            steps {
+                jobDsl targets: 'deploy/jenkins/jobs.groovy',
+                       lookupStrategy: 'SEED_JOB',
+                       removedJobAction: 'DISABLE',
+                       removedViewAction: 'IGNORE',
+                       removedConfigFilesAction: 'IGNORE'
+            }
+        }
+    }
+}

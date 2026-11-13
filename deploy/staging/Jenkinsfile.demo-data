@@ -1,7 +1,8 @@
-// Gia Ký — seed staging with the demo clan (deploy/staging/seed.py), through the public API.
+// Gia Ký — fill staging with the demo clan (deploy/staging/seed.py), through the public API.
 //
-// Manual only: Build with Parameters. The script refuses to run twice against the same database
-// (it stops if the admin already owns the demo clan), so a second run is harmless.
+// Job giaky-staging-demo-data, defined in deploy/jenkins/jobs.groovy. Manual only: Build with
+// Parameters. The script refuses to run twice against the same database (it stops if the admin
+// already owns the demo clan), so a second run is harmless.
 //
 // Runs in a python container rather than on the agent: the agent is promised only Docker and curl
 // (see the root Jenkinsfile). The script uses the standard library alone, so nothing is installed.

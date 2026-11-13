@@ -19,7 +19,8 @@ Production runs on the **ezgo host, `etopfunvalue.com`**, beside ezgo itself, at
 ezgo keeps `8081`; Gia Ký takes `8082`. Both are loopback-only, so neither sits in front of ufw.
 
 Files: `deploy/prod/Jenkinsfile` (pipeline), `deploy/prod/docker-compose.yml` (what runs on the
-host), `deploy/prod/nginx-giaky.conf` (the host vhost), `deploy/prod/jenkins-job.xml` (the job).
+host), `deploy/prod/nginx-giaky.conf` (the host vhost). The `giaky-prod` job itself is defined in
+`deploy/jenkins/jobs.groovy` and created by the `giaky-seed` job (`deploy/jenkins/README.md`).
 
 ## One-time setup
 
@@ -67,9 +68,8 @@ for both environments. Rotating it signs everyone out.
 
 ### 5. The job
 
-```bash
-curl -fsS -u "<user>:<api-token>" -H "Content-Type: application/xml" --data-binary @deploy/prod/jenkins-job.xml "http://192.168.1.100:8080/createItem?name=giaky-prod"
-```
+`giaky-prod` is created by the `giaky-seed` job from `deploy/jenkins/jobs.groovy`; set that up
+once as `deploy/jenkins/README.md` describes. Nothing to create here by hand.
 
 Two things on the host side are worth checking before the first run:
 
