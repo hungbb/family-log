@@ -1,0 +1,55 @@
+// Gia Ký — seed staging with the demo clan (deploy/staging/seed.py), through the public API.
+//
+// Manual only: Build with Parameters. The script refuses to run twice against the same database
+// (it stops if the admin already owns the demo clan), so a second run is harmless.
+//
+// Runs in a python container rather than on the agent: the agent is promised only Docker and curl
+// (see the root Jenkinsfile). The script uses the standard library alone, so nothing is installed.
+// Host networking lets it reach staging on the host's loopback, past nothing but nginx.
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 20, unit: 'MINUTES')
+    }
+
+    parameters {
+        string(name: 'BASE_URL', defaultValue: 'http://127.0.0.1:8081',
+                description: 'Where staging answers, as seen from the Jenkins host.')
+        string(name: 'SEED', defaultValue: '20261112',
+                description: 'Random seed; the same seed always builds the same tree.')
+    }
+
+    stages {
+        stage('Wait for staging') {
+            steps {
+                sh '''
+                    for i in $(seq 1 20); do
+                        curl -fsS "$BASE_URL/actuator/health" | grep -q '"status":"UP"' && exit 0
+                        sleep 3
+                    done
+                    echo "Staging is not healthy at $BASE_URL; deploy it first (giaky-staging)." >&2
+                    exit 1
+                '''
+            }
+        }
+
+        stage('Seed') {
+            steps {
+                // -I: isolated mode, so nothing in the workspace is imported ahead of the stdlib.
+                sh '''
+                    docker run --rm --network host \
+                        -u "$(id -u):$(id -g)" \
+                        -v "$WORKSPACE/deploy/staging/seed.py:/seed.py:ro" \
+                        -e PYTHONIOENCODING=utf-8 \
+                        python:3.12-slim \
+                        python3 -I /seed.py --base-url "$BASE_URL" --seed "$SEED"
+                '''
+            }
+        }
+    }
+}
