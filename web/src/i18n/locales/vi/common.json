@@ -509,7 +509,8 @@
       "posthumousName": "Tên dùng trong ngày giỗ"
     },
     "validation": {
-      "nameRequired": "Cần có tên — những phần khác có thể bổ sung sau.",
+      "nameRequired": "Cần có tên.",
+      "genderRequired": "Chọn nam hoặc nữ.",
       "anchorRequired": "Chọn người mà người này gắn vào.",
       "branchRequired": "Chọn một chi."
     },
@@ -522,9 +523,7 @@
     },
     "gender": {
       "MALE": "Nam",
-      "FEMALE": "Nữ",
-      "OTHER": "Khác",
-      "UNKNOWN": "Không rõ"
+      "FEMALE": "Nữ"
     },
     "lifeStatus": {
       "ALIVE": "Còn sống",
@@ -550,8 +549,7 @@
       "father": "Cha",
       "mother": "Mẹ",
       "wife": "Vợ",
-      "husband": "Chồng",
-      "spouse": "Vợ/chồng"
+      "husband": "Chồng"
     },
     "generation": {
       "value": "đời {{generation}}",
@@ -701,11 +699,9 @@
       "people": "Người",
       "gender": {
         "MALE": "Nam",
-        "FEMALE": "Nữ",
-        "OTHER": "Giới tính khác",
-        "UNKNOWN": "Chưa rõ giới tính"
+        "FEMALE": "Nữ"
       },
-      "deceased": "Đã mất (dải tang ở góc thẻ)",
+      "deceased": "Đã mất",
       "self": "Bạn — tài khoản đang đăng nhập",
       "linked": "Đã gắn với một tài khoản",
       "relations": "Quan hệ",

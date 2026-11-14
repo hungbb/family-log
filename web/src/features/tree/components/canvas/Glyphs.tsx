@@ -1,13 +1,12 @@
-import { type Gender } from '@/api/endpoints/persons.ts';
-
-import { GENDER_STYLE, genderShapePath, STROKE } from '../../model/visual';
+import { type CardTone, STROKE } from '../../model/visual';
 
 import {
-  AvatarShape,
+  AvatarCircle,
+  CardSwatch,
   LegendSwatch,
   LinkRing,
-  MourningBand,
   ParentEdgePath,
+  RingGlyphFill,
   UnionLine,
 } from './styles';
 
@@ -19,43 +18,20 @@ import {
  * text beside it carries the meaning, so the SVG is hidden from assistive technology.
  */
 
-/** A gender's avatar shape, filled for the living and muted for the deceased. */
-export function GenderGlyph({
-  gender,
-  deceased = false,
-  size = 14,
+/** A miniature card in a tone's colours — a gender's tint, or the gray of the deceased. */
+export function CardGlyph({
+  tone,
+  width = 20,
+  height = 14,
 }: {
-  gender: Gender;
-  deceased?: boolean;
-  size?: number;
+  tone: CardTone;
+  width?: number;
+  height?: number;
 }) {
-  const style = GENDER_STYLE[gender];
-  const r = size / 2 - 1.5;
   return (
-    <LegendSwatch width={size} height={size} aria-hidden="true" focusable="false">
-      <AvatarShape
-        d={genderShapePath(style.shape, size / 2, size / 2, r)}
-        $tone={style.tone}
-        $deceased={deceased}
-        $open={style.shape === 'open'}
-      />
-    </LegendSwatch>
-  );
-}
-
-/** The corner band a deceased person's card carries. */
-export function MourningGlyph({ size = 14 }: { size?: number }) {
-  return (
-    <LegendSwatch width={size} height={size} aria-hidden="true" focusable="false">
-      <AvatarShape
-        d={genderShapePath('circle', size / 2, size / 2, size / 2 - 1.5)}
-        $tone="unknown"
-        $deceased
-        $open={false}
-      />
-      <MourningBand
-        d={`M 0 ${String(size * 0.42)} L ${String(size * 0.42)} 0 L ${String(size * 0.72)} 0 L 0 ${String(size * 0.72)} Z`}
-      />
+    <LegendSwatch width={width} height={height} aria-hidden="true" focusable="false">
+      <CardSwatch x={0.5} y={0.5} width={width - 1} height={height - 1} rx={3} $tone={tone} />
+      <AvatarCircle cx={height / 2} cy={height / 2} r={height / 2 - 3.5} $tone={tone} />
     </LegendSwatch>
   );
 }
@@ -64,12 +40,7 @@ export function MourningGlyph({ size = 14 }: { size?: number }) {
 export function RingGlyph({ self }: { self: boolean }) {
   return (
     <LegendSwatch width={18} height={18} aria-hidden="true" focusable="false">
-      <AvatarShape
-        d={genderShapePath('circle', 9, 9, 6)}
-        $tone="unknown"
-        $deceased={false}
-        $open={false}
-      />
+      <RingGlyphFill cx={9} cy={9} r={6} />
       <LinkRing cx={9} cy={9} r={8} $self={self} />
     </LegendSwatch>
   );

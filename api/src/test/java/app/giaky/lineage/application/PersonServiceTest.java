@@ -115,7 +115,7 @@ class PersonServiceTest {
                                     fixtures.personService.create(
                                             editorHai,
                                             clan,
-                                            LineageTestFixtures.person("Vô danh", Gender.UNKNOWN)
+                                            LineageTestFixtures.person("Vô danh", Gender.MALE)
                                                     .placement(PersonPlacement.unplaced())
                                                     .build()))
                     .as("otherwise 'create loose, then attach' is a route into any chi")
@@ -257,6 +257,54 @@ class PersonServiceTest {
             assertThat(fixtures.persons.findById(clan, person).orElseThrow().burialPlace())
                     .as("PUT means what it says")
                     .isNull();
+        }
+
+        @Test
+        @DisplayName("a person is created with a gender or not at all")
+        void createRequiresGender() {
+            assertThatThrownBy(
+                            () ->
+                                    fixtures.personService.create(
+                                            admin,
+                                            clan,
+                                            LineageTestFixtures.person("Vô danh", null)
+                                                    .placement(PersonPlacement.branchRoot(chiHai))
+                                                    .build()))
+                    .isInstanceOf(ApiException.class)
+                    .extracting(error -> ((ApiException) error).code())
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
+
+        @Test
+        @DisplayName("PATCH without a gender keeps it; PUT without one is refused")
+        void genderCannotBeCleared() {
+            PersonId person = personIn(chiHai, "Trần Thị Hoa");
+            fixtures.personService.replace(
+                    admin,
+                    clan,
+                    person,
+                    new UpdatePersonCommand(
+                            "Trần Thị Hoa", null, null, null, null, Gender.FEMALE,
+                            null, null, null, null, null, null, version(person)));
+
+            fixtures.personService.patch(
+                    admin, clan, person, update("Trần Thị Hoa (sửa)", version(person)));
+            assertThat(fixtures.persons.findById(clan, person).orElseThrow().gender())
+                    .isEqualTo(Gender.FEMALE);
+
+            assertThatThrownBy(
+                            () ->
+                                    fixtures.personService.replace(
+                                            admin,
+                                            clan,
+                                            person,
+                                            new UpdatePersonCommand(
+                                                    "Trần Thị Hoa", null, null, null, null, null,
+                                                    null, null, null, null, null, null,
+                                                    version(person))))
+                    .isInstanceOf(ApiException.class)
+                    .extracting(error -> ((ApiException) error).code())
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
         }
 
         @Test

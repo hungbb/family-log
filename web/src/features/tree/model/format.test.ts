@@ -125,10 +125,9 @@ describe('generation and kinship words', () => {
     expect(parentLabel('MOTHER', vi)).toBe(vi('tree.kin.mother'));
   });
 
-  it('picks vợ or chồng by gender, and the neutral word when the book does not say', () => {
+  it('picks vợ or chồng by gender', () => {
     expect(spouseLabel(person({ gender: 'FEMALE' }), vi)).toBe(vi('tree.kin.wife'));
     expect(spouseLabel(person({ gender: 'MALE' }), vi)).toBe(vi('tree.kin.husband'));
-    expect(spouseLabel(person({ gender: 'UNKNOWN' }), vi)).toBe(vi('tree.kin.spouse'));
   });
 
   it('labels a person with their đời only when there is one', () => {

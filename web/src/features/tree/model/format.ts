@@ -103,20 +103,15 @@ export function formatGeneration(generation: number | undefined, t: TFunction): 
 }
 
 /**
- * The Vietnamese kinship word for a parent, by gender (F4.10).
- *
- * Falls back to the neutral term when the book does not say, rather than guessing — the same rule
- * the server applies when it has to pick a parent role.
+ * The Vietnamese kinship word for a parent, by role (F4.10).
  */
 export function parentLabel(role: 'FATHER' | 'MOTHER', t: TFunction): string {
   return role === 'FATHER' ? t('tree.kin.father') : t('tree.kin.mother');
 }
 
-/** <i>Vợ</i> or <i>chồng</i>, or the neutral word when the record does not say. */
+/** <i>Vợ</i> or <i>chồng</i>. */
 export function spouseLabel(person: PersonSummary, t: TFunction): string {
-  if (person.gender === 'FEMALE') return t('tree.kin.wife');
-  if (person.gender === 'MALE') return t('tree.kin.husband');
-  return t('tree.kin.spouse');
+  return person.gender === 'FEMALE' ? t('tree.kin.wife') : t('tree.kin.husband');
 }
 
 /** A short, human label for a person: their name, and their đời when it is known. */

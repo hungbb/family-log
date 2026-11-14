@@ -15,11 +15,10 @@ public enum ParentRole {
     /**
      * Which of a couple to record as the father of their child.
      *
-     * <p>Gender when the book gives it — of either partner, since knowing one is a wife says the
-     * other is the husband — and the canonical storage order when it gives neither. That fallback is
-     * arbitrary and is meant to be: an edge has to name a role, both roles exist, and a wrong guess
-     * is a correction an editor makes in one click, whereas refusing would block transcribing a
-     * marriage whose partners' genders the book never stated.
+     * <p>By gender — of either partner, since knowing one is a wife says the other is the husband —
+     * and the canonical storage order when both partners share a gender. That fallback is arbitrary
+     * and is meant to be: an edge has to name a role, both roles exist, and a wrong guess is a
+     * correction an editor makes in one click.
      *
      * <p>One definition, because there were two. Creating a child under a marriage asked this
      * question; attaching an existing child to the same marriage asked a shorter one — "partner A,

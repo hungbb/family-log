@@ -147,7 +147,7 @@ Person
  ├─ clanId: ClanId              (tenancy boundary)
  ├─ branchId: BranchId          (organizational placement, derived-then-stored)
  ├─ name: PersonName { fullName, familyName?, givenName?, alias?, posthumousName? }
- ├─ gender: MALE | FEMALE | OTHER | UNKNOWN
+ ├─ gender: MALE | FEMALE
  ├─ lifeStatus: ALIVE | DECEASED | UNKNOWN
  ├─ birth: PartialDate?         (value object)
  ├─ death: PartialDate?

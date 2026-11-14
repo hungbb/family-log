@@ -9,6 +9,7 @@ import app.giaky.lineage.domain.ParentageNature;
 /**
  * Add a person to the tree (FR-P1, doc 05 §4.7).
  *
+ * @param gender required: male or female
  * @param placement where the node attaches, which decides both its branch and the permission check
  * @param parentRole for a child placement, which parent the anchor is; defaults to the anchor's own
  *     gender when the caller does not say

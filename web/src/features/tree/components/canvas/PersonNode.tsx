@@ -7,20 +7,18 @@ import { type PersonSummary } from '@/api/endpoints/persons.ts';
 import { estimateTextWidth, fitFirst, fitName, fitText, fitWords } from '../../model/fitText';
 import { formatCompactLifespan, formatGeneration, formatLifespan } from '../../model/format';
 import { CARD, type LaidOutCard } from '../../model/layout';
-import { GENDER_STYLE, genderShapePath, visualOf } from '../../model/visual';
+import { cardToneOf, visualOf } from '../../model/visual';
 
 import {
   ActionBridge,
   ActionButton,
   ActionLayer,
   ActionStrip,
+  AvatarCircle,
   AvatarInitials,
-  AvatarShape,
   BranchPill,
   BranchPillText,
-  GenderRail,
   LinkRing,
-  MourningBand,
   NodeCard,
   NodeGroup,
   NodeMeta,
@@ -48,9 +46,6 @@ const AVATAR = { cx: 30, cy: 26, r: 14 } as const;
 
 /** The "You" tag above the viewer's own card. */
 const SELF_TAG = { x: 10, y: -9, height: 15, padding: 7, fontSize: 10 } as const;
-
-/** The mourning band across the top-left corner of a deceased person's card (#61). */
-const MOURNING_BAND = 'M 0 16 L 16 0 L 23 0 L 0 23 Z';
 
 /**
  * One person's card on the canvas (F5.5, F5.11, F5.12).
@@ -117,11 +112,11 @@ function PersonNodeComponent({
   const person = card.person;
   const visual = visualOf(person, isSelf);
   const { deceased } = visual;
-  const gender = GENDER_STYLE[visual.gender];
+  const tone = cardToneOf(visual);
   const selfLabel = t('tree.canvas.you');
   const selfTagWidth =
     estimateTextWidth(selfLabel, SELF_TAG.fontSize) * 1.15 + SELF_TAG.padding * 2;
-  const label = describe(person, branchName, isSelf, t);
+  const label = describe(person, branchName, isSelf, deceased, t);
   // As much of the lifespan as there is room for: with its lunar readings, then without them, and
   // cut only if even the bare years do not fit. With no dates at all, the đời.
   const metaLine =
@@ -167,27 +162,13 @@ function PersonNodeComponent({
       <title>{label}</title>
 
       <NodeShadow x={1} y={2} width={card.width} height={card.height} rx={10} />
-      <NodeCard
-        width={card.width}
-        height={card.height}
-        rx={10}
-        $selected={selected}
-        $readOnly={!person.canEdit}
-      />
-      <GenderRail x={1} y={10} width={3} height={card.height - 20} rx={1.5} $tone={gender.tone} />
-      {deceased && <MourningBand d={MOURNING_BAND} />}
+      <NodeCard width={card.width} height={card.height} rx={10} $tone={tone} $selected={selected} />
 
-      {/* The shape is the gender (square, circle, diamond, open): legible without its colour. */}
-      <AvatarShape
-        d={genderShapePath(gender.shape, AVATAR.cx, AVATAR.cy, AVATAR.r)}
-        $tone={gender.tone}
-        $deceased={deceased}
-        $open={gender.shape === 'open'}
-      />
+      <AvatarCircle cx={AVATAR.cx} cy={AVATAR.cy} r={AVATAR.r} $tone={tone} />
       {visual.linked && (
         <LinkRing cx={AVATAR.cx} cy={AVATAR.cy} r={AVATAR.r + 3.5} $self={isSelf} />
       )}
-      <AvatarInitials x={AVATAR.cx} y={AVATAR.cy}>
+      <AvatarInitials x={AVATAR.cx} y={AVATAR.cy} $tone={tone}>
         {initialsOf(person.fullName)}
       </AvatarInitials>
 
@@ -210,7 +191,7 @@ function PersonNodeComponent({
         <NodeName x={0} y={24} $deceased={deceased}>
           {fitName(person.fullName, TEXT_ROOM, NAME_FONT_SIZE)}
         </NodeName>
-        <NodeMeta x={0} y={41}>
+        <NodeMeta x={0} y={41} $deceased={deceased}>
           {metaLine}
         </NodeMeta>
 
@@ -223,8 +204,14 @@ function PersonNodeComponent({
               height={16}
               rx={8}
               $highlighted={branchHighlighted}
+              $deceased={deceased}
             />
-            <BranchPillText x={PILL_PADDING} y={59} $highlighted={branchHighlighted}>
+            <BranchPillText
+              x={PILL_PADDING}
+              y={59}
+              $highlighted={branchHighlighted}
+              $deceased={deceased}
+            >
               {pillLabel}
             </BranchPillText>
           </>
@@ -285,17 +272,22 @@ export const PersonNode = memo(PersonNodeComponent);
 /**
  * The card, said out loud.
  *
- * Everything the card shows plus the thing it only implies: whether this node can be edited, and if
- * not, why. A screen reader on the canvas should learn what a sighted person learns from a muted
- * card and a tooltip — that is the whole of F5.12 for somebody who cannot see the dimming.
+ * Everything the card shows plus the things it only implies: the gender and life status its colour
+ * carries, and whether this node can be edited, and if not, why. A screen reader on the canvas
+ * should learn what a sighted person learns from the card's colour and a tooltip — that is the whole
+ * of F5.12 for somebody who cannot see them.
  */
 function describe(
   person: PersonSummary,
   branchName: string | undefined,
   isSelf: boolean,
+  deceased: boolean,
   t: TFunction,
 ): string {
   const parts = [person.fullName, formatGeneration(person.generation, t)];
+  // The card's colour, in words.
+  parts.push(t(`tree.legend.gender.${person.gender}`));
+  if (deceased) parts.push(t('tree.legend.deceased'));
   // The ring is a colour; this is the same fact in words, for somebody who cannot see it.
   if (isSelf) parts.push(t('claims.thisIsYou'));
   const lifespan = formatLifespan(person, t);

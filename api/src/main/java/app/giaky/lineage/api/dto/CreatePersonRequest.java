@@ -26,7 +26,7 @@ public record CreatePersonRequest(
         @Size(max = 100) String givenName,
         @Size(max = 100) String alias,
         @Size(max = 100) @Schema(description = "tên thụy") String posthumousName,
-        @Schema(example = "MALE") String gender,
+        @Schema(example = "MALE", allowableValues = {"MALE", "FEMALE"}) String gender,
         @Schema(example = "DECEASED") String lifeStatus,
         @Valid PartialDatePayload birth,
         @Valid PartialDatePayload death,

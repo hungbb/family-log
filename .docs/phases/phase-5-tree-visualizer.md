@@ -35,7 +35,7 @@
 | F5.2 | `useTreeLayout()` — d3-hierarchy layout maths only | Couples occupy one layout slot; children hang from the union midpoint |
 | F5.3 | `<TreeCanvas>` SVG with a single transformed `<g>` | The one sanctioned inline style (doc 07 §7.3), with its ESLint disable and rationale |
 | F5.4 | Viewport virtualization | Only nodes intersecting the viewport (plus margin) render |
-| F5.5 | `<PersonNode>` card | Name (display weight), years, gender rail, deceased treatment, branch badge, initials avatar, `canEdit` state |
+| F5.5 | `<PersonNode>` card | Name (display weight), years, gender-tinted background, gray card when deceased, branch badge, initials avatar, `canEdit` state |
 | F5.6 | `<UnionLink>` and `<ParentEdge>` | Orthogonal connectors, union type indicated (secondary/sequential rendered distinctly) |
 | F5.7 | Generation rails labelled *Đời N* | |
 | F5.8 | Interactions: wheel/pinch zoom, drag pan, click select, double-click focus, collapse/expand subtree, keyboard navigation | `useTreeViewStore` holds viewport and collapsed-node state |

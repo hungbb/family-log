@@ -1,4 +1,4 @@
-import { App as AntApp, Form, Input, InputNumber, Modal, Select } from 'antd';
+import { App as AntApp, Form, Input, InputNumber, Modal, Radio, Select } from 'antd';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +16,7 @@ import { validatedValues } from '@/lib/forms.ts';
 
 import { useBranches } from '../../branch';
 import { useCreatePerson, useUpdatePerson } from '../hooks/useTree';
+import { GENDERS } from '../model/visual';
 
 import { PartialDateInput } from './PartialDateInput';
 import { PersonPicker } from './PersonPicker';
@@ -96,7 +97,6 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
     } else {
       form.resetFields();
       form.setFieldsValue({
-        gender: 'UNKNOWN',
         lifeStatus: 'UNKNOWN',
         ...(mode.anchorPersonId === undefined ? {} : { anchorPersonId: mode.anchorPersonId }),
       });
@@ -197,12 +197,14 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
           <Input maxLength={100} placeholder={t('tree.placeholder.posthumousName')} />
         </Form.Item>
 
-        <Form.Item name="gender" label={t('tree.field.gender')}>
-          <Select
-            options={(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN'] as Gender[]).map((value) => ({
-              value,
-              label: t(`tree.gender.${value}`),
-            }))}
+        <Form.Item
+          name="gender"
+          label={t('tree.field.gender')}
+          rules={[{ required: true, message: t('tree.validation.genderRequired') }]}
+        >
+          <Radio.Group
+            optionType="button"
+            options={GENDERS.map((value) => ({ value, label: t(`tree.gender.${value}`) }))}
           />
         </Form.Item>
 
