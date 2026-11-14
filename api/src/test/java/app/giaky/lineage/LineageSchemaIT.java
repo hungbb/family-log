@@ -54,9 +54,9 @@ class LineageSchemaIT extends AbstractIntegrationTest {
                                 jdbcTemplate.update(
                                         """
                                         INSERT INTO persons
-                                          (id, clan_id, branch_id, full_name, life_status, death_year,
-                                           death_precision)
-                                        VALUES (?, ?, ?, 'Nguyễn Văn An', 'ALIVE', 1968, 'YEAR')
+                                          (id, clan_id, branch_id, full_name, gender, life_status,
+                                           death_year, death_precision)
+                                        VALUES (?, ?, ?, 'Nguyễn Văn An', 'MALE', 'ALIVE', 1968, 'YEAR')
                                         """,
                                         UUID.randomUUID(),
                                         world.clanId,
@@ -74,8 +74,9 @@ class LineageSchemaIT extends AbstractIntegrationTest {
                                 jdbcTemplate.update(
                                         """
                                         INSERT INTO persons
-                                          (id, clan_id, full_name, birth_year, birth_day, birth_precision)
-                                        VALUES (?, ?, 'Nguyễn Văn An', 1901, 3, 'EXACT')
+                                          (id, clan_id, full_name, gender, birth_year, birth_day,
+                                           birth_precision)
+                                        VALUES (?, ?, 'Nguyễn Văn An', 'MALE', 1901, 3, 'EXACT')
                                         """,
                                         UUID.randomUUID(),
                                         world.clanId))
@@ -254,8 +255,9 @@ class LineageSchemaIT extends AbstractIntegrationTest {
             UUID id = UUID.randomUUID();
             jdbcTemplate.update(
                     """
-                    INSERT INTO persons (id, clan_id, branch_id, full_name, life_status, linked_user_id)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO persons
+                      (id, clan_id, branch_id, full_name, gender, life_status, linked_user_id)
+                    VALUES (?, ?, ?, ?, 'MALE', ?, ?)
                     """,
                     id,
                     clanId,
@@ -270,8 +272,9 @@ class LineageSchemaIT extends AbstractIntegrationTest {
             UUID id = UUID.randomUUID();
             jdbcTemplate.update(
                     """
-                    INSERT INTO persons (id, clan_id, branch_id, full_name, is_founding_ancestor, generation)
-                    VALUES (?, ?, ?, ?, TRUE, 1)
+                    INSERT INTO persons
+                      (id, clan_id, branch_id, full_name, gender, is_founding_ancestor, generation)
+                    VALUES (?, ?, ?, ?, 'MALE', TRUE, 1)
                     """,
                     id,
                     clanId,

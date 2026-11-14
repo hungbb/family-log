@@ -178,9 +178,9 @@ class LineageCoreIT extends LineageApiSupport {
     @Test
     @DisplayName("attaching a child to a marriage names the man as father, and nobody as both parents")
     void parentRolesOnAttach() throws Exception {
-        // The wife first: the smaller id, so she is stored as partner A, and her gender is not
-        // recorded — the case in which the attach route used to make her the father.
-        UUID wife = unplaced("Trần Thị Hoa", Map.of());
+        // The wife first: the smaller id, so she is stored as partner A — the slot the attach route
+        // once made the father regardless of who sat in it. Roles must follow gender, not order.
+        UUID wife = unplaced("Trần Thị Hoa", Map.of("gender", "FEMALE"));
         UUID husband = unplaced("Nguyễn Văn Hai", Map.of("gender", "MALE"));
         UUID child = unplaced("Nguyễn Văn Con", Map.of());
         JsonNode union =
@@ -549,6 +549,7 @@ class LineageCoreIT extends LineageApiSupport {
                         post("/api/v1/clans/" + clanId + "/persons"),
                         Map.of(
                                 "fullName", "Nguyễn Văn An",
+                                "gender", "MALE",
                                 "lifeStatus", "DECEASED",
                                 "birth", Map.of("year", 1968, "precision", "YEAR"),
                                 "death", Map.of("year", 1901, "precision", "YEAR"),
@@ -569,6 +570,7 @@ class LineageCoreIT extends LineageApiSupport {
                         post(persons),
                         Map.of(
                                 "fullName", "Nguyễn Văn An",
+                                "gender", "MALE",
                                 "lifeStatus", "ALIVE",
                                 "death", Map.of("year", 2001, "precision", "YEAR")))
                 .andExpect(status().isUnprocessableEntity())
