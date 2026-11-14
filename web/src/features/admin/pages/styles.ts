@@ -58,3 +58,34 @@ export const UserEmail = styled.span`
   color: ${({ theme }) => theme.color.inkSubtle};
   font-size: ${({ theme }) => theme.fontSize.xs};
 `;
+
+/** The mail form: one readable column rather than the full width of a wide screen. */
+export const FormColumn = styled.div`
+  max-width: 560px;
+`;
+
+export const FormActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.space(2)};
+`;
+
+export const Hint = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.color.inkSubtle};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  line-height: ${({ theme }) => theme.lineHeight.normal};
+`;
+
+export const TestRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.space(2)};
+  margin-top: ${({ theme }) => theme.space(6)};
+  padding-top: ${({ theme }) => theme.space(4)};
+  border-top: 1px solid ${({ theme }) => theme.color.border};
+
+  > :first-child {
+    flex: 1 1 240px;
+  }
+`;

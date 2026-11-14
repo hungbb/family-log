@@ -31,6 +31,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?}
       JWT_ISSUER: ${JWT_ISSUER:-giaky}
       BCRYPT_COST: ${BCRYPT_COST:-12}
+      # Encrypts the SMTP password a super admin saves. Required: the API refuses to start without it.
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:?}
       # Comma-separated; each account must also verify its address before it counts.
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
       API_BASE_URL: ${PUBLIC_URL:?}

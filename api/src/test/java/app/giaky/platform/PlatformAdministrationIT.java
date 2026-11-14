@@ -3,6 +3,7 @@ package app.giaky.platform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +13,7 @@ import app.giaky.identity.domain.TokenPurpose;
 import app.giaky.support.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Super-admin administration over HTTP: who gets in, and what suspension does to a live session.
+ * Super-admin administration over HTTP: who gets in, what suspension does to a live session, and
+ * that the SMTP password never comes back out.
  *
  * <p>{@code application-test.yml} names {@code operator@giaky.test} as the super admin.
  */
@@ -90,7 +93,10 @@ class PlatformAdministrationIT extends AbstractIntegrationTest {
                 new MockHttpServletRequestBuilder[] {
                     get("/api/v1/admin/users"),
                     post("/api/v1/admin/users/{id}/suspend", memberId),
-                    post("/api/v1/admin/users/{id}/send-password-reset", memberId)
+                    post("/api/v1/admin/users/{id}/send-password-reset", memberId),
+                    get("/api/v1/admin/settings/mail"),
+                    json(put("/api/v1/admin/settings/mail"), mailSettings(true, "x")),
+                    json(post("/api/v1/admin/settings/mail/test"), Map.of("to", "a@example.com"))
                 }) {
             mockMvc.perform(as(memberToken, request))
                     .andExpect(status().isForbidden())
@@ -171,7 +177,75 @@ class PlatformAdministrationIT extends AbstractIntegrationTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    @DisplayName("the SMTP password is stored encrypted and never returned")
+    void mailPasswordIsWriteOnly() throws Exception {
+        String body =
+                mockMvc.perform(
+                                as(
+                                        operatorToken,
+                                        json(
+                                                put("/api/v1/admin/settings/mail"),
+                                                mailSettings(false, "smtp-s3cret-value"))))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.host").value("smtp.example.com"))
+                        .andExpect(jsonPath("$.loginStored").value(true))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(body).doesNotContain("smtp-s3cret-value").doesNotContain("password");
+
+        String stored =
+                jdbc.queryForObject("SELECT password_ciphertext FROM mail_settings", String.class);
+        assertThat(stored).startsWith("v1:").doesNotContain("smtp-s3cret-value");
+
+        // Saving again without a password keeps the stored one.
+        Map<String, Object> withoutPassword = mailSettings(false, null);
+        withoutPassword.remove("password");
+        mockMvc.perform(as(operatorToken, json(put("/api/v1/admin/settings/mail"), withoutPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loginStored").value(true));
+    }
+
+    @Test
+    @DisplayName("enabling mail without a host is refused with the field named")
+    void enablingNeedsAHost() throws Exception {
+        Map<String, Object> incomplete = mailSettings(true, null);
+        incomplete.put("host", "");
+
+        mockMvc.perform(as(operatorToken, json(put("/api/v1/admin/settings/mail"), incomplete)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[0].field").value("host"));
+    }
+
+    @Test
+    @DisplayName("a test message with nothing configured says so")
+    void testMailNeedsSettings() throws Exception {
+        mockMvc.perform(
+                        as(
+                                operatorToken,
+                                json(
+                                        post("/api/v1/admin/settings/mail/test"),
+                                        Map.of("to", "me@example.com"))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("MAIL_NOT_CONFIGURED"));
+    }
+
     // --- helpers ---------------------------------------------------------------------------------
+
+    private static Map<String, Object> mailSettings(boolean enabled, String password) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("enabled", enabled);
+        body.put("host", "smtp.example.com");
+        body.put("port", 587);
+        body.put("username", "mailer");
+        body.put("password", password);
+        body.put("security", "STARTTLS");
+        body.put("fromAddress", "noreply@example.com");
+        body.put("fromName", "Gia Ký");
+        return body;
+    }
 
     private static MockHttpServletRequestBuilder as(
             String token, MockHttpServletRequestBuilder builder) {

@@ -4,8 +4,7 @@ import app.giaky.identity.application.DeliveredTokenInspector;
 import app.giaky.identity.domain.EmailAddress;
 import app.giaky.identity.domain.TokenPurpose;
 import app.giaky.identity.domain.VerificationTokenDelivery;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import app.giaky.platform.application.Mailer;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -13,7 +12,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -25,8 +23,12 @@ import org.springframework.stereotype.Component;
  * what lets the integration tests exercise the real flow instead of reaching into the database for
  * a hash they cannot reverse.
  *
+ * <p>If a super admin has enabled outgoing mail, the message is also sent for real. That way a
+ * developer can try the SMTP settings end to end locally. The test suite never enables mail, so it
+ * sends nothing.
+ *
  * <p><b>It exists in exactly two profiles and must never exist in a third.</b> The profile
- * expression on {@link LoggedVerificationTokenDelivery} is its exact complement, so precisely one
+ * expression on {@link MailVerificationTokenDelivery} is its exact complement, so precisely one
  * of the two is a bean in any profile — and {@code DevEndpointsAbsentInProdTest} pins that this one
  * is not the one under {@code prod}.
  */
@@ -41,24 +43,13 @@ public class InMemoryVerificationTokenDelivery
     /** A hard cap, so a long-running dev session cannot grow this without bound. */
     private static final int MAX_TRACKED = 1_000;
 
-    /**
-     * Where each purpose is redeemed in the web client.
-     *
-     * <p>The routes belong to the frontend, not to the domain: {@code TokenPurpose} must not know
-     * that a web client exists, so the mapping lives here, at the edge that composes the link.
-     * They mirror {@code web/src/router/routes.tsx} and move with it.
-     */
-    private static final Map<TokenPurpose, String> REDEMPTION_PATHS =
-            Map.of(
-                    TokenPurpose.EMAIL_VERIFY, "/verify-email",
-                    TokenPurpose.PASSWORD_RESET, "/reset-password");
-
     private final Map<String, String> lastTokens = new ConcurrentHashMap<>();
-    private final String webBaseUrl;
+    private final VerificationMessages messages;
+    private final Mailer mailer;
 
-    public InMemoryVerificationTokenDelivery(@Value("${app.web.base-url}") String webBaseUrl) {
-        // Trailing slashes are the classic source of "//verify-email" in a pasted link.
-        this.webBaseUrl = webBaseUrl.replaceAll("/+$", "");
+    public InMemoryVerificationTokenDelivery(VerificationMessages messages, Mailer mailer) {
+        this.messages = messages;
+        this.mailer = mailer;
     }
 
     @Override
@@ -77,20 +68,10 @@ public class InMemoryVerificationTokenDelivery
                 "[dev delivery] {} link for {}: {} (expires {})",
                 purpose,
                 recipient.value(),
-                redemptionLink(purpose, rawToken),
+                messages.link(purpose, rawToken),
                 expiresAt);
-    }
 
-    /**
-     * The link a real message would carry.
-     *
-     * <p>The token is base64url already, so encoding it changes nothing today — it is done anyway
-     * because "the alphabet happens to be safe" is not something a future change to
-     * {@code OpaqueTokens} would remind anyone about.
-     */
-    private String redemptionLink(TokenPurpose purpose, String rawToken) {
-        String path = REDEMPTION_PATHS.getOrDefault(purpose, "/");
-        return webBaseUrl + path + "?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
+        mailer.send(messages.compose(recipient, purpose, rawToken, expiresAt));
     }
 
     @Override

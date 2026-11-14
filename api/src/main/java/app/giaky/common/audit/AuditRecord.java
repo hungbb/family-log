@@ -80,6 +80,9 @@ public record AuditRecord(
     /** The {@code targetType} for a node claim request. */
     public static final String TARGET_CLAIM = "CLAIM";
 
+    /** The {@code targetType} for a platform-wide setting, such as the mail transport. */
+    public static final String TARGET_PLATFORM_SETTING = "PLATFORM_SETTING";
+
     /**
      * Something a super admin did to somebody else's account.
      *
@@ -89,6 +92,12 @@ public record AuditRecord(
     public static AuditRecord byOperator(AuditAction action, UserId operator, UserId subject) {
         return new AuditRecord(
                 action, TARGET_USER, subject.value(), operator, null, null, null, null, null);
+    }
+
+    /** A super admin changed a platform-wide setting. There is no row id to name. */
+    public static AuditRecord onPlatformSetting(AuditAction action, UserId operator) {
+        return new AuditRecord(
+                action, TARGET_PLATFORM_SETTING, null, operator, null, null, null, null, null);
     }
 
     /**
