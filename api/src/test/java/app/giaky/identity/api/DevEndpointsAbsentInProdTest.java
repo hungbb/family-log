@@ -6,6 +6,7 @@ import app.giaky.config.DevSecurityConfig;
 import app.giaky.identity.application.DeliveredTokenInspector;
 import app.giaky.identity.infrastructure.InMemoryVerificationTokenDelivery;
 import app.giaky.identity.infrastructure.LoggedVerificationTokenDelivery;
+import app.giaky.identity.infrastructure.SmtpVerificationTokenDelivery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Profile;
@@ -78,6 +79,19 @@ class DevEndpointsAbsentInProdTest {
                 .isTrue();
         assertThat(DeliveredTokenInspector.class.isAssignableFrom(LoggedVerificationTokenDelivery.class))
                 .as("a production adapter would put a token-disclosure method in a deployment")
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("the SMTP adapter lives where the logging one does, and discloses nothing")
+    void smtpAdapterIsAProductionAdapter() {
+        Profile smtp = SmtpVerificationTokenDelivery.class.getAnnotation(Profile.class);
+        Profile logging = LoggedVerificationTokenDelivery.class.getAnnotation(Profile.class);
+
+        // Same profile expression: the choice between the two is app.mail.host, and that choice is
+        // pinned by SmtpVerificationTokenDeliveryTest. Never alongside the recording adapter.
+        assertThat(smtp.value()).containsExactly(logging.value());
+        assertThat(DeliveredTokenInspector.class.isAssignableFrom(SmtpVerificationTokenDelivery.class))
                 .isFalse();
     }
 

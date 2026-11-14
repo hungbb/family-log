@@ -5,8 +5,8 @@ import java.time.Instant;
 /**
  * Gets a verification or reset token to the person who asked for it.
  *
- * <p>A port, because v1 has no mail server. Phase 1 delivers by logging in {@code dev} and doing
- * nothing useful anywhere else; Phase 8 adds the SMTP adapter, and nothing that calls this changes.
+ * <p>A port, so the transport is a deployment choice: logged in {@code dev} and {@code test}, sent by
+ * SMTP where a mail server is configured, and dropped with a warning where none is.
  *
  * <p>Implementations must not throw. A delivery failure cannot be allowed to roll back the account
  * change that preceded it — a user whose registration failed because the mail queue was down would

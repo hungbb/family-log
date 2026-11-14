@@ -62,6 +62,7 @@ Three of the four already exist for ezgo and are reused as they are:
 | `ezvalue-ssh-key` | SSH private key | `root@etopfunvalue.com` — **exists** |
 | `spring-datasource-password-do` | Secret text | the `doadmin` password — **exists**, shared with ezgo |
 | `giaky-prod-jwt-secret` | Secret text | **add this one**: `openssl rand -base64 32` |
+| `giaky-smtp` | Username with password | **add this one** (staging uses it too): see "Mail" below |
 
 The JWT secret must be its own value, not the staging one: one leaked key should not sign tokens
 for both environments. Rotating it signs everyone out.
@@ -118,15 +119,42 @@ ssh root@etopfunvalue.com 'docker compose --env-file /etc/giaky/giaky.env -f /et
 ssh root@etopfunvalue.com 'docker compose --env-file /etc/giaky/giaky.env -f /etc/giaky/docker-compose.yml logs -f api'
 ```
 
-`/etc/giaky/giaky.env` holds the database password and the JWT secret. It is 0600 and owned by
+`/etc/giaky/giaky.env` holds the database password, the JWT secret and the SMTP password. It is 0600 and owned by
 root, and every deploy overwrites it from Jenkins' credential store — editing it by hand lasts
 until the next build.
 
-## What is not set up
+## Mail
 
-There is still no SMTP, so a new account stays `PENDING_VERIFICATION` (it can sign in). Password
-reset mails do not go out either. Verification and reset links already point at
-`https://giaky.etopfunvalue.com`, so they will work as soon as a mailer exists.
+Verification and password-reset emails are sent through a Gmail account over SMTP
+(`smtp.gmail.com:587`, STARTTLS), by `SmtpVerificationTokenDelivery`. They are sent after the
+account change commits, off the request thread; a failed send is logged as a `WARN` and never
+fails the request, so the user just asks for another link.
+
+**Setting up the Gmail account, once:**
+
+1. Turn on 2-Step Verification for the account (Google Account → Security). App Passwords do not
+   exist without it.
+2. Google Account → Security → **App passwords** (or <https://myaccount.google.com/apppasswords>):
+   create one named `giaky`. Google shows 16 letters in four groups; copy them **without the
+   spaces**.
+3. In Jenkins, add credential `giaky-smtp`, kind *Username with password*: username = the full
+   Gmail address, password = the App Password. Both staging and production read it.
+
+Emails go out from that address, shown as "Gia Ký". To show a different address, set `MAIL_FROM`
+(Gmail only allows addresses added under *Send mail as* in that account). Gmail caps a personal
+account at about 500 messages a day, and registration and forgot-password are rate-limited per IP,
+which is plenty for a family tree. Revoking the App Password stops all mail at once.
+
+**DigitalOcean and port 587.** DigitalOcean blocks outgoing SMTP on many accounts, and Gmail has no
+other port to offer. The Smoke test checks from the host and prints a `WARNING` if
+`smtp.gmail.com:587` cannot be reached. If it does, ask DigitalOcean support to lift the SMTP
+block for the droplet. Until then the API runs normally and the emails are dropped with a `WARN`.
+
+To check by hand: `ssh root@etopfunvalue.com 'timeout 5 bash -c "</dev/tcp/smtp.gmail.com/587" && echo open'`.
+Each email sent or failed is logged by the API as `Sent a EMAIL_VERIFY email` or
+`Sending a EMAIL_VERIFY email failed: …`.
+
+## What is not set up
 
 Nothing backs up `giaky-prod-media`. The database is covered by DigitalOcean's cluster backups,
 the same ones ezgo relies on; the uploaded media volume is not.

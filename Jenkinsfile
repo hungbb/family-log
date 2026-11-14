@@ -3,6 +3,8 @@
 // Jenkins credentials this expects (Manage Jenkins → Credentials, kind "Secret text"):
 //   giaky-staging-db-password  — password of the `postgres` role on 192.168.1.100:5432
 //   giaky-staging-jwt-secret   — `openssl rand -base64 32`; rotating it signs everyone out
+// and one of kind "Username with password":
+//   giaky-smtp                 — the Gmail address and its App Password (shared with production)
 //
 // The agent needs only Docker (the jenkins user in the `docker` group) and curl. The JDK and Node
 // both come from containers: the host has a JRE 21 but no javac, and Node only under nvm.
@@ -30,6 +32,8 @@ pipeline {
         API_PORT        = '8180'
         DB_URL          = 'jdbc:postgresql://192.168.1.100:5432/giaky'
         DB_USERNAME     = 'postgres'
+        SMTP_HOST       = 'smtp.gmail.com'
+        SMTP_PORT       = '587'
         DOCKER_BUILDKIT = '1'
     }
 
@@ -87,6 +91,8 @@ pipeline {
                 withCredentials([
                     string(credentialsId: 'giaky-staging-db-password', variable: 'DB_PASSWORD'),
                     string(credentialsId: 'giaky-staging-jwt-secret',  variable: 'JWT_SECRET'),
+                    usernamePassword(credentialsId: 'giaky-smtp',
+                                     usernameVariable: 'SMTP_USERNAME', passwordVariable: 'SMTP_PASSWORD'),
                 ]) {
                     sh 'docker compose -f "$COMPOSE_FILE" up -d --remove-orphans'
                 }

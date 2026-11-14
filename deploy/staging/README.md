@@ -23,6 +23,8 @@ Production is `giaky-prod`: see `deploy/prod/README.md`.
    - `giaky-staging-jwt-secret`: *Secret text*, the output of `openssl rand -base64 32`.
    - `github-ssh`: *SSH username with private key*, user `git`, a key with read access to
      `hungbb/family-log` (a repository deploy key is enough).
+   - `giaky-smtp`: *Username with password*, the Gmail account that sends verification and reset
+     emails, shared with production. How to get its App Password: `deploy/prod/README.md`, "Mail".
 2. **Job**: `giaky-staging` is created by the `giaky-seed` job from `deploy/jenkins/jobs.groovy`
    (setup in `deploy/jenkins/README.md`). It polls `main` every ~5 minutes and reads the
    `Jenkinsfile` from the commit it builds.
@@ -54,5 +56,6 @@ docker compose -f deploy/staging/docker-compose.yml logs -f api
 IMAGE_TAG=staging-41 DB_PASSWORD=... JWT_SECRET=... docker compose -f deploy/staging/docker-compose.yml up -d
 ```
 
-There is no SMTP yet, and verification emails are logged only under the `dev` profile, so on
-staging a new account stays `PENDING_VERIFICATION`. It can still sign in.
+Verification and reset emails go out through Gmail (`giaky-smtp`), so they reach real inboxes.
+The demo accounts from `seed.py` are on `giaky.test`, which does not exist: seeding sends four
+verification emails that bounce back to the Gmail account. The demo accounts sign in regardless.

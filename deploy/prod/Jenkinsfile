@@ -11,6 +11,7 @@
 //   ezvalue-ssh-key                 — SSH private key, root@etopfunvalue.com
 //   spring-datasource-password-do   — Secret text, the `doadmin` password (shared with ezgo)
 //   giaky-prod-jwt-secret           — Secret text, `openssl rand -base64 32`; NOT the staging one
+//   giaky-smtp                      — Username with password: the Gmail address and its App Password
 //
 // Deploying is manual: this job has no SCM trigger. Build with Parameters → Build.
 
@@ -49,6 +50,10 @@ pipeline {
         // `require` encrypts without needing the CA bundle installed on the host.
         DB_URL          = 'jdbc:postgresql://db-postgresql-sgp1-26151-do-user-650903-0.j.db.ondigitalocean.com:25060/giaky?sslmode=require'
         DB_USERNAME     = 'doadmin'
+
+        // Verification and reset links go out through Gmail (credential giaky-smtp).
+        SMTP_HOST       = 'smtp.gmail.com'
+        SMTP_PORT       = '587'
 
         // Trust the host key on first use and fail if it ever changes, instead of never checking it.
         SSH_OPTS        = '-o StrictHostKeyChecking=accept-new -o BatchMode=yes'
@@ -130,6 +135,8 @@ pipeline {
                     string(credentialsId: 'do-registry-token',             variable: 'DO_TOKEN'),
                     string(credentialsId: 'spring-datasource-password-do', variable: 'DB_PASSWORD'),
                     string(credentialsId: 'giaky-prod-jwt-secret',         variable: 'JWT_SECRET'),
+                    usernamePassword(credentialsId: 'giaky-smtp',
+                                     usernameVariable: 'SMTP_USERNAME', passwordVariable: 'SMTP_PASSWORD'),
                 ]) {
                     // Single-quoted so Groovy never interpolates a secret into the script, and so the
                     // build log never sees one: they reach the host over stdin, not a command line.
@@ -156,6 +163,10 @@ pipeline {
                             "JWT_SECRET=$JWT_SECRET" \\
                             "JWT_ISSUER=giaky" \\
                             "BCRYPT_COST=12" \\
+                            "SMTP_HOST=$SMTP_HOST" \\
+                            "SMTP_PORT=$SMTP_PORT" \\
+                            "SMTP_USERNAME=$SMTP_USERNAME" \\
+                            "SMTP_PASSWORD=$SMTP_PASSWORD" \\
                           | $SSH "umask 077 && cat > $ENV_FILE"
 
                         $SSH "umask 077 && cat > $COMPOSE_FILE" < deploy/prod/docker-compose.yml
@@ -179,8 +190,15 @@ pipeline {
                         set -eu
                         SSH="ssh $SSH_OPTS -i $SSH_KEY $PROD_USER@$PROD_HOST"
 
-                        $SSH "WEB_PORT='$WEB_PORT' ENV_FILE='$ENV_FILE' COMPOSE_FILE='$COMPOSE_FILE' bash -s" <<'ENDSSH'
+                        $SSH "WEB_PORT='$WEB_PORT' ENV_FILE='$ENV_FILE' COMPOSE_FILE='$COMPOSE_FILE' SMTP_HOST='$SMTP_HOST' SMTP_PORT='$SMTP_PORT' bash -s" <<'ENDSSH'
 set -uo pipefail
+# DigitalOcean blocks outgoing SMTP ports on many accounts. Mail failing is not a failed deploy,
+# but it should not be a silent one either.
+if timeout 5 bash -c "</dev/tcp/$SMTP_HOST/$SMTP_PORT" 2>/dev/null; then
+    echo "SMTP reachable: $SMTP_HOST:$SMTP_PORT"
+else
+    echo "WARNING: this host cannot reach $SMTP_HOST:$SMTP_PORT. Verification and reset emails will not go out until the port is unblocked (deploy/prod/README.md)."
+fi
 for i in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$WEB_PORT/actuator/health" | grep -q '"status":"UP"'; then
         echo "API healthy through the web container after $((i * 3))s"

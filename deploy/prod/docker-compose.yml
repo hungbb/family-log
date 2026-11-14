@@ -37,6 +37,12 @@ services:
       # Off in production: the schema of every endpoint is not public documentation.
       SWAGGER_UI_ENABLED: "false"
       MEDIA_LOCAL_DIR: /data/media
+      # Verification and reset links by SMTP; an empty SMTP_HOST sends nothing (see application.yml).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - media:/data/media
     logging:
