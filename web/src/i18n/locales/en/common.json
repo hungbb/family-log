@@ -154,7 +154,9 @@
     "nodeAlreadyLinked": "Somebody is already recorded as that person. Ask an editor if you think that is wrong.",
     "userAlreadyLinkedInClan": "That account is already recorded as somebody else in this family. Unlink them first.",
     "superAdminProtected": "A super admin cannot be suspended. Remove the address from SUPER_ADMIN_EMAILS first.",
-    "userStatusConflict": "This account is not in a state where that applies. Refresh the list and try again."
+    "userStatusConflict": "This account is not in a state where that applies. Refresh the list and try again.",
+    "mailNotConfigured": "Save a host, port and sender address first.",
+    "mailDeliveryFailed": "The mail server refused the message."
   },
   "health": {
     "title": "System health",
@@ -862,10 +864,11 @@
   },
   "admin": {
     "title": "Administration",
-    "subtitle": "Every account on the platform.",
+    "subtitle": "Every account on the platform, and the settings the whole installation shares.",
     "notFound": "This page does not exist.",
     "tab": {
-      "users": "Users"
+      "users": "Users",
+      "mail": "Mail"
     },
     "users": {
       "searchPlaceholder": "Search by name or email",
@@ -911,6 +914,35 @@
           "label": "Send password reset link",
           "done": "A password reset link is on its way to {{email}}."
         }
+      }
+    },
+    "mail": {
+      "disabledWarning": "Outgoing mail is off. Nobody receives verification or password reset links until it is on.",
+      "enabled": "Send mail",
+      "host": "SMTP server",
+      "port": "Port",
+      "security": "Connection security",
+      "securityOption": {
+        "STARTTLS": "STARTTLS (usually port 587)",
+        "SSL": "SSL/TLS (usually port 465)",
+        "NONE": "None (local relay only)"
+      },
+      "username": "Username",
+      "password": "Password",
+      "passwordStored": "A password is saved. Leave this empty to keep it.",
+      "passwordNone": "No password is saved.",
+      "removePassword": "Remove saved password",
+      "keepPassword": "Keep saved password",
+      "fromAddress": "Sender address",
+      "fromName": "Sender name",
+      "saved": "Mail settings saved.",
+      "updatedAt": "Last changed {{when}}.",
+      "test": {
+        "placeholder": "Send a test message to…",
+        "action": "Send test",
+        "sent": "Test message sent to {{to}}.",
+        "failed": "Sending failed: {{detail}}",
+        "hint": "Uses the saved settings, even while sending is off. Save your changes first."
       }
     }
   }

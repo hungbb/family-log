@@ -45,7 +45,8 @@ class LayeringTest {
                     "authorization",
                     "linking",
                     "media",
-                    "notification");
+                    "notification",
+                    "platform");
 
     private static JavaClasses productionClasses;
 

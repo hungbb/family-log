@@ -62,15 +62,17 @@ Three of these already exist for ezgo and are reused as they are:
 | `ezvalue-ssh-key` | SSH private key | `root@etopfunvalue.com` — **exists** |
 | `spring-datasource-password-do` | Secret text | the `doadmin` password — **exists**, shared with ezgo |
 | `giaky-prod-jwt-secret` | Secret text | **add this one**: `openssl rand -base64 32` |
+| `giaky-prod-settings-key` | Secret text | **add this one**: `openssl rand -base64 32`. Encrypts the SMTP password saved under Administration → Mail |
 | `giaky-prod-super-admins` | Secret text | **add this one**: comma-separated addresses of the super admins. Kept as a credential so no address is committed |
 
 The JWT secret must be its own value, not the staging one: one leaked key should not sign tokens
-for both environments. Rotating it signs everyone out.
+for both environments. Rotating it signs everyone out. The same goes for the settings key; rotating
+it makes the saved SMTP password unreadable, so re-enter it under Administration → Mail afterwards.
 
-A super admin's account only counts once its address is verified. A deployment cannot send mail
-yet, so the first super admin verifies through the database once
-(`UPDATE users SET email_verified_at = now(), status = 'ACTIVE' WHERE email = '…'`). After that,
-they can mark other addresses verified from Administration → Users.
+A super admin's account only counts once its address is verified. On a fresh installation no mail
+can be sent yet, so the first super admin verifies through the database once
+(`UPDATE users SET email_verified_at = now(), status = 'ACTIVE' WHERE email = '…'`), then
+configures mail in the UI. Everyone after that verifies normally.
 
 ### 5. The job
 

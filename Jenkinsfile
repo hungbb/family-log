@@ -87,6 +87,7 @@ pipeline {
                 withCredentials([
                     string(credentialsId: 'giaky-staging-db-password', variable: 'DB_PASSWORD'),
                     string(credentialsId: 'giaky-staging-jwt-secret',  variable: 'JWT_SECRET'),
+                    string(credentialsId: 'giaky-staging-settings-key', variable: 'SETTINGS_ENCRYPTION_KEY'),
                     string(credentialsId: 'giaky-staging-super-admins', variable: 'SUPER_ADMIN_EMAILS'),
                 ]) {
                     sh 'docker compose -f "$COMPOSE_FILE" up -d --remove-orphans'

@@ -4,7 +4,7 @@ import type { LocaleTag, UserStatus } from './auth';
 import type { Page } from './members';
 
 /**
- * `/admin/users` — platform user administration, for super admins only.
+ * `/admin/**` — platform administration, for super admins only.
  *
  * Every call here answers `403 PERMISSION_DENIED` to anyone else. The screens are hidden from
  * other people as a courtesy, but the server makes the decision.
@@ -64,4 +64,48 @@ export function resendUserVerification(userId: string): Promise<void> {
 
 export function sendUserPasswordReset(userId: string): Promise<void> {
   return api.post<undefined>(`/admin/users/${userId}/send-password-reset`);
+}
+
+export type MailSecurity = 'NONE' | 'STARTTLS' | 'SSL';
+
+/** The outgoing mail settings. The SMTP password is write-only and never comes back. */
+export interface MailSettings {
+  enabled: boolean;
+  host?: string;
+  port?: number;
+  username?: string;
+  /** Whether an SMTP password is stored. */
+  loginStored: boolean;
+  security: MailSecurity;
+  fromAddress?: string;
+  fromName?: string;
+  updatedAt: string;
+}
+
+/**
+ * A full replacement of the settings.
+ *
+ * `password`: leave it out to keep the stored one, `''` to remove it, anything else to replace it.
+ */
+export interface MailSettingsInput {
+  enabled: boolean;
+  host: string | null;
+  port: number | null;
+  username: string | null;
+  password?: string;
+  security: MailSecurity;
+  fromAddress: string | null;
+  fromName: string | null;
+}
+
+export function getMailSettings(signal?: AbortSignal): Promise<MailSettings> {
+  return api.get<MailSettings>('/admin/settings/mail', signal ? { signal } : {});
+}
+
+export function updateMailSettings(input: MailSettingsInput): Promise<MailSettings> {
+  return api.put<MailSettings>('/admin/settings/mail', input);
+}
+
+export function sendTestMail(to: string): Promise<void> {
+  return api.post<undefined>('/admin/settings/mail/test', { to });
 }

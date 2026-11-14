@@ -120,6 +120,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="/admin/users" replace /> },
               { path: 'users', element: withSuspense(<AdminPage />) },
+              { path: 'mail', element: withSuspense(<AdminPage />) },
               { path: '*', element: <Navigate to="/admin/users" replace /> },
             ],
           },

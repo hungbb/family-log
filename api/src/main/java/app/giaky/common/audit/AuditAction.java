@@ -163,5 +163,12 @@ public enum AuditAction {
     /** A super admin sent a fresh verification link. */
     VERIFICATION_RESENT_BY_ADMIN,
     /** A super admin sent a password-reset link. The reset itself is still the holder's act. */
-    PASSWORD_RESET_SENT_BY_ADMIN
+    PASSWORD_RESET_SENT_BY_ADMIN,
+    /**
+     * The SMTP transport was changed. The before/after JSON names the host, port, sender and
+     * whether a password is stored, never the password itself.
+     */
+    MAIL_SETTINGS_UPDATED,
+    /** A super admin sent a test message through the transport. */
+    MAIL_TEST_SENT
 }

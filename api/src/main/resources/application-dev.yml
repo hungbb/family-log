@@ -32,6 +32,9 @@ app:
       # The refresh path is still exercised by the frontend's bootstrap on every page load.
       access-token-ttl: ${ACCESS_TOKEN_TTL:24h}
       issuer: giaky-dev
+  platform:
+    # A published, local-only key, for the same reason as the JWT secret above.
+    settings-encryption-key: ${SETTINGS_ENCRYPTION_KEY:ZGV2LW9ubHktc2V0dGluZ3Mta2V5LW5vdC1mb3ItcHI=}
 
 management:
   endpoint:

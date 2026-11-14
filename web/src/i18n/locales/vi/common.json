@@ -154,7 +154,9 @@
     "nodeAlreadyLinked": "Đã có người được ghi là người đó. Nếu thấy chưa đúng, hãy hỏi người biên tập.",
     "userAlreadyLinkedInClan": "Tài khoản đó đã được ghi là một người khác trong họ này. Hãy gỡ liên kết trước.",
     "superAdminProtected": "Không thể tạm khoá quản trị viên hệ thống. Hãy gỡ địa chỉ khỏi SUPER_ADMIN_EMAILS trước.",
-    "userStatusConflict": "Tài khoản đang ở trạng thái không áp dụng được thao tác này. Hãy tải lại danh sách và thử lại."
+    "userStatusConflict": "Tài khoản đang ở trạng thái không áp dụng được thao tác này. Hãy tải lại danh sách và thử lại.",
+    "mailNotConfigured": "Hãy lưu máy chủ, cổng và địa chỉ người gửi trước.",
+    "mailDeliveryFailed": "Máy chủ thư đã từ chối thư."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -858,10 +860,11 @@
   },
   "admin": {
     "title": "Quản trị hệ thống",
-    "subtitle": "Mọi tài khoản trên hệ thống.",
+    "subtitle": "Mọi tài khoản trên hệ thống, và các thiết lập dùng chung cho toàn bộ hệ thống.",
     "notFound": "Trang này không tồn tại.",
     "tab": {
-      "users": "Người dùng"
+      "users": "Người dùng",
+      "mail": "Thư điện tử"
     },
     "users": {
       "searchPlaceholder": "Tìm theo tên hoặc email",
@@ -907,6 +910,35 @@
           "label": "Gửi liên kết đặt lại mật khẩu",
           "done": "Đã gửi liên kết đặt lại mật khẩu tới {{email}}."
         }
+      }
+    },
+    "mail": {
+      "disabledWarning": "Gửi thư đang tắt. Không ai nhận được liên kết xác minh hay đặt lại mật khẩu cho đến khi bật.",
+      "enabled": "Gửi thư",
+      "host": "Máy chủ SMTP",
+      "port": "Cổng",
+      "security": "Bảo mật kết nối",
+      "securityOption": {
+        "STARTTLS": "STARTTLS (thường là cổng 587)",
+        "SSL": "SSL/TLS (thường là cổng 465)",
+        "NONE": "Không (chỉ dùng relay nội bộ)"
+      },
+      "username": "Tên đăng nhập",
+      "password": "Mật khẩu",
+      "passwordStored": "Đã lưu mật khẩu. Để trống để giữ nguyên.",
+      "passwordNone": "Chưa lưu mật khẩu.",
+      "removePassword": "Xoá mật khẩu đã lưu",
+      "keepPassword": "Giữ mật khẩu đã lưu",
+      "fromAddress": "Địa chỉ người gửi",
+      "fromName": "Tên người gửi",
+      "saved": "Đã lưu thiết lập thư.",
+      "updatedAt": "Thay đổi lần cuối {{when}}.",
+      "test": {
+        "placeholder": "Gửi thư kiểm tra tới…",
+        "action": "Gửi thử",
+        "sent": "Đã gửi thư kiểm tra tới {{to}}.",
+        "failed": "Gửi thất bại: {{detail}}",
+        "hint": "Dùng thiết lập đã lưu, kể cả khi gửi thư đang tắt. Hãy lưu thay đổi trước."
       }
     }
   }

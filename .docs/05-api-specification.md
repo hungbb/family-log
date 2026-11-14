@@ -45,7 +45,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 | 403 | `PERMISSION_DENIED`, `OUT_OF_SCOPE`, `PERMISSION_ESCALATION_BLOCKED`, `LAST_ADMIN_PROTECTED`, `SUPER_ADMIN_PROTECTED` |
 | 404 | `CLAN_NOT_FOUND`, `PERSON_NOT_FOUND`, `BRANCH_NOT_FOUND`, `REQUEST_NOT_FOUND` |
 | 409 | `VERSION_CONFLICT`, `EMAIL_ALREADY_REGISTERED`, `DUPLICATE_PENDING_REQUEST`, `NODE_ALREADY_LINKED`, `USER_ALREADY_LINKED_IN_CLAN`, `MEMBERSHIP_EXISTS`, `GRANT_ALREADY_EXISTS`, `USER_STATUS_CONFLICT` |
-| 422 | `VALIDATION_FAILED`, `CYCLE_DETECTED`, `INVALID_RELATIONSHIP`, `DATE_RANGE_INVALID`, `SUBTREE_SCOPE_UNAVAILABLE` |
+| 422 | `VALIDATION_FAILED`, `CYCLE_DETECTED`, `INVALID_RELATIONSHIP`, `DATE_RANGE_INVALID`, `SUBTREE_SCOPE_UNAVAILABLE`, `MAIL_NOT_CONFIGURED`, `MAIL_DELIVERY_FAILED` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` (never leaks internals; correlation id only) |
 
@@ -256,6 +256,9 @@ Every endpoint answers `403 PERMISSION_DENIED` unless the caller is a super admi
 | POST | `/admin/users/{userId}/verify-email` | Idempotent |
 | POST | `/admin/users/{userId}/resend-verification` | `202`; `409` if already verified |
 | POST | `/admin/users/{userId}/send-password-reset` | `202`; the holder chooses the new password |
+| GET | `/admin/settings/mail` | No password; `loginStored: boolean` instead |
+| PUT | `/admin/settings/mail` | Full replacement. `password` absent keeps it, `""` removes it |
+| POST | `/admin/settings/mail/test` | `{ to }`; synchronous; `422 MAIL_NOT_CONFIGURED` / `MAIL_DELIVERY_FAILED` |
 
 ## 5. Security Details
 
