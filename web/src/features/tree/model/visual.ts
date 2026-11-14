@@ -14,38 +14,37 @@ import {
  * that is styled ad hoc in one renderer drifts from the others; a category that is a value here
  * cannot.
  *
- * **Colour is never the only carrier** (WCAG 1.4.1). Each category has a second channel that
- * survives greyscale, a colour-blind reader and a black-and-white printer:
+ * | Category        | How it is drawn                                                  |
+ * | --------------- | ---------------------------------------------------------------- |
+ * | Gender          | the card's **background colour** — a tint per gender             |
+ * | Deceased        | a **gray** card, whatever the gender                             |
+ * | You             | accent ring and a "You" **tag** above the card                   |
+ * | Has an account  | green **ring** around the avatar                                 |
+ * | Adopted / step / foster | **dashed** connector                                     |
+ * | Secondary marriage | **thinner, dashed** bar                                       |
  *
- * | Category        | Colour                     | Second channel                                 |
- * | --------------- | -------------------------- | ---------------------------------------------- |
- * | Gender          | rail + avatar outline hue  | avatar **shape**: square, circle, diamond, dashed circle |
- * | Deceased        | muted card, name and avatar | a dark **mourning band** across the card corner |
- * | You             | accent ring                | a "You" **tag** above the card                  |
- * | Has an account  | green ring                 | a **ring** at all (none without an account)     |
- * | Adopted / step / foster | —                  | **dashed** connector                           |
- * | Secondary marriage | lighter                 | **thinner, dashed** bar                        |
- *
- * The shapes follow the pedigree-chart convention genealogists already read (square male, circle
- * female, diamond for anything else), so the legend confirms what a reader expects rather than
- * teaching something new.
+ * Gender and life status are carried by the card's fill alone, so a reader takes them in at a
+ * glance across a whole generation. Both are also said in words in each card's accessible label.
  */
 
-export type GenderShape = 'square' | 'circle' | 'diamond' | 'open';
+/** A card's colour family: a `--tree-<tone>Card` (and `…Border`, `…Avatar`, `…Initials`) role. */
+export type CardTone = 'male' | 'female' | 'other' | 'unknown' | 'deceased';
 
-/** The tone (a `--tree-*` palette role) and the shape of each gender. */
-export const GENDER_STYLE: Record<
-  Gender,
-  { tone: 'male' | 'female' | 'other' | 'unknown'; shape: GenderShape }
-> = {
-  MALE: { tone: 'male', shape: 'square' },
-  FEMALE: { tone: 'female', shape: 'circle' },
-  OTHER: { tone: 'other', shape: 'diamond' },
-  UNKNOWN: { tone: 'unknown', shape: 'open' },
+/** The colour family of each gender, for a living person. */
+export const GENDER_TONE: Record<Gender, Exclude<CardTone, 'deceased'>> = {
+  MALE: 'male',
+  FEMALE: 'female',
+  OTHER: 'other',
+  UNKNOWN: 'unknown',
 };
 
 /** The order the legend lists genders in. */
 export const GENDERS: Gender[] = ['MALE', 'FEMALE', 'OTHER', 'UNKNOWN'];
+
+/** The colour a card is filled with: gray for the deceased, otherwise the gender's tint. */
+export function cardToneOf(visual: Pick<PersonVisual, 'gender' | 'deceased'>): CardTone {
+  return visual.deceased ? 'deceased' : GENDER_TONE[visual.gender];
+}
 
 /** Everything about a person's card that is a category rather than text. */
 export interface PersonVisual {
@@ -95,46 +94,4 @@ export const STROKE = {
 /** Screen-pixel width of a connector at `scale`: proportional above the floor, the floor below. */
 export function screenStroke(weight: { base: number; min: number }, scale: number): number {
   return Math.max(weight.min, Math.round(weight.base * scale * 100) / 100);
-}
-
-/**
- * The outline of a gender's avatar, centred on (`cx`, `cy`) with "radius" `r`.
- *
- * The square and the diamond are drawn a little smaller than the circle's bounding box so the
- * three read as the same size — a square as wide as a circle looks heavier than it.
- */
-export function genderShapePath(shape: GenderShape, cx: number, cy: number, r: number): string {
-  switch (shape) {
-    case 'square': {
-      const half = r * 0.9;
-      const corner = r * 0.28;
-      const left = cx - half;
-      const top = cy - half;
-      const side = half * 2;
-      return [
-        `M ${f(left + corner)} ${f(top)}`,
-        `H ${f(left + side - corner)}`,
-        `Q ${f(left + side)} ${f(top)} ${f(left + side)} ${f(top + corner)}`,
-        `V ${f(top + side - corner)}`,
-        `Q ${f(left + side)} ${f(top + side)} ${f(left + side - corner)} ${f(top + side)}`,
-        `H ${f(left + corner)}`,
-        `Q ${f(left)} ${f(top + side)} ${f(left)} ${f(top + side - corner)}`,
-        `V ${f(top + corner)}`,
-        `Q ${f(left)} ${f(top)} ${f(left + corner)} ${f(top)}`,
-        'Z',
-      ].join(' ');
-    }
-    case 'diamond': {
-      const reach = r * 1.12;
-      return `M ${f(cx)} ${f(cy - reach)} L ${f(cx + reach)} ${f(cy)} L ${f(cx)} ${f(cy + reach)} L ${f(cx - reach)} ${f(cy)} Z`;
-    }
-    case 'circle':
-    case 'open':
-      return `M ${f(cx - r)} ${f(cy)} A ${f(r)} ${f(r)} 0 1 0 ${f(cx + r)} ${f(cy)} A ${f(r)} ${f(r)} 0 1 0 ${f(cx - r)} ${f(cy)} Z`;
-  }
-}
-
-/** Two decimals is sub-pixel at every zoom the canvas allows, and keeps the markup short. */
-function f(value: number): string {
-  return String(Math.round(value * 100) / 100);
 }

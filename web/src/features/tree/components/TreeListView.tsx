@@ -6,9 +6,9 @@ import { type PersonSummary } from '@/api/endpoints/persons.ts';
 import { buildTreeNodes, type Tree, type TreeNode } from '@/api/endpoints/tree.ts';
 
 import { formatGeneration, formatLifespan } from '../model/format';
-import { visualOf } from '../model/visual';
+import { cardToneOf, visualOf } from '../model/visual';
 
-import { GenderGlyph, MourningGlyph } from './canvas/Glyphs';
+import { CardGlyph } from './canvas/Glyphs';
 import { GlyphScope, VisuallyHidden } from './canvas/styles';
 import { PersonMeta, PersonName, TreeTable } from './styles';
 
@@ -22,8 +22,8 @@ import { PersonMeta, PersonName, TreeTable } from './styles';
  *
  * It shares the canvas's data hook — the same payload, the same `canEdit` flags, the same
  * invalidation — so the two views can never disagree about what the tree contains. It also shares
- * the canvas's visual vocabulary (#61): the same gender shapes, the same mourning band and the same
- * "You" marker, each with its meaning in words for a screen reader.
+ * the canvas's visual vocabulary (#61): the same card colours for gender and for the deceased, and
+ * the same "You" marker, each with its meaning in words for a screen reader.
  */
 
 interface TreeListViewProps {
@@ -79,8 +79,7 @@ export function TreeListView({
               return (
                 <>
                   <GlyphScope>
-                    <GenderGlyph gender={visual.gender} deceased={visual.deceased} />
-                    {visual.deceased && <MourningGlyph />}
+                    <CardGlyph tone={cardToneOf(visual)} />
                   </GlyphScope>
                   <VisuallyHidden>
                     {[

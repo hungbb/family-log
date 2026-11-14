@@ -2,6 +2,8 @@ import styled, { css, keyframes } from 'styled-components';
 
 import { tokens, type TreePalette, type TreeScheme } from '@/theme/tokens.ts';
 
+import { type CardTone } from '../../model/visual';
+
 /**
  * The canvas's styled parts (doc 07 §3.2 — every colour and gap comes from a token).
  *
@@ -36,9 +38,6 @@ export function schemeVars(scheme: TreeScheme) {
     color-scheme: ${scheme};
   `;
 }
-
-/** The colour role of a gender's tone. */
-export type ToneRole = 'male' | 'female' | 'other' | 'unknown';
 
 /** The frame the canvas fills. `relative` so the minimap and the legend can sit over it. */
 export const CanvasFrame = styled.div<{ $scheme: TreeScheme }>`
@@ -191,9 +190,14 @@ export const NodeGroup = styled.g<{ $dimmed: boolean; $interactive: boolean }>`
   }
 `;
 
-export const NodeCard = styled.rect<{ $selected: boolean; $readOnly: boolean }>`
-  fill: ${({ $readOnly }) => ($readOnly ? tv('cardReadOnly') : tv('card'))};
-  stroke: ${({ $selected }) => ($selected ? tv('accent') : tv('cardBorder'))};
+/**
+ * The card itself. Its fill *is* the person's category: a tint per gender while they are alive, gray
+ * once they have died (see `cardToneOf`). The border is a deeper step of the same tint, so a card
+ * stays a card on either scheme's surface.
+ */
+export const NodeCard = styled.rect<{ $tone: CardTone; $selected: boolean }>`
+  fill: ${({ $tone }) => tv(`${$tone}Card`)};
+  stroke: ${({ $selected, $tone }) => ($selected ? tv('accent') : tv(`${$tone}Border`))};
   stroke-width: ${({ $selected }) => ($selected ? 2 : 1)};
   transition: stroke ${({ theme }) => theme.motion.fast};
 
@@ -213,24 +217,9 @@ export const NodeShadow = styled.rect`
   fill: ${tv('cardShadow')};
 `;
 
-/** The rail down the left edge of a card, coloured by gender (doc 07 §7.3). */
-export const GenderRail = styled.rect<{ $tone: ToneRole }>`
-  fill: ${({ $tone }) => tv($tone)};
-`;
-
-/**
- * The avatar, whose *shape* says the gender (#61): square, circle, diamond, or an open dashed
- * circle for unknown — the pedigree-chart convention, so the category survives greyscale and print.
- */
-export const AvatarShape = styled.path<{ $tone: ToneRole; $deceased: boolean; $open: boolean }>`
-  fill: ${({ $deceased }) => ($deceased ? tv('avatarDeceased') : tv('avatar'))};
-  stroke: ${({ $tone }) => tv($tone)};
-  stroke-width: 1.5;
-  ${({ $open }) =>
-    $open &&
-    css`
-      stroke-dasharray: 3 2.5;
-    `}
+/** The avatar: a plain circle, one step deeper than the card it sits on. */
+export const AvatarCircle = styled.circle<{ $tone: CardTone }>`
+  fill: ${({ $tone }) => tv(`${$tone}Avatar`)};
 `;
 
 /**
@@ -263,17 +252,8 @@ export const SelfTag = styled.g`
   }
 `;
 
-/**
- * The band across the corner of a deceased person's card — the *khăn tang* folded over the corner
- * of a portrait. It is the non-colour half of "deceased": the muted name says it in colour, the
- * band says it in shape (#61).
- */
-export const MourningBand = styled.path`
-  fill: ${tv('mourning')};
-`;
-
-export const AvatarInitials = styled.text`
-  fill: ${tv('inkMuted')};
+export const AvatarInitials = styled.text<{ $tone: CardTone }>`
+  fill: ${({ $tone }) => tv(`${$tone}Initials`)};
   font-family: ${({ theme }) => theme.font.body};
   font-size: 12px;
   font-weight: ${({ theme }) => theme.fontWeight.semibold};
@@ -283,26 +263,28 @@ export const AvatarInitials = styled.text`
 `;
 
 export const NodeName = styled.text<{ $deceased: boolean }>`
-  fill: ${({ $deceased }) => ($deceased ? tv('deceased') : tv('ink'))};
+  fill: ${({ $deceased }) => ($deceased ? tv('deceasedInk') : tv('ink'))};
   font-family: ${({ theme }) => theme.font.serif};
   font-size: 14px;
   font-weight: ${({ theme }) => theme.fontWeight.semibold};
 `;
 
-export const NodeMeta = styled.text`
-  fill: ${tv('inkSubtle')};
+export const NodeMeta = styled.text<{ $deceased: boolean }>`
+  fill: ${({ $deceased }) => ($deceased ? tv('deceasedMeta') : tv('inkMuted'))};
   font-family: ${({ theme }) => theme.font.body};
   font-size: 11px;
 `;
 
 /** The branch a node belongs to, as a pill in the corner of the card. */
-export const BranchPill = styled.rect<{ $highlighted: boolean }>`
-  fill: ${({ $highlighted }) => ($highlighted ? tv('accentSubtle') : tv('pill'))};
+export const BranchPill = styled.rect<{ $highlighted: boolean; $deceased: boolean }>`
+  fill: ${({ $highlighted, $deceased }) =>
+    $highlighted ? tv('accentSubtle') : $deceased ? tv('deceasedPill') : tv('pill')};
   stroke: ${({ $highlighted }) => ($highlighted ? tv('accentBorder') : 'transparent')};
 `;
 
-export const BranchPillText = styled.text<{ $highlighted: boolean }>`
-  fill: ${({ $highlighted }) => ($highlighted ? tv('accent') : tv('inkSubtle'))};
+export const BranchPillText = styled.text<{ $highlighted: boolean; $deceased: boolean }>`
+  fill: ${({ $highlighted, $deceased }) =>
+    $highlighted ? tv('accent') : $deceased ? tv('deceasedMeta') : tv('inkMuted')};
   font-family: ${({ theme }) => theme.font.body};
   font-size: 10px;
   font-weight: ${({ theme }) => theme.fontWeight.medium};
@@ -484,6 +466,12 @@ export const LegendHeading = styled.p`
   font-weight: ${({ theme }) => theme.fontWeight.semibold};
   letter-spacing: 0.06em;
   text-transform: uppercase;
+`;
+
+/** A card in miniature, for the legend and the list view. */
+export const CardSwatch = styled.rect<{ $tone: CardTone }>`
+  fill: ${({ $tone }) => tv(`${$tone}Card`)};
+  stroke: ${({ $tone }) => tv(`${$tone}Border`)};
 `;
 
 /** A swatch's tiny SVG. Connectors in it keep their real weights (no zoom to compensate for). */

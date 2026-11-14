@@ -2,13 +2,13 @@ import { DownOutlined, ReadOutlined, UpOutlined } from '@ant-design/icons';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { GENDERS } from '../../model/visual';
+import { GENDER_TONE, GENDERS } from '../../model/visual';
 
-import { DescentGlyph, GenderGlyph, MourningGlyph, RingGlyph, UnionGlyph } from './Glyphs';
+import { CardGlyph, DescentGlyph, RingGlyph, UnionGlyph } from './Glyphs';
 import { LegendHeading, LegendList, LegendPanel, LegendToggle } from './styles';
 
 /**
- * What the shapes, lines and marks on the canvas mean (#61).
+ * What the colours, lines and marks on the canvas mean (#61).
  *
  * On the canvas, collapsible, because a reader who knows the vocabulary does not want it covering
  * the tree; on the print sheet, always open, because paper has no button to press. The entries are
@@ -55,11 +55,11 @@ export function LegendEntries({ id, showSelf }: { id?: string; showSelf: boolean
     <LegendList id={id}>
       <LegendHeading>{t('tree.legend.people')}</LegendHeading>
       {GENDERS.map((gender) => (
-        <LegendRow key={gender} glyph={<GenderGlyph gender={gender} />}>
+        <LegendRow key={gender} glyph={<CardGlyph tone={GENDER_TONE[gender]} />}>
           {t(`tree.legend.gender.${gender}`)}
         </LegendRow>
       ))}
-      <LegendRow glyph={<MourningGlyph />}>{t('tree.legend.deceased')}</LegendRow>
+      <LegendRow glyph={<CardGlyph tone="deceased" />}>{t('tree.legend.deceased')}</LegendRow>
       {showSelf && <LegendRow glyph={<RingGlyph self />}>{t('tree.legend.self')}</LegendRow>}
       <LegendRow glyph={<RingGlyph self={false} />}>{t('tree.legend.linked')}</LegendRow>
 

@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
 
 import {
-  GENDER_STYLE,
+  GENDER_TONE,
   GENDERS,
   STROKE,
-  genderShapePath,
+  cardToneOf,
   isDashedDescent,
   isSecondaryUnion,
   screenStroke,
@@ -14,9 +14,16 @@ import {
 } from './visual';
 
 describe('the visual vocabulary', () => {
-  it('gives every gender its own shape, so colour is never the only difference', () => {
-    const shapes = GENDERS.map((gender) => GENDER_STYLE[gender].shape);
-    expect(new Set(shapes).size).toBe(GENDERS.length);
+  it('gives every gender its own card colour', () => {
+    const tones = GENDERS.map((gender) => GENDER_TONE[gender]);
+    expect(new Set(tones).size).toBe(GENDERS.length);
+  });
+
+  it('colours a deceased person gray, whatever their gender', () => {
+    for (const gender of GENDERS) {
+      expect(cardToneOf({ gender, deceased: true })).toBe('deceased');
+      expect(cardToneOf({ gender, deceased: false })).toBe(GENDER_TONE[gender]);
+    }
   });
 
   it('reads the categories off a person', () => {
@@ -61,16 +68,6 @@ describe('screenStroke', () => {
       expect(screenStroke(STROKE.union, scale)).toBeGreaterThan(
         screenStroke(STROKE.unionSecondary, scale),
       );
-    }
-  });
-});
-
-describe('genderShapePath', () => {
-  it('draws a closed outline for every shape', () => {
-    for (const gender of GENDERS) {
-      const path = genderShapePath(GENDER_STYLE[gender].shape, 30, 26, 14);
-      expect(path.startsWith('M ')).toBe(true);
-      expect(path.endsWith('Z')).toBe(true);
     }
   });
 });

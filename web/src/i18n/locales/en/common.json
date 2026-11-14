@@ -708,7 +708,7 @@
         "OTHER": "Other gender",
         "UNKNOWN": "Gender unknown"
       },
-      "deceased": "Deceased (mourning band on the card's corner)",
+      "deceased": "Deceased",
       "self": "You — the signed-in account",
       "linked": "Linked to an account",
       "relations": "Relationships",
