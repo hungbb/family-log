@@ -18,12 +18,16 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
  */
 public abstract class LineageApiSupport extends ClanOrgApiSupport {
 
-    /** Adds a person and returns the response body. */
+    /**
+     * Adds a person and returns the response body. A gender is required on create; tests that do not
+     * care which get {@code MALE}, and any {@code gender} in {@code extras} wins.
+     */
     protected JsonNode createPerson(
             Actor actor, UUID clanId, String fullName, Map<String, Object> extras) throws Exception {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("fullName", fullName);
+        body.put("gender", "MALE");
         body.putAll(extras);
 
         return body(

@@ -233,8 +233,8 @@ class AncestryProjectionPropertyIT extends AbstractIntegrationTest {
             PersonId id = PersonId.of(UUID.randomUUID());
             jdbcTemplate.update(
                     """
-                    INSERT INTO persons (id, clan_id, branch_id, full_name)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO persons (id, clan_id, branch_id, full_name, gender)
+                    VALUES (?, ?, ?, ?, 'MALE')
                     """,
                     id.value(),
                     clanId.value(),
