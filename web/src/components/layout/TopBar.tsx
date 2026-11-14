@@ -1,4 +1,5 @@
 import {
+  ControlOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -9,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { useAuth } from '../../hooks/useAuth';
+import { useSuperAdmin } from '../../hooks/useSuperAdmin';
 import { SUPPORTED_LOCALES } from '../../i18n';
 
 import { ClanSwitcher } from './ClanSwitcher';
@@ -32,6 +34,7 @@ export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user, endSession } = useAuth();
+  const { isSuperAdmin } = useSuperAdmin();
   const currentLocale = SUPPORTED_LOCALES.find((locale) => i18n.language.startsWith(locale));
 
   return (
@@ -67,12 +70,19 @@ export function AppTopBar({ collapsed, onToggleSidebar }: TopBarProps) {
         menu={{
           items: [
             { key: 'profile', icon: <UserOutlined />, label: t('shell.profile') },
-            { type: 'divider' },
+            // Only for the people it works for; everyone else would get a 404 page.
+            ...(isSuperAdmin
+              ? [{ key: 'admin', icon: <ControlOutlined />, label: t('shell.administration') }]
+              : []),
+            { type: 'divider' as const },
             { key: 'signOut', icon: <LogoutOutlined />, label: t('shell.signOut'), danger: true },
           ],
           onClick: ({ key }) => {
             if (key === 'profile') {
               void navigate('/me');
+            }
+            if (key === 'admin') {
+              void navigate('/admin');
             }
             if (key === 'signOut') {
               // The guard sends us to /login once the store goes anonymous; no navigation here.

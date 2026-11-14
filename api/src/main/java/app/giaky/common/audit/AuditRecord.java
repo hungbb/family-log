@@ -81,6 +81,17 @@ public record AuditRecord(
     public static final String TARGET_CLAIM = "CLAIM";
 
     /**
+     * Something a super admin did to somebody else's account.
+     *
+     * <p>Distinct from {@link #ofUser}, whose actor and target are the same person: here they are
+     * two, and the difference is the whole of what an investigator wants to know.
+     */
+    public static AuditRecord byOperator(AuditAction action, UserId operator, UserId subject) {
+        return new AuditRecord(
+                action, TARGET_USER, subject.value(), operator, null, null, null, null, null);
+    }
+
+    /**
      * An action inside a clan.
      *
      * <p>The {@code clanId} is what makes the entry reachable: {@code ix_audit_clan_time} is the

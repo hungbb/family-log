@@ -144,5 +144,24 @@ public enum AuditAction {
     PERSON_UNLINKED,
 
     /** A linked member changed which profile fields propagate onto their node (FR-N6). */
-    PROFILE_PROPAGATION_UPDATED
+    PROFILE_PROPAGATION_UPDATED,
+
+    // --- Platform administration ---------------------------------------------------------------
+    //
+    // Actor is the super admin, target is the account acted on. None carries a clan id: these rows
+    // are read by a platform operator, never by a clan's audit view.
+
+    /** A super admin barred an account. Every session it held ended with it. */
+    USER_SUSPENDED,
+    /** A super admin lifted a suspension. */
+    USER_REACTIVATED,
+    /**
+     * A super admin confirmed an address without a verification link. Separate from {@code
+     * EMAIL_VERIFIED} because nobody proved they own the inbox — somebody vouched for them.
+     */
+    EMAIL_VERIFIED_BY_ADMIN,
+    /** A super admin sent a fresh verification link. */
+    VERIFICATION_RESENT_BY_ADMIN,
+    /** A super admin sent a password-reset link. The reset itself is still the holder's act. */
+    PASSWORD_RESET_SENT_BY_ADMIN
 }

@@ -6,7 +6,7 @@ import { SplashScreen } from '../components/feedback/SplashScreen';
 import { AppShell } from '../components/layout/AppShell';
 
 import { ClanHomeRedirect } from './ClanHomeRedirect';
-import { RequireAnonymous, RequireAuth, RequireClan } from './guards';
+import { RequireAnonymous, RequireAuth, RequireClan, RequireSuperAdmin } from './guards';
 
 /**
  * The route tree of doc 07 §8, as far as Phase 3 fills it in.
@@ -70,6 +70,9 @@ const TreePage = lazy(async () => ({
 const PersonSearchPage = lazy(async () => ({
   default: (await import('../features/tree')).PersonSearchPage,
 }));
+const AdminPage = lazy(async () => ({
+  default: (await import('../features/admin')).AdminPage,
+}));
 const ClaimsPage = lazy(async () => ({
   default: (await import('../features/claims')).ClaimsPage,
 }));
@@ -111,6 +114,15 @@ export const router = createBrowserRouter([
           { path: 'join', element: withSuspense(<JoinClanPage />) },
           { path: 'me', element: withSuspense(<ProfilePage />) },
           { path: 'health', element: withSuspense(<HealthPage />) },
+          {
+            path: 'admin',
+            element: <RequireSuperAdmin />,
+            children: [
+              { index: true, element: <Navigate to="/admin/users" replace /> },
+              { path: 'users', element: withSuspense(<AdminPage />) },
+              { path: '*', element: <Navigate to="/admin/users" replace /> },
+            ],
+          },
           {
             path: 'clans/:clanId',
             element: <RequireClan />,

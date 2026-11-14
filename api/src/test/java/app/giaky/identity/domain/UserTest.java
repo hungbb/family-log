@@ -198,6 +198,60 @@ class UserTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Nested
+    @DisplayName("suspension")
+    class Suspension {
+
+        @Test
+        @DisplayName("bars sign-in and invalidates every outstanding access token")
+        void suspends() {
+            User active = withStatus(UserStatus.ACTIVE);
+
+            User suspended = active.suspend(LATER);
+
+            assertThat(suspended.status()).isEqualTo(UserStatus.SUSPENDED);
+            assertThat(suspended.canAuthenticate()).isFalse();
+            assertThat(suspended.tokenVersion()).isEqualTo(active.tokenVersion() + 1);
+            assertThat(suspended.updatedAt()).isEqualTo(LATER);
+        }
+
+        @Test
+        @DisplayName("an account that cannot sign in cannot be suspended again")
+        void onlyFromASignInState() {
+            assertThatThrownBy(() -> withStatus(UserStatus.SUSPENDED).suspend(LATER))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> withStatus(UserStatus.DEACTIVATED).suspend(LATER))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("reactivating an unverified account does not vouch for its address")
+        void reactivatesToPendingWhenUnverified() {
+            User reactivated = registered().suspend(LATER).reactivate(LATER);
+
+            assertThat(reactivated.status()).isEqualTo(UserStatus.PENDING_VERIFICATION);
+        }
+
+        @Test
+        @DisplayName("reactivating a verified account restores ACTIVE, without reviving old tokens")
+        void reactivatesToActiveWhenVerified() {
+            User verified = registered().verifyEmail(NOW);
+            User suspended = verified.suspend(LATER);
+
+            User reactivated = suspended.reactivate(LATER);
+
+            assertThat(reactivated.status()).isEqualTo(UserStatus.ACTIVE);
+            assertThat(reactivated.tokenVersion()).isEqualTo(suspended.tokenVersion());
+        }
+
+        @Test
+        @DisplayName("only a suspended account can be reactivated")
+        void reactivateOnlyFromSuspended() {
+            assertThatThrownBy(() -> withStatus(UserStatus.ACTIVE).reactivate(LATER))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
     @Test
     @DisplayName("I-U2: only ACTIVE and PENDING_VERIFICATION may authenticate")
     void statusGatesAuthentication() {

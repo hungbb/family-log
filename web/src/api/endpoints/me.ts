@@ -20,6 +20,8 @@ export interface MeProfile {
   avatarMediaId?: string;
   lastLoginAt?: string;
   createdAt: string;
+  /** Whether this account may open the platform administration screens. The server decides. */
+  superAdmin: boolean;
 }
 
 /** One live session, as the profile page lists it. No token, by design. */

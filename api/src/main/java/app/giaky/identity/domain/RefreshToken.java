@@ -129,6 +129,8 @@ public record RefreshToken(
         /** A rotated token was presented again; the whole chain went with it. */
         REUSE_DETECTED,
         /** A password reset invalidated every session (FR-A6). */
-        PASSWORD_RESET
+        PASSWORD_RESET,
+        /** A super admin suspended the account; no session may outlive that. */
+        SUSPENDED
     }
 }

@@ -27,17 +27,20 @@ public interface UserMapper {
     UserJpaEntity toEntity(User user);
 
     /**
-     * The three {@code ignore}s are not unmapped columns.
+     * The {@code ignore}s are not unmapped columns.
      *
      * <p>MapStruct treats any single-argument method that returns its own declaring type as a fluent
      * setter, and {@code User}'s transitions — {@code verifyEmail(now)}, {@code recordLogin(now)},
-     * {@code revokeAllSessions(now)} — have exactly that shape. They are behaviour, not state, and
+     * {@code revokeAllSessions(now)}, {@code suspend(now)}, {@code reactivate(now)} — have exactly
+     * that shape. They are behaviour, not state, and
      * the record's components are all mapped through its canonical constructor. Ignoring them by
      * name keeps {@code unmappedTargetPolicy=ERROR} switched on for everything that <i>is</i> state.
      */
     @Mapping(target = "verifyEmail", ignore = true)
     @Mapping(target = "recordLogin", ignore = true)
     @Mapping(target = "revokeAllSessions", ignore = true)
+    @Mapping(target = "suspend", ignore = true)
+    @Mapping(target = "reactivate", ignore = true)
     User toDomain(UserJpaEntity entity);
 
     default UUID fromUserId(UserId value) {
