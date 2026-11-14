@@ -62,6 +62,8 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   // Platform administration.
   SUPER_ADMIN_PROTECTED: 'errors.superAdminProtected',
   USER_STATUS_CONFLICT: 'errors.userStatusConflict',
+  MAIL_NOT_CONFIGURED: 'errors.mailNotConfigured',
+  MAIL_DELIVERY_FAILED: 'errors.mailDeliveryFailed',
 };
 
 /**

@@ -105,9 +105,9 @@ committed in `web/.env.development`. If your API is somewhere else, copy `web/.e
 
 ### 4. Walk through an account
 
-There is no mail server until Phase 8, so under the `dev` profile the API logs the link a real
-message would have carried, and a `dev`-only endpoint serves the raw token. Neither exists in any
-other profile, and a test asserts it.
+Under the `dev` profile the API logs the link a real message would have carried, and a `dev`-only
+endpoint serves the raw token. Neither exists in any other profile, and a test asserts it. If a
+super admin has switched on outgoing mail (below), the message is also really sent.
 
 1. **Register** at <http://localhost:5173/register>. The account is created in
    `PENDING_VERIFICATION` and signed in immediately; a banner asks for the address to be confirmed.
@@ -139,7 +139,8 @@ your web client runs somewhere else.
 
 ### 5. Become a super admin
 
-Super admins manage every account under **Administration** in the account menu ([ADR 0007](.docs/adr/0007-platform-super-admins.md)). Start the API with your address
+Super admins manage every account and the outgoing mail settings under **Administration** in the
+account menu ([ADR 0007](.docs/adr/0007-platform-super-admins.md)). Start the API with your address
 in `SUPER_ADMIN_EMAILS`, then register and verify that address as above:
 
 ```bash
@@ -147,7 +148,8 @@ SUPER_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run -Dspring-boot.run.prof
 ```
 
 The address must be verified before it counts. Otherwise whoever registered it first would be the
-operator.
+operator. Under **Administration → Mail**, save the SMTP settings, use **Send test** to check them,
+and then switch sending on.
 
 If the health badge at <http://localhost:5173/health> is red, the page shows the error code and
 correlation id. The usual cause is that the API is not running; the second is a

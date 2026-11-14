@@ -1,18 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getMailSettings,
   listAdminUsers,
   markUserEmailVerified,
   reactivateUser,
   resendUserVerification,
+  sendTestMail,
   sendUserPasswordReset,
   suspendUser,
+  updateMailSettings,
   type AdminUserFilters,
+  type MailSettings,
+  type MailSettingsInput,
 } from '@/api/endpoints/admin.ts';
 
 /** Platform administration, as server state (doc 07 §5). */
 
 const adminUsersKey = ['admin', 'users'] as const;
+const mailSettingsKey = ['admin', 'settings', 'mail'] as const;
 
 export function useAdminUsers(filters: AdminUserFilters) {
   return useQuery({
@@ -44,4 +50,25 @@ export function useUserAction() {
       void queryClient.invalidateQueries({ queryKey: adminUsersKey });
     },
   });
+}
+
+export function useMailSettings() {
+  return useQuery({
+    queryKey: mailSettingsKey,
+    queryFn: ({ signal }) => getMailSettings(signal),
+  });
+}
+
+export function useUpdateMailSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MailSettingsInput) => updateMailSettings(input),
+    onSuccess: (saved: MailSettings) => {
+      queryClient.setQueryData(mailSettingsKey, saved);
+    },
+  });
+}
+
+export function useSendTestMail() {
+  return useMutation({ mutationFn: (to: string) => sendTestMail(to) });
 }

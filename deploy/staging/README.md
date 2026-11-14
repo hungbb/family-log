@@ -21,6 +21,8 @@ Production is `giaky-prod`: see `deploy/prod/README.md`.
 1. **Credentials** (Manage Jenkins → Credentials → System → Global):
    - `giaky-staging-db-password`: *Secret text*, the `postgres` password.
    - `giaky-staging-jwt-secret`: *Secret text*, the output of `openssl rand -base64 32`.
+   - `giaky-staging-settings-key`: *Secret text*, another `openssl rand -base64 32`. Encrypts the
+     SMTP password saved under Administration → Mail.
    - `giaky-staging-super-admins`: *Secret text*, comma-separated addresses of the super admins
      (may be a single space if there are none yet).
    - `github-ssh`: *SSH username with private key*, user `git`, a key with read access to
@@ -53,7 +55,7 @@ password are listed at the top of the script.
 docker compose -f deploy/staging/docker-compose.yml ps
 docker compose -f deploy/staging/docker-compose.yml logs -f api
 # Roll back to an earlier build (the three newest are kept):
-IMAGE_TAG=staging-41 DB_PASSWORD=... JWT_SECRET=... docker compose -f deploy/staging/docker-compose.yml up -d
+IMAGE_TAG=staging-41 DB_PASSWORD=... JWT_SECRET=... SETTINGS_ENCRYPTION_KEY=... docker compose -f deploy/staging/docker-compose.yml up -d
 ```
 
 There is no SMTP yet, and verification emails are logged only under the `dev` profile, so on
