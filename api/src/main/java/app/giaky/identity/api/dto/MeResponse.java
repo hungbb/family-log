@@ -24,9 +24,11 @@ public record MeResponse(
         Instant emailVerifiedAt,
         UUID avatarMediaId,
         Instant lastLoginAt,
-        Instant createdAt) {
+        Instant createdAt,
+        @Schema(description = "Whether this account may use the platform administration screens.")
+                boolean superAdmin) {
 
-    public static MeResponse of(UserProfile profile) {
+    public static MeResponse of(UserProfile profile, boolean superAdmin) {
         return new MeResponse(
                 profile.id().value(),
                 profile.email(),
@@ -37,6 +39,7 @@ public record MeResponse(
                 profile.emailVerifiedAt(),
                 profile.avatarMediaId(),
                 profile.lastLoginAt(),
-                profile.createdAt());
+                profile.createdAt(),
+                superAdmin);
     }
 }

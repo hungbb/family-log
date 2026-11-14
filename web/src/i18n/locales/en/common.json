@@ -26,7 +26,8 @@
     "accountMenu": "Account menu",
     "profile": "My profile",
     "signOut": "Sign out",
-    "verifyEmailBanner": "Your email address is not verified yet. Open the verification link we sent you."
+    "verifyEmailBanner": "Your email address is not verified yet. Open the verification link we sent you.",
+    "administration": "Administration"
   },
   "auth": {
     "field": {
@@ -151,7 +152,9 @@
     "invalidRelationship": "That relationship cannot be recorded as it stands. Check the people you chose.",
     "dateRangeInvalid": "Those dates cannot both be right. Check the year you entered.",
     "nodeAlreadyLinked": "Somebody is already recorded as that person. Ask an editor if you think that is wrong.",
-    "userAlreadyLinkedInClan": "That account is already recorded as somebody else in this family. Unlink them first."
+    "userAlreadyLinkedInClan": "That account is already recorded as somebody else in this family. Unlink them first.",
+    "superAdminProtected": "A super admin cannot be suspended. Remove the address from SUPER_ADMIN_EMAILS first.",
+    "userStatusConflict": "This account is not in a state where that applies. Refresh the list and try again."
   },
   "health": {
     "title": "System health",
@@ -855,6 +858,60 @@
       "NODE_LINKED": "{{name}} recorded you as {{person}}.",
       "NODE_UNLINKED": "{{name}} unlinked you from {{person}}.",
       "unknown": "Something happened in one of your families."
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "subtitle": "Every account on the platform.",
+    "notFound": "This page does not exist.",
+    "tab": {
+      "users": "Users"
+    },
+    "users": {
+      "searchPlaceholder": "Search by name or email",
+      "allStatuses": "All statuses",
+      "column": {
+        "user": "User",
+        "status": "Status",
+        "lastLogin": "Last sign-in",
+        "created": "Registered",
+        "actions": ""
+      },
+      "status": {
+        "ACTIVE": "Active",
+        "PENDING_VERIFICATION": "Unverified",
+        "SUSPENDED": "Suspended",
+        "DEACTIVATED": "Closed"
+      },
+      "superAdmin": "Super admin",
+      "never": "Never",
+      "actions": "Actions",
+      "action": {
+        "suspend": {
+          "label": "Suspend",
+          "confirmTitle": "Suspend {{email}}?",
+          "confirmBody": "They will be signed out everywhere at once and cannot sign in until the account is reactivated.",
+          "done": "{{email}} is suspended."
+        },
+        "reactivate": {
+          "label": "Reactivate",
+          "done": "{{email}} can sign in again."
+        },
+        "verifyEmail": {
+          "label": "Mark email verified",
+          "confirmTitle": "Mark {{email}} as verified?",
+          "confirmBody": "Do this only if you know the address belongs to this person, for example a relative whose verification mail never arrived.",
+          "done": "{{email}} is verified."
+        },
+        "resendVerification": {
+          "label": "Resend verification link",
+          "done": "A new verification link is on its way to {{email}}."
+        },
+        "sendPasswordReset": {
+          "label": "Send password reset link",
+          "done": "A password reset link is on its way to {{email}}."
+        }
+      }
     }
   }
 }

@@ -123,6 +123,11 @@ app:
       # On idle, not on write: the key carries the tree version, so an entry is either current or
       # already unreachable. This only evicts trees nobody is looking at.
       expire-after-access: ${TREE_CACHE_TTL:10m}
+  platform:
+    # Comma-separated addresses whose accounts are super admins: they manage every user on the
+    # platform. An account qualifies only once its address is verified,
+    # so registering the address first does not make a stranger the operator. Empty by default.
+    super-admin-emails: ${SUPER_ADMIN_EMAILS:}
   media:
     # Where LocalFsMediaStorage writes uploads (Phase 7). Local directory in v1 — object storage
     # is a post-v1 adapter swap behind the same MediaStorage port.

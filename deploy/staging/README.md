@@ -21,6 +21,8 @@ Production is `giaky-prod`: see `deploy/prod/README.md`.
 1. **Credentials** (Manage Jenkins → Credentials → System → Global):
    - `giaky-staging-db-password`: *Secret text*, the `postgres` password.
    - `giaky-staging-jwt-secret`: *Secret text*, the output of `openssl rand -base64 32`.
+   - `giaky-staging-super-admins`: *Secret text*, comma-separated addresses of the super admins
+     (may be a single space if there are none yet).
    - `github-ssh`: *SSH username with private key*, user `git`, a key with read access to
      `hungbb/family-log` (a repository deploy key is enough).
 2. **Job**: `giaky-staging` is created by the `giaky-seed` job from `deploy/jenkins/jobs.groovy`

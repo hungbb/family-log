@@ -1,10 +1,13 @@
 package app.giaky.identity.support;
 
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.UserId;
 import app.giaky.identity.domain.EmailAddress;
 import app.giaky.identity.domain.User;
 import app.giaky.identity.domain.UserRepository;
+import app.giaky.identity.domain.UserStatus;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -55,6 +58,24 @@ public final class InMemoryUserRepository implements UserRepository {
                                         || user.email().value().contains(needle))
                 .map(User::id)
                 .toList();
+    }
+
+    @Override
+    public Paged<User> searchAll(String query, UserStatus status, int page, int size) {
+        String needle = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        List<User> matches =
+                byId.values().stream()
+                        .filter(user -> status == null || user.status() == status)
+                        .filter(
+                                user ->
+                                        needle.isEmpty()
+                                                || user.displayName()
+                                                        .toLowerCase(Locale.ROOT)
+                                                        .contains(needle)
+                                                || user.email().value().contains(needle))
+                        .sorted(Comparator.comparing(User::createdAt).reversed())
+                        .toList();
+        return Paged.of(matches, page, size);
     }
 
     @Override

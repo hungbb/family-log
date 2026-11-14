@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.giaky.authorization.domain.PermissionResolver;
+import app.giaky.identity.application.SuperAdminGuard;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
@@ -35,6 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>The rule.</b> A public method on an application service that is {@code @Transactional} and
  * not {@code readOnly} is, by the conventions of doc 09 §2.2, a mutation. It must call {@code
  * PermissionResolver.require(...)}, or appear in {@link #ALLOW_LIST} with a reason a person wrote.
+ *
+ * <p>Platform administration has no clan to hold a permission in, so its guard is {@code
+ * SuperAdminGuard.require(...)} instead, and the rule accepts either. Accepting either fails safe:
+ * a clan service guarded by the wrong one would admit super admins only, never a member, because
+ * super admins are deliberately absent from {@code PermissionResolver} and hold nothing inside a
+ * clan.
  *
  * <p>Read methods are excluded, not overlooked. Reads are clan-wide in v1 (doc 04 §5.5) and are
  * gated by {@code requireMembership}; when read partitioning arrives, this rule grows a second half
@@ -120,6 +127,16 @@ class AuthorizationCoverageTest {
     private static final Set<String> EXEMPT_PACKAGES =
             Set.of("app.giaky.identity.application");
 
+    /**
+     * Classes inside an exempt package that act on somebody else's account, and so are held to the
+     * rule after all.
+     *
+     * <p>The Identity exemption holds because Identity acts on the caller's own account. This class
+     * does not, so it must ask {@code SuperAdminGuard}.
+     */
+    private static final Set<String> GUARDED_DESPITE_EXEMPTION =
+            Set.of("app.giaky.identity.application.UserAdministrationService");
+
     private static JavaClasses productionClasses;
 
     @BeforeAll
@@ -188,7 +205,8 @@ class AuthorizationCoverageTest {
     }
 
     private static boolean isMutatingTransaction(JavaMethod method) {
-        if (EXEMPT_PACKAGES.contains(method.getOwner().getPackageName())) {
+        if (EXEMPT_PACKAGES.contains(method.getOwner().getPackageName())
+                && !GUARDED_DESPITE_EXEMPTION.contains(method.getOwner().getName())) {
             return false;
         }
         if (!method.isAnnotatedWith(Transactional.class)) {
@@ -200,7 +218,9 @@ class AuthorizationCoverageTest {
     }
 
     private static final ArchCondition<JavaMethod> CALL_REQUIRE =
-            new ArchCondition<>("call PermissionResolver.require(...) or be allow-listed") {
+            new ArchCondition<>(
+                    "call PermissionResolver.require(...) or SuperAdminGuard.require(...), or be"
+                            + " allow-listed") {
 
                 @Override
                 public void check(JavaMethod method, ConditionEvents events) {
@@ -245,7 +265,9 @@ class AuthorizationCoverageTest {
         return method.getCallsFromSelf().stream()
                 .anyMatch(
                         call ->
-                                call.getTargetOwner().isAssignableTo(PermissionResolver.class)
+                                (call.getTargetOwner().isAssignableTo(PermissionResolver.class)
+                                                || call.getTargetOwner()
+                                                        .isAssignableTo(SuperAdminGuard.class))
                                         && "require".equals(call.getName()));
     }
 }

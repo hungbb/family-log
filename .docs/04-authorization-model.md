@@ -60,7 +60,7 @@ can(user, permission, target) -> Decision
 **Steps.**
 
 1. **Resolve tenancy.** Determine the target's `clanId`. A target outside the clan the request addresses is an immediate deny (NFR-4).
-2. **Check membership.** Load the `ACTIVE` membership for (user, clan). No membership → deny. (Platform operators are out of band and not modelled as members in v1.)
+2. **Check membership.** Load the `ACTIVE` membership for (user, clan). No membership → deny. (Platform operators — super admins — are out of band: they manage accounts and platform settings through `SuperAdminGuard` and hold nothing inside a clan. See [ADR 0007](adr/0007-platform-super-admins.md).)
 3. **Load grants.** One indexed query returns all non-revoked, unexpired grants for (user, clan). Cached for the request duration.
 4. **Expand implications.** `CLAN_ADMIN@CLAN` → all permissions at CLAN scope; any permission → `CLAN_VIEW` at the same scope.
 5. **Match.** For each grant whose permission equals the requested one, test scope coverage:

@@ -26,7 +26,8 @@
     "accountMenu": "Menu tài khoản",
     "profile": "Hồ sơ của tôi",
     "signOut": "Đăng xuất",
-    "verifyEmailBanner": "Địa chỉ email của bạn chưa được xác minh. Hãy mở liên kết xác minh đã gửi cho bạn."
+    "verifyEmailBanner": "Địa chỉ email của bạn chưa được xác minh. Hãy mở liên kết xác minh đã gửi cho bạn.",
+    "administration": "Quản trị hệ thống"
   },
   "auth": {
     "field": {
@@ -151,7 +152,9 @@
     "invalidRelationship": "Quan hệ này chưa ghi được. Kiểm tra lại những người bạn đã chọn.",
     "dateRangeInvalid": "Hai mốc thời gian này không thể cùng đúng. Kiểm tra lại năm bạn nhập.",
     "nodeAlreadyLinked": "Đã có người được ghi là người đó. Nếu thấy chưa đúng, hãy hỏi người biên tập.",
-    "userAlreadyLinkedInClan": "Tài khoản đó đã được ghi là một người khác trong họ này. Hãy gỡ liên kết trước."
+    "userAlreadyLinkedInClan": "Tài khoản đó đã được ghi là một người khác trong họ này. Hãy gỡ liên kết trước.",
+    "superAdminProtected": "Không thể tạm khoá quản trị viên hệ thống. Hãy gỡ địa chỉ khỏi SUPER_ADMIN_EMAILS trước.",
+    "userStatusConflict": "Tài khoản đang ở trạng thái không áp dụng được thao tác này. Hãy tải lại danh sách và thử lại."
   },
   "health": {
     "title": "Tình trạng hệ thống",
@@ -851,6 +854,60 @@
       "NODE_LINKED": "{{name}} đã ghi bạn là {{person}}.",
       "NODE_UNLINKED": "{{name}} đã gỡ liên kết của bạn với {{person}}.",
       "unknown": "Có việc vừa xảy ra trong một dòng họ của bạn."
+    }
+  },
+  "admin": {
+    "title": "Quản trị hệ thống",
+    "subtitle": "Mọi tài khoản trên hệ thống.",
+    "notFound": "Trang này không tồn tại.",
+    "tab": {
+      "users": "Người dùng"
+    },
+    "users": {
+      "searchPlaceholder": "Tìm theo tên hoặc email",
+      "allStatuses": "Mọi trạng thái",
+      "column": {
+        "user": "Người dùng",
+        "status": "Trạng thái",
+        "lastLogin": "Đăng nhập gần nhất",
+        "created": "Ngày đăng ký",
+        "actions": ""
+      },
+      "status": {
+        "ACTIVE": "Đang hoạt động",
+        "PENDING_VERIFICATION": "Chưa xác minh",
+        "SUSPENDED": "Tạm khoá",
+        "DEACTIVATED": "Đã đóng"
+      },
+      "superAdmin": "Quản trị hệ thống",
+      "never": "Chưa bao giờ",
+      "actions": "Thao tác",
+      "action": {
+        "suspend": {
+          "label": "Tạm khoá",
+          "confirmTitle": "Tạm khoá {{email}}?",
+          "confirmBody": "Người này sẽ bị đăng xuất khỏi mọi thiết bị ngay lập tức và không thể đăng nhập cho đến khi tài khoản được mở lại.",
+          "done": "Đã tạm khoá {{email}}."
+        },
+        "reactivate": {
+          "label": "Mở khoá",
+          "done": "{{email}} đã có thể đăng nhập lại."
+        },
+        "verifyEmail": {
+          "label": "Đánh dấu email đã xác minh",
+          "confirmTitle": "Đánh dấu {{email}} đã xác minh?",
+          "confirmBody": "Chỉ làm vậy khi bạn biết chắc địa chỉ này thuộc về người đó, ví dụ một người thân không nhận được thư xác minh.",
+          "done": "Đã xác minh {{email}}."
+        },
+        "resendVerification": {
+          "label": "Gửi lại liên kết xác minh",
+          "done": "Đã gửi liên kết xác minh mới tới {{email}}."
+        },
+        "sendPasswordReset": {
+          "label": "Gửi liên kết đặt lại mật khẩu",
+          "done": "Đã gửi liên kết đặt lại mật khẩu tới {{email}}."
+        }
+      }
     }
   }
 }
