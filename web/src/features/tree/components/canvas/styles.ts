@@ -474,6 +474,12 @@ export const CardSwatch = styled.rect<{ $tone: CardTone }>`
   stroke: ${({ $tone }) => tv(`${$tone}Border`)};
 `;
 
+/** The neutral avatar inside the legend's ring swatches: the ring is the point, not a gender. */
+export const RingGlyphFill = styled.circle`
+  fill: ${tv('pill')};
+  stroke: ${tv('cardBorder')};
+`;
+
 /** A swatch's tiny SVG. Connectors in it keep their real weights (no zoom to compensate for). */
 export const LegendSwatch = styled.svg`
   display: block;

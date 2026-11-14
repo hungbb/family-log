@@ -177,7 +177,7 @@ public final class LineageTestFixtures {
                         .create(
                                 actor,
                                 clanId,
-                                person(name, Gender.UNKNOWN)
+                                person(name, Gender.MALE)
                                         .placement(PersonPlacement.unplaced())
                                         .build())
                         .id());

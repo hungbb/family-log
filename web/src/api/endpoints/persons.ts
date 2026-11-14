@@ -29,7 +29,7 @@ export interface PartialDate {
   lunarText?: string;
 }
 
-export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'UNKNOWN';
+export type Gender = 'MALE' | 'FEMALE';
 export type LifeStatus = 'ALIVE' | 'DECEASED' | 'UNKNOWN';
 export type ParentRole = 'FATHER' | 'MOTHER';
 export type ParentageNature = 'BIOLOGICAL' | 'ADOPTED' | 'STEP' | 'FOSTER';

@@ -166,7 +166,7 @@ Indexes: `ux_join_pending (requester_user_id, clan_id, COALESCE(target_branch_id
 | `full_name`                                                                                    | VARCHAR(200)            | `CHECK length(btrim(full_name)) > 0` |
 | `family_name`, `given_name`, `alias`, `posthumous_name`                                        | VARCHAR(100)            | nullable                             |
 | `name_search`                                                                                  | TSVECTOR                | generated, unaccented; see §6        |
-| `gender`                                                                                       | VARCHAR(10)             | `MALE                                |
+| `gender`                                                                                       | VARCHAR(10)             | `MALE` or `FEMALE`, no default      |
 | `life_status`                                                                                  | VARCHAR(10)             | `ALIVE                               |
 | `birth_year`, `birth_month`, `birth_day`                                                       | SMALLINT                | nullable, partial precision          |
 | `birth_precision`                                                                              | VARCHAR(10)             | `EXACT                               |

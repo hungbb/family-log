@@ -124,7 +124,7 @@ export const tokens = {
 
 ### 3.3 Visual direction
 
-The UI is **modern and minimalist**: a clean white canvas, generous whitespace, hairline borders, and minimal elevation. A single clean sans-serif (Be Vietnam Pro, strong Vietnamese diacritic support) carries the whole interface — hierarchy comes from weight and size, not ornament. Colour is used sparingly: near-black ink for primary actions and a single restrained accent for emphasis and highlights. Tree nodes are flat cards with a hairline border, a slim gender-tinted rail, and a muted treatment for deceased persons. The result should feel calm, contemporary, and uncluttered rather than decorative.
+The UI is **modern and minimalist**: a clean white canvas, generous whitespace, hairline borders, and minimal elevation. A single clean sans-serif (Be Vietnam Pro, strong Vietnamese diacritic support) carries the whole interface — hierarchy comes from weight and size, not ornament. Colour is used sparingly: near-black ink for primary actions and a single restrained accent for emphasis and highlights. Tree nodes are flat cards with a hairline border, a background tinted by gender (blue for male, pink for female), and a gray card for deceased persons. The result should feel calm, contemporary, and uncluttered rather than decorative.
 
 ## 4. HTTP Layer (native `fetch`)
 

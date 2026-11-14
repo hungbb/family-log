@@ -6,6 +6,7 @@ import {
   LegendSwatch,
   LinkRing,
   ParentEdgePath,
+  RingGlyphFill,
   UnionLine,
 } from './styles';
 
@@ -39,7 +40,7 @@ export function CardGlyph({
 export function RingGlyph({ self }: { self: boolean }) {
   return (
     <LegendSwatch width={18} height={18} aria-hidden="true" focusable="false">
-      <AvatarCircle cx={9} cy={9} r={6} $tone="unknown" />
+      <RingGlyphFill cx={9} cy={9} r={6} />
       <LinkRing cx={9} cy={9} r={8} $self={self} />
     </LegendSwatch>
   );

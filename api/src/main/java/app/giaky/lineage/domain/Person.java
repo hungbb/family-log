@@ -69,8 +69,8 @@ public record Person(
         Objects.requireNonNull(name, "name must not be null");
         Objects.requireNonNull(createdAt, "createdAt must not be null");
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        Objects.requireNonNull(gender, "gender must not be null");
 
-        gender = gender == null ? Gender.UNKNOWN : gender;
         lifeStatus = lifeStatus == null ? LifeStatus.UNKNOWN : lifeStatus;
         birth = birth == null ? PartialDate.unknown() : birth;
         death = death == null ? PartialDate.unknown() : death;

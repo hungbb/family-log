@@ -511,7 +511,8 @@
       "posthumousName": "The name used at the giỗ"
     },
     "validation": {
-      "nameRequired": "A name is required — everything else can wait.",
+      "nameRequired": "A name is required.",
+      "genderRequired": "Choose male or female.",
       "anchorRequired": "Choose the person this one attaches to.",
       "branchRequired": "Choose a branch."
     },
@@ -524,9 +525,7 @@
     },
     "gender": {
       "MALE": "Male",
-      "FEMALE": "Female",
-      "OTHER": "Other",
-      "UNKNOWN": "Not recorded"
+      "FEMALE": "Female"
     },
     "lifeStatus": {
       "ALIVE": "Living",
@@ -552,8 +551,7 @@
       "father": "Father (cha)",
       "mother": "Mother (mẹ)",
       "wife": "Wife (vợ)",
-      "husband": "Husband (chồng)",
-      "spouse": "Spouse"
+      "husband": "Husband (chồng)"
     },
     "generation": {
       "value": "đời {{generation}}",
@@ -704,9 +702,7 @@
       "people": "People",
       "gender": {
         "MALE": "Male",
-        "FEMALE": "Female",
-        "OTHER": "Other gender",
-        "UNKNOWN": "Gender unknown"
+        "FEMALE": "Female"
       },
       "deceased": "Deceased",
       "self": "You — the signed-in account",

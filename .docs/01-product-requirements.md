@@ -101,7 +101,7 @@ Requirement IDs are referenced by the phase plans in [08-implementation-roadmap.
 ### 5.4 Person Nodes &amp; Relationships (FR-P)
 
 - **FR-P1** A Person node can be created with **no** user account attached (decoupled tree building).
-- **FR-P2** Person attributes: `fullName` (required), `familyName`, `givenName`, `alias` (tên thường gọi), `posthumousName` (tên húy), `gender` (`MALE|FEMALE|OTHER|UNKNOWN`), `status` (`ALIVE|DECEASED|UNKNOWN`), birth/death dates, `avatarUrl`, rich-text `notes`, `burialPlace`, `generation`, `isFoundingAncestor`.
+- **FR-P2** Person attributes: `fullName` (required), `familyName`, `givenName`, `alias` (tên thường gọi), `posthumousName` (tên húy), `gender` (`MALE|FEMALE`, required), `status` (`ALIVE|DECEASED|UNKNOWN`), birth/death dates, `avatarUrl`, rich-text `notes`, `burialPlace`, `generation`, `isFoundingAncestor`.
 - **FR-P3** Dates support **partial precision**: exact date, month+year, year only, or an approximate range with a `circa` flag. Lunar (*âm lịch*) dates are captured as an optional parallel field.
 - **FR-P4** A Person may have at most one father-role and one mother-role parent edge, each tagged `BIOLOGICAL|ADOPTED|STEP|FOSTER`.
 - **FR-P5** The parentage graph must remain acyclic; the API rejects any edge that would create a cycle.

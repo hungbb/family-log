@@ -336,11 +336,11 @@ class RelationshipServiceTest {
         }
 
         @Test
-        @DisplayName("attaching a child records the man as father even when his wife's gender is blank")
-        void attachChildWhenTheWifeHasNoRecordedGender() {
+        @DisplayName("attaching a child records the man as father even when his wife is stored first")
+        void attachChildWhenTheWifeIsPartnerA() {
             // She is created first, so hers is the smaller id and she is stored as partner A — the
-            // arrangement in which "father is A unless A is recorded as female" picked the wife.
-            PersonId wife = personIn(chiHai, "Trần Thị Hoa", Gender.UNKNOWN);
+            // arrangement in which a role picked by storage order alone would pick the wife.
+            PersonId wife = personIn(chiHai, "Trần Thị Hoa", Gender.FEMALE);
             PersonId husband = personIn(chiHai, "Nguyễn Văn Hai", Gender.MALE);
             UnionView created =
                     fixtures.relationshipService.createUnion(

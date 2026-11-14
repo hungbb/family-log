@@ -201,6 +201,9 @@ public class PersonService {
         AccessDecision authorizing =
                 resolver.require(caller, Permission.TREE_EDIT, placement.target());
 
+        if (command.gender() == null) {
+            throw genderRequired();
+        }
         if (command.foundingAncestor()) {
             requireNoFoundingAncestorYet(clanId);
         }
@@ -491,6 +494,11 @@ public class PersonService {
                     "A person needs a name.",
                     List.of(new FieldViolation("fullName", "must not be blank")));
         }
+        Gender gender = pick(command.gender(), person.gender(), merge);
+        if (gender == null) {
+            // As with the name: a PUT without a gender asks to clear it, and every person has one.
+            throw genderRequired();
+        }
         LifeStatus lifeStatus = pick(command.lifeStatus(), person.lifeStatus(), merge);
         PartialDate birth = pick(command.birth(), person.birth(), merge);
         PartialDate death = pick(command.death(), person.death(), merge);
@@ -508,7 +516,7 @@ public class PersonService {
                 persons.save(
                         person.update(
                                 name,
-                                pick(command.gender(), person.gender(), merge),
+                                gender,
                                 lifeStatus,
                                 birth,
                                 death,
@@ -573,6 +581,13 @@ public class PersonService {
      * <p>{@code merge} is {@code PATCH}: a null means "no opinion", so the stored value stands.
      * Without it, null means "clear this", which is what {@code PUT} promises the client.
      */
+    private static DomainRuleViolation genderRequired() {
+        return new DomainRuleViolation(
+                ErrorCode.VALIDATION_FAILED,
+                "Choose male or female.",
+                List.of(new FieldViolation("gender", "must be MALE or FEMALE")));
+    }
+
     private static <T> T pick(T incoming, T current, boolean merge) {
         return merge && incoming == null ? current : incoming;
     }

@@ -16,7 +16,7 @@ import {
  *
  * | Category        | How it is drawn                                                  |
  * | --------------- | ---------------------------------------------------------------- |
- * | Gender          | the card's **background colour** — a tint per gender             |
+ * | Gender          | the card's **background colour** — blue for male, pink for female |
  * | Deceased        | a **gray** card, whatever the gender                             |
  * | You             | accent ring and a "You" **tag** above the card                   |
  * | Has an account  | green **ring** around the avatar                                 |
@@ -28,18 +28,16 @@ import {
  */
 
 /** A card's colour family: a `--tree-<tone>Card` (and `…Border`, `…Avatar`, `…Initials`) role. */
-export type CardTone = 'male' | 'female' | 'other' | 'unknown' | 'deceased';
+export type CardTone = 'male' | 'female' | 'deceased';
 
 /** The colour family of each gender, for a living person. */
 export const GENDER_TONE: Record<Gender, Exclude<CardTone, 'deceased'>> = {
   MALE: 'male',
   FEMALE: 'female',
-  OTHER: 'other',
-  UNKNOWN: 'unknown',
 };
 
-/** The order the legend lists genders in. */
-export const GENDERS: Gender[] = ['MALE', 'FEMALE', 'OTHER', 'UNKNOWN'];
+/** Every gender, in the order the legend and the person form list them. */
+export const GENDERS: Gender[] = ['MALE', 'FEMALE'];
 
 /** The colour a card is filled with: gray for the deceased, otherwise the gender's tint. */
 export function cardToneOf(visual: Pick<PersonVisual, 'gender' | 'deceased'>): CardTone {
