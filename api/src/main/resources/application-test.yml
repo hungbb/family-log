@@ -25,6 +25,7 @@ app:
   platform:
     # Fixed so the integration tests can name a super admin; the account still has to verify.
     super-admin-emails: operator@giaky.test
+    settings-encryption-key: dGVzdC1vbmx5LXNldHRpbmdzLWtleS1ub3QtcHJvZCE=
   security:
     jwt:
       # Fixed, so a token minted in one test verifies in another and an expected value can be

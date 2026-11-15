@@ -66,6 +66,14 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- mail: verification and reset links (FR-A6, R8.1). The transport is built per send from the
+         settings a super admin edits at runtime, so Spring Boot's spring.mail.* auto-configuration
+         is never activated — only Jakarta Mail and JavaMailSenderImpl are used. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
     <!-- security -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.giaky.config.DevSecurityConfig;
 import app.giaky.identity.application.DeliveredTokenInspector;
 import app.giaky.identity.infrastructure.InMemoryVerificationTokenDelivery;
-import app.giaky.identity.infrastructure.LoggedVerificationTokenDelivery;
+import app.giaky.identity.infrastructure.MailVerificationTokenDelivery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Profile;
@@ -59,7 +59,7 @@ class DevEndpointsAbsentInProdTest {
     @DisplayName("exactly one delivery adapter is active in every profile")
     void deliveryAdaptersAreMutuallyExclusive() {
         Profile recording = InMemoryVerificationTokenDelivery.class.getAnnotation(Profile.class);
-        Profile logging = LoggedVerificationTokenDelivery.class.getAnnotation(Profile.class);
+        Profile logging = MailVerificationTokenDelivery.class.getAnnotation(Profile.class);
 
         // Two adapters that could both be active would fail the context with a duplicate-bean
         // error; two that could both be inactive would fail it with a missing one. Neither is a
@@ -76,7 +76,7 @@ class DevEndpointsAbsentInProdTest {
     void inspectorHasNoProductionImplementation() {
         assertThat(DeliveredTokenInspector.class.isAssignableFrom(InMemoryVerificationTokenDelivery.class))
                 .isTrue();
-        assertThat(DeliveredTokenInspector.class.isAssignableFrom(LoggedVerificationTokenDelivery.class))
+        assertThat(DeliveredTokenInspector.class.isAssignableFrom(MailVerificationTokenDelivery.class))
                 .as("a production adapter would put a token-disclosure method in a deployment")
                 .isFalse();
     }

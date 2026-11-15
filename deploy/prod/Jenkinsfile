@@ -130,6 +130,7 @@ pipeline {
                     string(credentialsId: 'do-registry-token',             variable: 'DO_TOKEN'),
                     string(credentialsId: 'spring-datasource-password-do', variable: 'DB_PASSWORD'),
                     string(credentialsId: 'giaky-prod-jwt-secret',         variable: 'JWT_SECRET'),
+                    string(credentialsId: 'giaky-prod-settings-key',       variable: 'SETTINGS_ENCRYPTION_KEY'),
                     string(credentialsId: 'giaky-prod-super-admins',       variable: 'SUPER_ADMIN_EMAILS'),
                 ]) {
                     // Single-quoted so Groovy never interpolates a secret into the script, and so the
@@ -157,6 +158,7 @@ pipeline {
                             "JWT_SECRET=$JWT_SECRET" \\
                             "JWT_ISSUER=giaky" \\
                             "BCRYPT_COST=12" \\
+                            "SETTINGS_ENCRYPTION_KEY=$SETTINGS_ENCRYPTION_KEY" \\
                             "SUPER_ADMIN_EMAILS=$SUPER_ADMIN_EMAILS" \\
                           | $SSH "umask 077 && cat > $ENV_FILE"
 

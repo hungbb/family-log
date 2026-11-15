@@ -5,7 +5,7 @@
 #     so pg_hba.conf needs no rule for Docker's bridge subnet;
 #   - the API binds 127.0.0.1 only, so the one way in from the LAN is nginx on WEB_PORT.
 #
-# Secrets (DB_PASSWORD, JWT_SECRET) come from the environment — Jenkins injects them from its
+# Secrets (DB_PASSWORD, JWT_SECRET, SETTINGS_ENCRYPTION_KEY) come from the environment — Jenkins injects them from its
 # credential store. `${VAR:?}` makes compose refuse to start without them.
 
 name: giaky-staging
@@ -26,6 +26,7 @@ services:
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_ISSUER: giaky-staging
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:?SETTINGS_ENCRYPTION_KEY is required}
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
       API_BASE_URL: ${PUBLIC_URL:-http://192.168.1.100:8081}
       WEB_BASE_URL: ${PUBLIC_URL:-http://192.168.1.100:8081}

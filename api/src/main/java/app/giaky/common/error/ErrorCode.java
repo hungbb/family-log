@@ -63,6 +63,14 @@ public enum ErrorCode {
     CYCLE_DETECTED(HttpStatus.UNPROCESSABLE_ENTITY, "Cycle detected"),
     INVALID_RELATIONSHIP(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid relationship"),
     DATE_RANGE_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "Date range invalid"),
+    /** Outgoing mail is switched off, so there is nothing to send a message with. */
+    MAIL_NOT_CONFIGURED(HttpStatus.UNPROCESSABLE_ENTITY, "Mail not configured"),
+    /**
+     * The SMTP server refused or could not be reached. Only the test-message endpoint reports it;
+     * real deliveries happen after commit and are logged instead, so a mail outage never fails the
+     * account change that asked for the message.
+     */
+    MAIL_DELIVERY_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "Mail delivery failed"),
 
     // 429
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
