@@ -42,9 +42,9 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 |------|---------------|
 | 400 | `MALFORMED_REQUEST`, `INVALID_CLAN_CODE` |
 | 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `TOKEN_INVALID` |
-| 403 | `PERMISSION_DENIED`, `OUT_OF_SCOPE`, `PERMISSION_ESCALATION_BLOCKED`, `LAST_ADMIN_PROTECTED` |
+| 403 | `PERMISSION_DENIED`, `OUT_OF_SCOPE`, `PERMISSION_ESCALATION_BLOCKED`, `LAST_ADMIN_PROTECTED`, `SUPER_ADMIN_PROTECTED` |
 | 404 | `CLAN_NOT_FOUND`, `PERSON_NOT_FOUND`, `BRANCH_NOT_FOUND`, `REQUEST_NOT_FOUND` |
-| 409 | `VERSION_CONFLICT`, `EMAIL_ALREADY_REGISTERED`, `DUPLICATE_PENDING_REQUEST`, `NODE_ALREADY_LINKED`, `USER_ALREADY_LINKED_IN_CLAN`, `MEMBERSHIP_EXISTS`, `GRANT_ALREADY_EXISTS` |
+| 409 | `VERSION_CONFLICT`, `EMAIL_ALREADY_REGISTERED`, `DUPLICATE_PENDING_REQUEST`, `NODE_ALREADY_LINKED`, `USER_ALREADY_LINKED_IN_CLAN`, `MEMBERSHIP_EXISTS`, `GRANT_ALREADY_EXISTS`, `USER_STATUS_CONFLICT` |
 | 422 | `VALIDATION_FAILED`, `CYCLE_DETECTED`, `INVALID_RELATIONSHIP`, `DATE_RANGE_INVALID`, `SUBTREE_SCOPE_UNAVAILABLE` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` (never leaks internals; correlation id only) |
@@ -243,6 +243,19 @@ born, and so does everybody after a branch is renamed or moved.
 | GET | `/clans/{clanId}/audit` | `CLAN_ADMIN` — paged, `?action=&targetId=&from=&to=` |
 | GET | `/actuator/health` | public (liveness/readiness) |
 | GET | `/actuator/prometheus` | internal network only |
+
+### 4.12 Platform administration — `/admin` (super admin, [ADR 0007](adr/0007-platform-super-admins.md))
+
+Every endpoint answers `403 PERMISSION_DENIED` unless the caller is a super admin. `GET /me` carries `superAdmin: boolean` so the client can show the screens.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/admin/users` | `?search=&status=&page=&size=`, newest first |
+| POST | `/admin/users/{userId}/suspend` | Ends every session. `403 SUPER_ADMIN_PROTECTED` for oneself or another super admin; `409 USER_STATUS_CONFLICT` if already suspended |
+| POST | `/admin/users/{userId}/reactivate` | Back to `ACTIVE` or `PENDING_VERIFICATION` |
+| POST | `/admin/users/{userId}/verify-email` | Idempotent |
+| POST | `/admin/users/{userId}/resend-verification` | `202`; `409` if already verified |
+| POST | `/admin/users/{userId}/send-password-reset` | `202`; the holder chooses the new password |
 
 ## 5. Security Details
 

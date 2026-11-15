@@ -137,6 +137,18 @@ A password reset works the same way: submit <http://localhost:5173/forgot-passwo
 The links point at `WEB_BASE_URL` (`http://localhost:5173` by default) — see `api/.env.example` if
 your web client runs somewhere else.
 
+### 5. Become a super admin
+
+Super admins manage every account under **Administration** in the account menu ([ADR 0007](.docs/adr/0007-platform-super-admins.md)). Start the API with your address
+in `SUPER_ADMIN_EMAILS`, then register and verify that address as above:
+
+```bash
+SUPER_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+The address must be verified before it counts. Otherwise whoever registered it first would be the
+operator.
+
 If the health badge at <http://localhost:5173/health> is red, the page shows the error code and
 correlation id. The usual cause is that the API is not running; the second is a
 `CORS_ALLOWED_ORIGINS` that does not include `http://localhost:5173`.

@@ -58,6 +58,10 @@ const MESSAGE_KEY_BY_CODE: Record<string, string> = {
   // reasonable, so each says which of the two happened rather than "conflict".
   NODE_ALREADY_LINKED: 'errors.nodeAlreadyLinked',
   USER_ALREADY_LINKED_IN_CLAN: 'errors.userAlreadyLinkedInClan',
+
+  // Platform administration.
+  SUPER_ADMIN_PROTECTED: 'errors.superAdminProtected',
+  USER_STATUS_CONFLICT: 'errors.userStatusConflict',
 };
 
 /**

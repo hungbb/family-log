@@ -6,6 +6,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router';
 import { SplashScreen } from '../components/feedback/SplashScreen';
 import { useActiveClan } from '../hooks/useActiveClan';
 import { useAuth } from '../hooks/useAuth';
+import { useSuperAdmin } from '../hooks/useSuperAdmin';
 import { returnPathOrHome } from '../lib/returnPath';
 
 /**
@@ -99,5 +100,25 @@ export function RequireClan() {
     );
   }
 
+  return <Outlet />;
+}
+
+/**
+ * Guards the platform administration screens.
+ *
+ * Someone who is not a super admin gets the same 404 an unknown path would give, rather than a
+ * page explaining that administration exists. Like every guard here, this is a convenience: every
+ * `/admin` endpoint refuses the request itself.
+ */
+export function RequireSuperAdmin() {
+  const { t } = useTranslation();
+  const { isSuperAdmin, isPending } = useSuperAdmin();
+
+  if (isPending) {
+    return <SplashScreen />;
+  }
+  if (!isSuperAdmin) {
+    return <Result status="404" title={t('admin.notFound')} />;
+  }
   return <Outlet />;
 }

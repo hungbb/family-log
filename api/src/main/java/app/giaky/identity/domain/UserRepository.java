@@ -1,5 +1,6 @@
 package app.giaky.identity.domain;
 
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.UserId;
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +42,18 @@ public interface UserRepository {
      * one-character query reads no more than the candidates.
      */
     List<UserId> searchIdsAmong(String query, Collection<UserId> among);
+
+    /**
+     * Every account on the platform, newest first, for the super-admin user list.
+     *
+     * <p>The one read here that is not bounded by somebody's clan. Reached only through {@code
+     * UserAdministrationService}, which asks {@code SuperAdminGuard} before it calls this.
+     *
+     * @param query matched case-insensitively against display name and address; blank matches all
+     * @param status only accounts in this state; null for every state
+     * @param page zero-based
+     */
+    Paged<User> searchAll(String query, UserStatus status, int page, int size);
 
     /** Inserts or updates, returning the stored state. */
     User save(User user);

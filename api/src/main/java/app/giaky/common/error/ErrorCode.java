@@ -24,6 +24,11 @@ public enum ErrorCode {
     OUT_OF_SCOPE(HttpStatus.FORBIDDEN, "Out of scope"),
     PERMISSION_ESCALATION_BLOCKED(HttpStatus.FORBIDDEN, "Permission escalation blocked"),
     LAST_ADMIN_PROTECTED(HttpStatus.FORBIDDEN, "Last administrator protected"),
+    /**
+     * A super admin tried to suspend themselves or another super admin. Super admins are named by
+     * configuration, so the only way to remove one is to change that configuration.
+     */
+    SUPER_ADMIN_PROTECTED(HttpStatus.FORBIDDEN, "Super admin protected"),
 
     // 404
     CLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "Clan not found"),
@@ -41,6 +46,11 @@ public enum ErrorCode {
     MEMBERSHIP_EXISTS(HttpStatus.CONFLICT, "Membership exists"),
     /** I-G5: this person already holds this permission at this exact scope. */
     GRANT_ALREADY_EXISTS(HttpStatus.CONFLICT, "Grant already exists"),
+    /**
+     * The account is not in a state the requested administrative action applies to — reactivating
+     * an account that is not suspended, resending verification to a verified address.
+     */
+    USER_STATUS_CONFLICT(HttpStatus.CONFLICT, "User status conflict"),
 
     // 422
     VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "Validation failed"),

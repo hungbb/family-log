@@ -22,6 +22,9 @@ app:
     allowed-origins: http://localhost:5173
   media:
     local-directory: ${java.io.tmpdir}/giaky-test-media
+  platform:
+    # Fixed so the integration tests can name a super admin; the account still has to verify.
+    super-admin-emails: operator@giaky.test
   security:
     jwt:
       # Fixed, so a token minted in one test verifies in another and an expected value can be

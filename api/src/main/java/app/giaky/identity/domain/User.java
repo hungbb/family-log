@@ -186,6 +186,56 @@ public record User(
     }
 
     /**
+     * Bars the account (I-U2) and invalidates every outstanding access token.
+     *
+     * <p>The {@code tokenVersion} bump is belt and braces: the filter already refuses a suspended
+     * account on its next request, but a bumped version means lifting the suspension later does
+     * not bring the old tokens back to life.
+     *
+     * @throws IllegalStateException the account is already suspended or closed
+     */
+    public User suspend(Instant now) {
+        if (!status.canAuthenticate()) {
+            throw new IllegalStateException("only an account that can sign in can be suspended");
+        }
+        return withStatus(UserStatus.SUSPENDED, tokenVersion + 1, now);
+    }
+
+    /**
+     * Lifts a suspension.
+     *
+     * <p>Back to wherever the account would otherwise be: {@code ACTIVE} if the address was
+     * verified, {@code PENDING_VERIFICATION} if it never was. Reactivating is not vouching for the
+     * address.
+     *
+     * @throws IllegalStateException the account is not suspended
+     */
+    public User reactivate(Instant now) {
+        if (status != UserStatus.SUSPENDED) {
+            throw new IllegalStateException("only a suspended account can be reactivated");
+        }
+        UserStatus restored =
+                isEmailVerified() ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION;
+        return withStatus(restored, tokenVersion, now);
+    }
+
+    private User withStatus(UserStatus newStatus, long newTokenVersion, Instant now) {
+        return new User(
+                id,
+                email,
+                passwordHash,
+                displayName,
+                avatarMediaId,
+                locale,
+                newStatus,
+                emailVerifiedAt,
+                lastLoginAt,
+                newTokenVersion,
+                createdAt,
+                now);
+    }
+
+    /**
      * Updates the editable parts of the profile (FR-A4).
      *
      * <p>A null argument means "leave it alone", which is what a {@code PATCH} with an absent field

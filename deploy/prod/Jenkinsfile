@@ -130,6 +130,7 @@ pipeline {
                     string(credentialsId: 'do-registry-token',             variable: 'DO_TOKEN'),
                     string(credentialsId: 'spring-datasource-password-do', variable: 'DB_PASSWORD'),
                     string(credentialsId: 'giaky-prod-jwt-secret',         variable: 'JWT_SECRET'),
+                    string(credentialsId: 'giaky-prod-super-admins',       variable: 'SUPER_ADMIN_EMAILS'),
                 ]) {
                     // Single-quoted so Groovy never interpolates a secret into the script, and so the
                     // build log never sees one: they reach the host over stdin, not a command line.
@@ -156,6 +157,7 @@ pipeline {
                             "JWT_SECRET=$JWT_SECRET" \\
                             "JWT_ISSUER=giaky" \\
                             "BCRYPT_COST=12" \\
+                            "SUPER_ADMIN_EMAILS=$SUPER_ADMIN_EMAILS" \\
                           | $SSH "umask 077 && cat > $ENV_FILE"
 
                         $SSH "umask 077 && cat > $COMPOSE_FILE" < deploy/prod/docker-compose.yml

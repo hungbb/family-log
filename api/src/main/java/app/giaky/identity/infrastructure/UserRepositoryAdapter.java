@@ -1,14 +1,19 @@
 package app.giaky.identity.infrastructure;
 
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.UserId;
 import app.giaky.identity.domain.EmailAddress;
 import app.giaky.identity.domain.User;
 import app.giaky.identity.domain.UserRepository;
+import app.giaky.identity.domain.UserStatus;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -66,6 +71,23 @@ public class UserRepositoryAdapter implements UserRepository {
             repository.searchIdsAmong(query, slice).stream().map(UserId::of).forEach(matches::add);
         }
         return matches;
+    }
+
+    @Override
+    public Paged<User> searchAll(String query, UserStatus status, int page, int size) {
+        Page<UserJpaEntity> found =
+                repository.searchAll(
+                        query == null ? "" : query.trim(),
+                        status == null ? "" : status.name(),
+                        PageRequest.of(
+                                page,
+                                size,
+                                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("id"))));
+        return new Paged<>(
+                found.getContent().stream().map(mapper::toDomain).toList(),
+                found.getNumber(),
+                found.getSize(),
+                found.getTotalElements());
     }
 
     @Override

@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,4 +46,22 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID> {
                    or lower(u.email) like lower(concat('%', :query, '%')))
             """)
     List<UUID> searchIdsAmong(@Param("query") String query, @Param("ids") Collection<UUID> ids);
+
+    /**
+     * The super-admin user list.
+     *
+     * <p>Empty strings rather than nulls stand for "no filter": PostgreSQL cannot always infer the
+     * type of a parameter that is only ever compared with {@code IS NULL}, and an untyped null
+     * inside {@code lower(concat(...))} fails at execution rather than at startup.
+     */
+    @Query(
+            """
+            select u from UserJpaEntity u
+            where (:status = '' or u.status = :status)
+              and (:query = ''
+                   or lower(u.displayName) like lower(concat('%', :query, '%'))
+                   or lower(u.email) like lower(concat('%', :query, '%')))
+            """)
+    Page<UserJpaEntity> searchAll(
+            @Param("query") String query, @Param("status") String status, Pageable pageable);
 }

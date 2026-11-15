@@ -6,7 +6,9 @@ import app.giaky.identity.api.dto.MeResponse;
 import app.giaky.identity.api.dto.SessionSummary;
 import app.giaky.identity.api.dto.UpdateProfileRequest;
 import app.giaky.identity.application.AccountService;
+import app.giaky.identity.application.SuperAdminGuard;
 import app.giaky.identity.application.UpdateProfileCommand;
+import app.giaky.identity.application.UserProfile;
 import app.giaky.identity.domain.LocaleTag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,15 +36,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final AccountService accountService;
+    private final SuperAdminGuard superAdminGuard;
 
-    public MeController(AccountService accountService) {
+    public MeController(AccountService accountService, SuperAdminGuard superAdminGuard) {
         this.accountService = accountService;
+        this.superAdminGuard = superAdminGuard;
     }
 
     @GetMapping
     @Operation(summary = "The signed-in account's profile")
     public MeResponse me(@CurrentUser AuthenticatedUser caller) {
-        return MeResponse.of(accountService.profile(caller.id()));
+        return MeResponse.of(
+                accountService.profile(caller.id()), superAdminGuard.isSuperAdmin(caller.id()));
     }
 
     @PatchMapping
@@ -52,14 +57,15 @@ public class MeController {
     public MeResponse updateProfile(
             @CurrentUser AuthenticatedUser caller, @Valid @RequestBody UpdateProfileRequest request) {
 
-        return MeResponse.of(
+        UserProfile updated =
                 accountService.updateProfile(
                         caller.id(),
                         new UpdateProfileCommand(
                                 request.displayName(),
                                 request.locale() == null
                                         ? null
-                                        : LocaleTag.fromTagOrDefault(request.locale()))));
+                                        : LocaleTag.fromTagOrDefault(request.locale())));
+        return MeResponse.of(updated, superAdminGuard.isSuperAdmin(caller.id()));
     }
 
     @GetMapping("/sessions")

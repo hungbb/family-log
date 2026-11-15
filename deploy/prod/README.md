@@ -54,7 +54,7 @@ certbot rewrites the vhost in place to add the TLS listener and the redirect fro
 
 ### 4. Jenkins credentials
 
-Three of the four already exist for ezgo and are reused as they are:
+Three of these already exist for ezgo and are reused as they are:
 
 | ID | Kind | What |
 |----|------|------|
@@ -62,9 +62,15 @@ Three of the four already exist for ezgo and are reused as they are:
 | `ezvalue-ssh-key` | SSH private key | `root@etopfunvalue.com` — **exists** |
 | `spring-datasource-password-do` | Secret text | the `doadmin` password — **exists**, shared with ezgo |
 | `giaky-prod-jwt-secret` | Secret text | **add this one**: `openssl rand -base64 32` |
+| `giaky-prod-super-admins` | Secret text | **add this one**: comma-separated addresses of the super admins. Kept as a credential so no address is committed |
 
 The JWT secret must be its own value, not the staging one: one leaked key should not sign tokens
 for both environments. Rotating it signs everyone out.
+
+A super admin's account only counts once its address is verified. A deployment cannot send mail
+yet, so the first super admin verifies through the database once
+(`UPDATE users SET email_verified_at = now(), status = 'ACTIVE' WHERE email = '…'`). After that,
+they can mark other addresses verified from Administration → Users.
 
 ### 5. The job
 
