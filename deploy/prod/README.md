@@ -47,10 +47,27 @@ scp deploy/prod/nginx-giaky.conf root@etopfunvalue.com:/etc/nginx/sites-availabl
 ```
 
 ```bash
-ssh root@etopfunvalue.com 'ln -sf /etc/nginx/sites-available/giaky /etc/nginx/sites-enabled/giaky && nginx -t && systemctl reload nginx && certbot --nginx -d giaky.etopfunvalue.com'
+ssh root@etopfunvalue.com 'ln -sf /etc/nginx/sites-available/giaky /etc/nginx/sites-enabled/giaky && nginx -t && systemctl reload nginx'
 ```
 
-certbot rewrites the vhost in place to add the TLS listener and the redirect from `:80`.
+Before certbot, check that nginx has actually loaded the vhost. It should print the
+`server_name` line from the giaky file:
+
+```bash
+ssh root@etopfunvalue.com 'nginx -T 2>/dev/null | grep -n "giaky.etopfunvalue.com"'
+```
+
+Only then:
+
+```bash
+ssh root@etopfunvalue.com 'certbot --nginx -d giaky.etopfunvalue.com'
+```
+
+certbot rewrites the vhost in place to add the TLS listener and the redirect from `:80`. Its output
+should say `Deploying Certificate to VirtualHost /etc/nginx/sites-enabled/giaky`. If it names any
+other file, typically `default`, it found no block for the name and attached it to an unrelated
+one: the certificate is valid but HTTPS serves that block, usually nginx's "Welcome to nginx!"
+page. See [HTTPS shows "Welcome to nginx!"](#https-shows-welcome-to-nginx) below.
 
 ### 4. Jenkins credentials
 
@@ -129,6 +146,31 @@ ssh root@etopfunvalue.com 'docker compose --env-file /etc/giaky/giaky.env -f /et
 `/etc/giaky/giaky.env` holds the database password and the JWT secret. It is 0600 and owned by
 root, and every deploy overwrites it from Jenkins' credential store — editing it by hand lasts
 until the next build.
+
+## HTTPS shows "Welcome to nginx!"
+
+The web container can never serve that page (its image replaces nginx's `default.conf`), so the
+request is stopping at the host's nginx. The pipeline does not touch the host's nginx, so a deploy
+does not cause or fix this. First confirm the containers are fine:
+
+```bash
+ssh root@etopfunvalue.com 'curl -s http://127.0.0.1:8082/ | grep -o "<title>.*</title>"'
+```
+
+Then find which file holds the giaky TLS block. Use `grep -R`, not `-r`: everything in
+`sites-enabled` is a symlink, and `-r` skips them.
+
+```bash
+ssh root@etopfunvalue.com 'grep -Rn "giaky" /etc/nginx/sites-enabled/'
+```
+
+If certbot put it into `default` (a `server_name giaky.etopfunvalue.com; # managed by Certbot` line
+there), back up `default`, delete the server blocks that serve only giaky from it, and reinstall
+the existing certificate into the right vhost:
+
+```bash
+ssh root@etopfunvalue.com 'nginx -t && systemctl reload nginx && certbot --nginx -d giaky.etopfunvalue.com --reinstall --redirect'
+```
 
 ## What is not set up
 
