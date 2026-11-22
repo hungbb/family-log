@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type PersonSummary } from '@/api/endpoints/persons.ts';
 
-import { usePersonSearch } from '../hooks/useTree';
+import { usePerson, usePersonSearch } from '../hooks/useTree';
 import { formatGeneration, formatLifespan } from '../model/format';
 
 interface PersonPickerProps {
@@ -56,6 +56,19 @@ export function PersonPicker({
       value: person.id,
       label: describe(person, t),
     }));
+
+  // A value can arrive from outside — "add a spouse" from a node's icon presets the anchor — and the
+  // person it names need not be among the twenty the search returned. Without an option for it the
+  // Select falls back to rendering the raw id, so fetch that one person and describe them the same
+  // way as every other option.
+  const listed = value === undefined || options.some((option) => option.value === value);
+  const { data: selected } = usePerson(clanId, listed ? null : value);
+  if (!listed) {
+    options.unshift({
+      value,
+      label: selected?.id === value ? describe(selected, t) : t('common.loading'),
+    });
+  }
 
   return (
     <Select

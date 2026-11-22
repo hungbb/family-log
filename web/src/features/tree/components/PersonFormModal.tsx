@@ -16,6 +16,7 @@ import { validatedValues } from '@/lib/forms.ts';
 
 import { useBranches } from '../../branch';
 import { useCreatePerson, useUpdatePerson } from '../hooks/useTree';
+import { deathFields } from '../model/deathFields';
 import { GENDERS } from '../model/visual';
 
 import { PartialDateInput } from './PartialDateInput';
@@ -76,6 +77,7 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
   const needsAnchor =
     isCreate && (mode.placementType === 'CHILD_OF_PARENT' || mode.placementType === 'SPOUSE_OF');
   const needsBranch = isCreate && mode.placementType === 'BRANCH_ROOT';
+  const isDeceased = Form.useWatch('lifeStatus', form) === 'DECEASED';
 
   useEffect(() => {
     if (!open) return;
@@ -193,10 +195,6 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
           <Input maxLength={100} />
         </Form.Item>
 
-        <Form.Item name="posthumousName" label={t('tree.field.posthumousName')}>
-          <Input maxLength={100} placeholder={t('tree.placeholder.posthumousName')} />
-        </Form.Item>
-
         <Form.Item
           name="gender"
           label={t('tree.field.gender')}
@@ -208,6 +206,14 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
           />
         </Form.Item>
 
+        <Form.Item name="birth" label={t('tree.field.birth')}>
+          <PartialDateInput label={t('tree.field.birth')} />
+        </Form.Item>
+
+        <Form.Item name="birthOrder" label={t('tree.field.birthOrder')}>
+          <InputNumber min={1} max={30} />
+        </Form.Item>
+
         <Form.Item name="lifeStatus" label={t('tree.field.lifeStatus')}>
           <Select
             options={(['ALIVE', 'DECEASED', 'UNKNOWN'] as LifeStatus[]).map((value) => ({
@@ -217,21 +223,22 @@ export function PersonFormModal({ clanId, open, mode, onClose, onSaved }: Person
           />
         </Form.Item>
 
-        <Form.Item name="birth" label={t('tree.field.birth')}>
-          <PartialDateInput label={t('tree.field.birth')} />
-        </Form.Item>
+        {/* What only a death has — shown once the status says so, and right under it. */}
+        {isDeceased && (
+          <>
+            <Form.Item name="death" label={t('tree.field.death')}>
+              <PartialDateInput label={t('tree.field.death')} />
+            </Form.Item>
 
-        <Form.Item name="death" label={t('tree.field.death')}>
-          <PartialDateInput label={t('tree.field.death')} />
-        </Form.Item>
+            <Form.Item name="burialPlace" label={t('tree.field.burialPlace')}>
+              <Input maxLength={255} />
+            </Form.Item>
 
-        <Form.Item name="birthOrder" label={t('tree.field.birthOrder')}>
-          <InputNumber min={1} max={30} />
-        </Form.Item>
-
-        <Form.Item name="burialPlace" label={t('tree.field.burialPlace')}>
-          <Input maxLength={255} />
-        </Form.Item>
+            <Form.Item name="posthumousName" label={t('tree.field.posthumousName')}>
+              <Input maxLength={100} placeholder={t('tree.placeholder.posthumousName')} />
+            </Form.Item>
+          </>
+        )}
 
         <Form.Item name="notesHtml" label={t('tree.field.notes')} help={t('tree.field.notesHelp')}>
           <Input.TextArea rows={4} maxLength={4000} showCount />
@@ -253,14 +260,12 @@ function optional(values: PersonFormValues) {
     ...pick('familyName', values.familyName),
     ...pick('givenName', values.givenName),
     ...pick('alias', values.alias),
-    ...pick('posthumousName', values.posthumousName),
     ...pick('gender', values.gender),
     ...pick('lifeStatus', values.lifeStatus),
     ...pick('birth', values.birth),
-    ...pick('death', values.death),
-    ...pick('burialPlace', values.burialPlace),
     ...pick('birthOrder', values.birthOrder),
     ...pick('notesHtml', values.notesHtml),
+    ...deathFields(values),
   };
 }
 
