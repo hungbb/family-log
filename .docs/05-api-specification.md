@@ -225,10 +225,10 @@ born, and so does everybody after a branch is renamed or moved.
 |--------|------|-----------|-------|
 | POST | `/claims` | active member | `{ personId, evidence? }`; `409 NODE_ALREADY_LINKED` / `USER_ALREADY_LINKED_IN_CLAN` |
 | DELETE | `/claims/{id}` | requester | Cancel own pending claim |
-| GET | `/claims` | `NODE_CLAIM_APPROVE` | Inbox filtered to the approver's scope |
-| POST | `/claims/{id}/approve` | `NODE_CLAIM_APPROVE` covering the node | Re-checks the node is still unlinked |
+| GET | `/claims` | `NODE_CLAIM_APPROVE` | Inbox filtered to the approver's scope; `?status=PENDING`. The filter runs before paging, so `totalElements` counts only claims this approver may decide (it is the inbox badge) |
+| POST | `/claims/{id}/approve` | `NODE_CLAIM_APPROVE` covering the node | Re-checks the node is still unlinked (`409 NODE_ALREADY_LINKED`). Rejects, with a reason, the claims the link answered: other pending claims on the node, and the requester's pending claims on other nodes in the clan |
 | POST | `/claims/{id}/reject` | `NODE_CLAIM_APPROVE` | `{ reason }` |
-| POST | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` covering node | Direct assignment: `{ userId }` (FR-N4) |
+| POST | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` covering node | Direct assignment: `{ userId }` (FR-N4). Closes the same pending claims an approval does |
 | DELETE | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` or the linked user | Unlink (FR-N5) |
 | GET | `/persons/unlinked` | `CLAN_VIEW` | Candidate nodes for claiming; `?q=`, `?generation=`, `?branchId=` |
 | GET | `/persons/linked-to-me` | active member | The caller's own node in this clan, or `204` when they hold none. The `204` is the answer the "find yourself in the tree" banner is waiting for, not an error |

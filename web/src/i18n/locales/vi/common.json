@@ -776,7 +776,7 @@
       "empty": "Không có ai trong gia phả trùng khớp. Thử tên ngắn hơn, hoặc hỏi người biên tập — có thể bạn chưa được thêm vào.",
       "thisIsMe": "Đây là tôi",
       "alreadyYours": "Bạn đang được ghi là {{name}}",
-      "alreadyYoursHelp": "Mỗi tài khoản chỉ nhận một vị trí trong gia phả. Muốn đổi sang người khác, hãy nhờ người biên tập gỡ liên kết trước.",
+      "alreadyYoursHelp": "Mỗi tài khoản chỉ nhận một vị trí trong gia phả. Muốn đổi sang người khác, hãy mở vị trí của bạn trên cây và gỡ liên kết trước.",
       "openMyNode": "Mở gia phả"
     },
     "submit": {

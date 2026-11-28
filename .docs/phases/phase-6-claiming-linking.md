@@ -84,11 +84,14 @@
 
 ## 7. Exit Criteria
 
-- [ ] FR-N1…N6 complete end to end.
-- [ ] `person.linked_user_id` is written by exactly one class (grep-verified).
-- [ ] Race conditions on approval provably resolve to a single winner.
-- [ ] Claim approval never grants edit rights (doc 04 §6) — asserted by test.
-- [ ] The self-service field whitelist is explicit, enumerated, and tested for both allow and deny.
+- [x] FR-N1…N6 complete end to end. (FR-N6 for the avatar waits on Phase 7's upload; see §9.)
+- [x] `person.linked_user_id` is written by exactly one class (build-verified by `LinkWriterTest`).
+- [x] Race conditions on approval provably resolve to a single winner (`LinkConcurrencyIT`).
+- [x] Claim approval never grants edit rights (doc 04 §6) — asserted by test.
+- [x] The self-service field whitelist is explicit, enumerated, and tested for both allow and deny.
+
+Ticked in the verification addendum at the end of §9, once the integration suite and the demo had
+actually been run.
 
 ## 8. Notes & Risks
 
@@ -160,7 +163,8 @@
 | Frontend | `eslint --max-warnings=0`, constraint script, `tsc --noEmit`, `vite build` all clean |
 | Claims chunk | 377 KB raw / 110 KB gzipped, lazily loaded per route |
 
-**Integration tests were written but not executed in the authoring environment** — it has no Docker
+**Integration tests were written but not executed in the authoring environment** (since run; see
+the verification addendum below) — it has no Docker
 daemon and every `*IT` needs Testcontainers. `NodeClaimingIT`, `LinkConcurrencyIT` and
 `LinkingSchemaIT` cover §5's integration list and must be run (`./mvnw verify`) on a machine with
 Docker. Until that happens, §7's "race conditions provably resolve to a single winner" is
@@ -195,3 +199,59 @@ frontend checks and §6's demo script, neither of which was walked through again
 - **The claim inbox filters in memory after a paged read**, exactly as `JoinRequestService` does. At
   a few hundred pending claims that is fine; at a few thousand the page would need a scope-aware
   query. Nothing in v1 gets near it.
+
+### Verification addendum (2026-11-28)
+
+The integration suite and the demo were run against a real stack: PostgreSQL 16 under Docker, the
+API on the `dev` profile, the web client on Vite, and the staging seed (`deploy/staging/seed.py`,
+119 people over six generations). The browser steps were driven with Playwright, with screenshots at
+each step.
+
+**Integration tests.** `NodeClaimingIT`, `LinkConcurrencyIT` and `LinkingSchemaIT` pass, 28 tests,
+on first run. The full `./mvnw verify` passes with the coverage gates: 741 unit tests and 260
+integration tests after the fixes below. `LinkConcurrencyIT` passed on each of four runs, including
+after the approval path changed.
+
+**Demo script (§6).** All six steps work as written. The walkthrough also covered §5's three manual
+frontend checks: the browser leaves out linked nodes, an already-linked member is told why they
+cannot claim another, and an approver sees only claims in their scope. It also checked FR-N6 on the
+running API: with the alias flag on, a display-name change lands on the node's alias, `full_name` is
+untouched, and the linked user's own `PATCH` of `fullName` is a 403.
+
+**Found and fixed.**
+
+1. **The inbox total counted claims the approver could not see.** `ClaimService.inbox` filtered by
+   scope *after* cutting the page, so `totalElements` was every claim in the clan. The badge on the
+   inbox tab told the Chi Giáp editor "2" over a list of one. The other claim was a Chi Ất claim,
+   which is a wrong number and a small leak of another chi's business. Pages could also come back
+   short or empty before the last one. The filter now runs before the page is cut, over at most
+   2,000 claims. `ClaimServiceTest` and `NodeClaimingIT` assert the total.
+2. **A link left the claims it answered pending.** Approval declined other claims on the *same
+   node*, but nothing declined the linked member's own claims on *other* nodes, and direct
+   assignment declined neither. Those claims stayed in the inbox as decisions that could only end in
+   `409`, and on the member's `/me` as "Waiting" for ever. Both routes publish `PersonLinked`. A
+   handler in `LinkLifecycleListener` now calls `ClaimService.closeClaimsSettledBy`, inside the
+   linking transaction, and that declines both sets with a reason and an audit row. Approval asks
+   whether somebody else holds the node *before* it asks whether the claim is still pending. B6.3's
+   `409 NODE_ALREADY_LINKED` is therefore still the answer for a node taken in the meantime, rather
+   than "already rejected".
+3. **Unlinking yourself fired a 403.** The self-service form is still mounted for a moment after the
+   unlink, and the blanket invalidation refetched its flags as somebody no longer linked. The user
+   never saw it, but it was a failed request on every self-unlink, the same kind of bug as #46.
+   `invalidateAfterUnlink` marks those flags stale without refetching them. A Vitest case fails
+   without the fix.
+4. **Copy.** The claims page told an already-linked member to "ask an editor to unlink you first".
+   FR-N5 lets them do it themselves, and the drawer offers it. Both languages now say so.
+
+**Observed, not changed.**
+
+- **Long-dead ancestors can be claimed.** Nothing in FR-N1 or I-K1 restricts a claim to the living,
+  and the editor's review is the gate. A filter or a warning on `DECEASED` nodes in the browser
+  would be a product decision, not a fix.
+- **Decision reasons the server writes are English.** "You have been linked to …" and "Somebody else
+  has been linked to this person." are stored on the claim and shown as-is, so a Vietnamese member
+  reads English there. That was already true of the reason approval wrote before. Fixing it means
+  storing a reason code and translating it in the client, which belongs to Phase 7's i18n pass.
+- **The join-request inbox has the same total bug as fix 1** (`JoinRequestService.inbox`, Phase 2).
+  It was left alone here to keep this change to Phase 6. The same fix applies.
+

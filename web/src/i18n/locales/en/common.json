@@ -780,7 +780,7 @@
       "empty": "Nobody in the record matches. Try a shorter name, or ask an editor — you may not have been added yet.",
       "thisIsMe": "This is me",
       "alreadyYours": "You are recorded as {{name}}",
-      "alreadyYoursHelp": "One entry per account in each family. To be linked to somebody else instead, ask an editor to unlink you first.",
+      "alreadyYoursHelp": "One entry per account in each family. To be linked to somebody else instead, open your entry in the tree and unlink it first.",
       "openMyNode": "Open the tree"
     },
     "submit": {

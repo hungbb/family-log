@@ -1,6 +1,7 @@
 package app.giaky.linking.application;
 
 import app.giaky.clanorg.application.event.MembershipRevoked;
+import app.giaky.linking.application.event.PersonLinked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -21,9 +22,13 @@ import org.springframework.stereotype.Component;
  * published {@code MembershipRevoked} so that later phases could react to it without editing {@code
  * MembershipService}, and Phase 6 never subscribed.
  *
+ * <p>The way in has a loose end of its own: a new link answers every claim still waiting on that
+ * node, and every other claim its user had open in the clan. {@link #onPersonLinked} closes them.
+ *
  * <p><b>Plain {@code @EventListener}, not {@code @TransactionalEventListener}.</b> It runs inside
- * the transaction that ended the membership. A removal that committed and an unlink that did not
- * would leave exactly the state this class exists to prevent, with nothing to retry it.
+ * the transaction that ended the membership, or made the link. A removal that committed and an
+ * unlink that did not would leave exactly the state this class exists to prevent, with nothing to
+ * retry it.
  */
 @Component
 public class LinkLifecycleListener {
@@ -56,6 +61,33 @@ public class LinkLifecycleListener {
                     withdrawn,
                     event.clanId(),
                     event.userId());
+        }
+    }
+
+    /**
+     * A new link answers every claim that was waiting on it (I-K1, I-P4).
+     *
+     * <p>The same event for both routes into a link, an approved claim and a direct assignment, so
+     * that neither can leave behind claims that only a 409 could answer. See {@link
+     * ClaimService#closeClaimsSettledBy}.
+     */
+    @EventListener
+    public void onPersonLinked(PersonLinked event) {
+        int closed =
+                claims.closeClaimsSettledBy(
+                        event.clanId(),
+                        event.personId(),
+                        event.personName(),
+                        event.linkedUserId(),
+                        event.actorUserId());
+
+        if (closed > 0) {
+            log.info(
+                    "Person linked: claims it answered closed={} clanId={} personId={} userId={}",
+                    closed,
+                    event.clanId(),
+                    event.personId(),
+                    event.linkedUserId());
         }
     }
 }
