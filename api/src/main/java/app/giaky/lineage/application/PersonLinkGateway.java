@@ -5,6 +5,7 @@ import app.giaky.common.types.ClanId;
 import app.giaky.common.types.Paged;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
+import app.giaky.lineage.domain.LifeStatus;
 import app.giaky.lineage.domain.LineageGraphService;
 import app.giaky.lineage.domain.NoteSanitizer;
 import app.giaky.lineage.domain.Person;
@@ -129,8 +130,10 @@ public class PersonLinkGateway {
         return personService.search(
                 caller,
                 clanId,
+                // Unlinked, and not recorded as dead: a candidate is somebody a living member could
+                // be (ADR 0008). UNKNOWN stays in, because an old record often does not say.
                 new PersonRepository.PersonQuery(
-                        text, generation, null, branchId, Boolean.FALSE, page, size));
+                        text, generation, null, branchId, Boolean.FALSE, true, page, size));
     }
 
     /**
@@ -260,7 +263,8 @@ public class PersonLinkGateway {
             BranchId branchId,
             String fullName,
             UserId linkedUserId,
-            Integer generation) {
+            Integer generation,
+            boolean deceased) {
 
         static NodeRef of(Person person) {
             return new NodeRef(
@@ -269,7 +273,8 @@ public class PersonLinkGateway {
                     person.branchId(),
                     person.fullName(),
                     person.linkedUserId(),
-                    person.generation());
+                    person.generation(),
+                    person.lifeStatus() == LifeStatus.DECEASED);
         }
     }
 

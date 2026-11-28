@@ -4,6 +4,7 @@ import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
+import app.giaky.lineage.domain.LifeStatus;
 import app.giaky.lineage.domain.Person;
 import app.giaky.lineage.domain.PersonRepository;
 import java.time.Instant;
@@ -90,6 +91,10 @@ public final class InMemoryPersonRepository implements PersonRepository {
                                         query.linked() == null
                                                 || query.linked()
                                                         == (person.linkedUserId() != null))
+                        .filter(
+                                person ->
+                                        !query.excludeDeceased()
+                                                || person.lifeStatus() != LifeStatus.DECEASED)
                         .sorted(InMemoryPersonRepository::inBookOrder)
                         .toList();
 

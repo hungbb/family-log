@@ -847,6 +847,10 @@
       "title": "Are you in this family tree?",
       "body": "Find the entry that is you and ask an editor to confirm it, so relatives know who you are.",
       "action": "Find yourself"
+    },
+    "closure": {
+      "NODE_TAKEN": "Somebody else has been linked to this person.",
+      "REQUESTER_PLACED": "You have been linked to another entry in this family, and an account holds one place in each family."
     }
   },
   "notifications": {

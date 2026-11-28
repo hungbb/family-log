@@ -7,6 +7,7 @@ import app.giaky.authorization.application.GrantCommand;
 import app.giaky.authorization.domain.Permission;
 import app.giaky.common.audit.AuditAction;
 import app.giaky.common.error.ConflictException;
+import app.giaky.common.error.DomainRuleViolation;
 import app.giaky.common.error.ErrorCode;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
@@ -15,7 +16,10 @@ import app.giaky.common.types.ClanId;
 import app.giaky.common.types.Paged;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
+import app.giaky.lineage.application.PersonPlacement;
 import app.giaky.lineage.domain.Gender;
+import app.giaky.lineage.domain.LifeStatus;
+import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.event.ClaimDecided;
 import app.giaky.linking.application.event.ClaimSubmitted;
 import app.giaky.linking.application.event.PersonLinked;
@@ -90,6 +94,21 @@ class ClaimServiceTest {
                 caller, clanId, new SubmitClaimCommand(personId, "Con của ông Ất"));
     }
 
+    /** A child of {@code parent}, in their branch, recorded as having died. */
+    private PersonId deceasedChildOf(PersonId parent, String name) {
+        return PersonId.of(
+                fixtures.lineage
+                        .personService
+                        .create(
+                                founder,
+                                clanId,
+                                LineageTestFixtures.person(name, Gender.MALE)
+                                        .lifeStatus(LifeStatus.DECEASED)
+                                        .placement(PersonPlacement.childOf(parent))
+                                        .build())
+                        .id());
+    }
+
     @Nested
     @DisplayName("submitting")
     class Submitting {
@@ -104,6 +123,16 @@ class ClaimServiceTest {
             assertThat(view.evidence()).isEqualTo("Con của ông Ất");
             assertThat(fixtures.lineage.clanOrg.audit.recorded(AuditAction.CLAIM_SUBMITTED)).isTrue();
             assertThat(fixtures.lineage.clanOrg.events.ofType(ClaimSubmitted.class)).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("a node recorded as deceased cannot be claimed (ADR 0008)")
+        void deceasedRefused() {
+            PersonId grandfather = deceasedChildOf(sonInChiHai, "Nguyễn Văn Cố");
+
+            assertThatThrownBy(() -> claim(member, grandfather))
+                    .isInstanceOf(DomainRuleViolation.class)
+                    .hasMessageContaining("died");
         }
 
         @Test
@@ -367,8 +396,8 @@ class ClaimServiceTest {
                             view -> {
                                 assertThat(view.id()).isEqualTo(theirs.id());
                                 assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
-                                assertThat(view.decisionReason())
-                                        .isEqualTo(ClaimService.REASON_NODE_TAKEN);
+                                assertThat(view.closureCode()).isEqualTo("NODE_TAKEN");
+                                assertThat(view.decisionReason()).isNull();
                             });
         }
 
@@ -390,7 +419,7 @@ class ClaimServiceTest {
                     .satisfies(
                             view -> {
                                 assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
-                                assertThat(view.decisionReason()).contains("Nguyễn Văn An");
+                                assertThat(view.closureCode()).isEqualTo("REQUESTER_PLACED");
                             });
             assertThat(
                             fixtures.claimService
@@ -416,8 +445,8 @@ class ClaimServiceTest {
                             view -> {
                                 assertThat(view.id()).isEqualTo(rivalsClaim.id());
                                 assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
-                                assertThat(view.decisionReason())
-                                        .isEqualTo(ClaimService.REASON_NODE_TAKEN);
+                                assertThat(view.closureCode()).isEqualTo("NODE_TAKEN");
+                                assertThat(view.decisionReason()).isNull();
                             });
             assertThat(fixtures.claimService.myClaims(member))
                     .singleElement()
@@ -425,7 +454,7 @@ class ClaimServiceTest {
                             view -> {
                                 assertThat(view.id()).isEqualTo(membersClaim.id());
                                 assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
-                                assertThat(view.decisionReason()).contains("Nguyễn Văn An");
+                                assertThat(view.closureCode()).isEqualTo("REQUESTER_PLACED");
                             });
             assertThat(fixtures.lineage.clanOrg.events.ofType(ClaimDecided.class))
                     .extracting(ClaimDecided::claimId)

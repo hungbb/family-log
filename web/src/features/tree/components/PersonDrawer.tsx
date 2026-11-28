@@ -202,17 +202,20 @@ export function PersonDrawer({ clanId, personId, onClose, onOpenPerson }: Person
                     <Tag color="green">{t('tree.linked')}</Tag>
                   )}
 
-                  {person.linkedUserId === undefined && canApproveClaims && (
-                    <Button
-                      size="small"
-                      type="link"
-                      onClick={() => {
-                        setAssigning({ id: person.id, fullName: person.fullName });
-                      }}
-                    >
-                      {t('claims.assign.action')}
-                    </Button>
-                  )}
+                  {/* Nobody recorded as deceased is offered: the server refuses it (ADR 0008). */}
+                  {person.linkedUserId === undefined &&
+                    canApproveClaims &&
+                    person.lifeStatus !== 'DECEASED' && (
+                      <Button
+                        size="small"
+                        type="link"
+                        onClick={() => {
+                          setAssigning({ id: person.id, fullName: person.fullName });
+                        }}
+                      >
+                        {t('claims.assign.action')}
+                      </Button>
+                    )}
 
                   {person.linkedUserId !== undefined && (isSelf || canApproveClaims) && (
                     <Button

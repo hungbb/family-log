@@ -133,7 +133,7 @@ RFC 7807 Problem Details plus two extensions (`code`, `errors`):
 |--------|------|-----------|-------|
 | POST | `/join-requests` | authenticated | `{ clanCode \| branchCode, message? }` → `201` |
 | DELETE | `/join-requests/{id}` | requester | Cancels own pending request |
-| GET | `/clans/{clanId}/join-requests` | `MEMBER_APPROVE` | Inbox, filtered to the approver's scope; `?status=PENDING` |
+| GET | `/clans/{clanId}/join-requests` | `MEMBER_APPROVE` | Inbox, filtered to the approver's scope; `?status=PENDING`. The filter runs before paging, so `totalElements` counts only requests this approver may decide |
 | POST | `/clans/{clanId}/join-requests/{id}/approve` | `MEMBER_APPROVE` covering scope | `{ homeBranchId? }` → membership + `CLAN_VIEW` grant |
 | POST | `/clans/{clanId}/join-requests/{id}/reject` | `MEMBER_APPROVE` | `{ reason }` |
 | GET | `/clans/{clanId}/members` | `CLAN_VIEW` | Paged; `?search=&branchId=` ; includes `linkedPersonId` |
@@ -223,14 +223,14 @@ born, and so does everybody after a branch is renamed or moved.
 
 | Method | Path | Permission | Notes |
 |--------|------|-----------|-------|
-| POST | `/claims` | active member | `{ personId, evidence? }`; `409 NODE_ALREADY_LINKED` / `USER_ALREADY_LINKED_IN_CLAN` |
+| POST | `/claims` | active member | `{ personId, evidence? }`; `409 NODE_ALREADY_LINKED` / `USER_ALREADY_LINKED_IN_CLAN`; `422` for a node recorded as deceased ([ADR 0008](adr/0008-no-account-on-a-deceased-node.md)) |
 | DELETE | `/claims/{id}` | requester | Cancel own pending claim |
 | GET | `/claims` | `NODE_CLAIM_APPROVE` | Inbox filtered to the approver's scope; `?status=PENDING`. The filter runs before paging, so `totalElements` counts only claims this approver may decide (it is the inbox badge) |
-| POST | `/claims/{id}/approve` | `NODE_CLAIM_APPROVE` covering the node | Re-checks the node is still unlinked (`409 NODE_ALREADY_LINKED`). Rejects, with a reason, the claims the link answered: other pending claims on the node, and the requester's pending claims on other nodes in the clan |
+| POST | `/claims/{id}/approve` | `NODE_CLAIM_APPROVE` covering the node | Re-checks the node is still unlinked (`409 NODE_ALREADY_LINKED`). Rejects the claims the link answered: other pending claims on the node, and the requester's pending claims on other nodes in the clan. Those carry `closureCode` (`NODE_TAKEN` / `REQUESTER_PLACED`) for the client to word, and no `decisionReason` |
 | POST | `/claims/{id}/reject` | `NODE_CLAIM_APPROVE` | `{ reason }` |
-| POST | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` covering node | Direct assignment: `{ userId }` (FR-N4). Closes the same pending claims an approval does |
+| POST | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` covering node | Direct assignment: `{ userId }` (FR-N4). Closes the same pending claims an approval does. `422` for a non-member or a node recorded as deceased |
 | DELETE | `/persons/{personId}/link-user` | `NODE_CLAIM_APPROVE` or the linked user | Unlink (FR-N5) |
-| GET | `/persons/unlinked` | `CLAN_VIEW` | Candidate nodes for claiming; `?q=`, `?generation=`, `?branchId=` |
+| GET | `/persons/unlinked` | `CLAN_VIEW` | Candidate nodes for claiming; `?q=`, `?generation=`, `?branchId=`. Leaves out people recorded as deceased; `UNKNOWN` stays in |
 | GET | `/persons/linked-to-me` | active member | The caller's own node in this clan, or `204` when they hold none. The `204` is the answer the "find yourself in the tree" banner is waiting for, not an error |
 | GET | `/persons/{personId}/link-user` | active member | Who this node is linked to, and whether that is the caller |
 | GET | `/persons/{personId}/self-profile` | the linked user | The FR-N6 propagation flags |

@@ -13,7 +13,10 @@ import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
+import app.giaky.lineage.application.PersonPlacement;
 import app.giaky.lineage.domain.Gender;
+import app.giaky.lineage.domain.LifeStatus;
+import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.event.PersonUnlinked;
 import app.giaky.linking.support.LinkingTestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +68,21 @@ class PersonLinkServiceTest {
                         null));
     }
 
+    /** A child of {@code parent}, in their branch, recorded as having died. */
+    private PersonId deceasedChildOf(PersonId parent, String name) {
+        return PersonId.of(
+                fixtures.lineage
+                        .personService
+                        .create(
+                                founder,
+                                clanId,
+                                LineageTestFixtures.person(name, Gender.MALE)
+                                        .lifeStatus(LifeStatus.DECEASED)
+                                        .placement(PersonPlacement.childOf(parent))
+                                        .build())
+                        .id());
+    }
+
     @Nested
     @DisplayName("direct assignment (FR-N4)")
     class Assigning {
@@ -93,6 +111,19 @@ class PersonLinkServiceTest {
             assertThatThrownBy(
                             () -> fixtures.personLinkService.assign(approver, clanId, daughter, member))
                     .isInstanceOf(PermissionDeniedException.class);
+        }
+
+        @Test
+        @DisplayName("a node recorded as deceased cannot be given an account (ADR 0008)")
+        void deceasedRefused() {
+            PersonId grandfather = deceasedChildOf(son, "Nguyễn Văn Cố");
+
+            assertThatThrownBy(
+                            () ->
+                                    fixtures.personLinkService.assign(
+                                            approver, clanId, grandfather, member))
+                    .isInstanceOf(DomainRuleViolation.class)
+                    .hasMessageContaining("died");
         }
 
         @Test
@@ -191,6 +222,22 @@ class PersonLinkServiceTest {
                                     .content())
                     .extracting(candidate -> candidate.person().id())
                     .doesNotContain(son.value());
+        }
+
+        @Test
+        @DisplayName("excludes people recorded as deceased, and keeps those whose status is unknown")
+        void excludesDeceased() {
+            PersonId gone = deceasedChildOf(son, "Nguyễn Văn Cố");
+
+            assertThat(
+                            fixtures
+                                    .personLinkService
+                                    .unlinkedCandidates(member, clanId, null, null, null, 0, 20)
+                                    .content())
+                    .extracting(candidate -> candidate.person().id())
+                    .doesNotContain(gone.value())
+                    // The fixture's people are UNKNOWN unless told otherwise.
+                    .contains(son.value(), daughter.value());
         }
 
         @Test

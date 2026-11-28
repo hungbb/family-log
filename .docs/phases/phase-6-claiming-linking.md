@@ -198,7 +198,9 @@ frontend checks and §6's demo script, neither of which was walked through again
   deferred at M5, that copy is the only thing standing between a member and a duplicate node.
 - **The claim inbox filters in memory after a paged read**, exactly as `JoinRequestService` does. At
   a few hundred pending claims that is fine; at a few thousand the page would need a scope-aware
-  query. Nothing in v1 gets near it.
+  query. Nothing in v1 gets near it. (Since changed: both inboxes now filter before paging, which
+  fixed a wrong total. The scan is capped at 2,000 rows. See the verification addendum, fixes 1
+  and 7.)
 
 ### Verification addendum (2026-11-28)
 
@@ -208,9 +210,12 @@ API on the `dev` profile, the web client on Vite, and the staging seed (`deploy/
 each step.
 
 **Integration tests.** `NodeClaimingIT`, `LinkConcurrencyIT` and `LinkingSchemaIT` pass, 28 tests,
-on first run. The full `./mvnw verify` passes with the coverage gates: 741 unit tests and 261
-integration tests after the fixes below. `LinkConcurrencyIT` passed on each of five runs, including
-after the approval path changed.
+on first run. The full `./mvnw verify` passes with the coverage gates: 749 unit tests and 263
+integration tests after the fixes below, and `npm run verify` passes with 168 tests.
+`LinkConcurrencyIT` passed on each of six runs, including after the approval path changed. `V18`
+applied cleanly to the walkthrough's populated database as well as to the fresh one each
+integration run starts from. Fixes 5 and 6 were re-checked in the browser afterwards, the first
+with the interface in Vietnamese.
 
 **Demo script (§6).** All six steps work as written. The walkthrough also covered §5's three manual
 frontend checks: the browser leaves out linked nodes, an already-linked member is told why they
@@ -243,15 +248,18 @@ untouched, and the linked user's own `PATCH` of `fullName` is a 403.
 4. **Copy.** The claims page told an already-linked member to "ask an editor to unlink you first".
    FR-N5 lets them do it themselves, and the drawer offers it. Both languages now say so.
 
-**Observed, not changed.**
-
-- **Long-dead ancestors can be claimed.** Nothing in FR-N1 or I-K1 restricts a claim to the living,
-  and the editor's review is the gate. A filter or a warning on `DECEASED` nodes in the browser
-  would be a product decision, not a fix.
-- **Decision reasons the server writes are English.** "You have been linked to …" and "Somebody else
-  has been linked to this person." are stored on the claim and shown as-is, so a Vietnamese member
-  reads English there. That was already true of the reason approval wrote before. Fixing it means
-  storing a reason code and translating it in the client, which belongs to Phase 7's i18n pass.
-- **The join-request inbox has the same total bug as fix 1** (`JoinRequestService.inbox`, Phase 2).
-  It was left alone here to keep this change to Phase 6. The same fix applies.
-
+5. **Server-written decline reasons were English.** The claims a link closes now carry a code,
+   `NODE_TAKEN` or `REQUESTER_PLACED`, in a new `closure_code` column (`V18`), with no free-text
+   reason. The API returns it as `closureCode`, and the notification payload as `reasonCode`. The
+   client words it in the reader's language through `lib/claimClosure.ts`. A reason an approver
+   types stays free text, in whatever language they wrote it. `V18` also converts the one sentence
+   the server wrote before ("Another claim on this person was approved.") into its code.
+6. **Long-dead ancestors could be claimed.** The browser offered the founding ancestor, died 1885,
+   with a "This is me" button; 97 of the demo clan's 119 people are recorded as deceased. A node
+   recorded as `DECEASED` can no longer be linked to an account by either route. `PersonUserLinker`
+   refuses it with a 422, a claim on it is refused when it is made, the browser leaves such people
+   out, and the drawer does not offer "Link a member" on them. `UNKNOWN` stays claimable. This
+   changes FR-N1/FR-N4 as written, so it is recorded in
+   [ADR 0008](../adr/0008-no-account-on-a-deceased-node.md).
+7. **The join-request inbox had the same total bug as fix 1** (`JoinRequestService.inbox`, from
+   Phase 2). Same fix: filter by scope, then cut the page. Its now-unused count query is gone.

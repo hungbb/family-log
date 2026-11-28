@@ -101,6 +101,17 @@ class NodeClaimRequestTest {
         }
 
         @Test
+        @DisplayName("a claim a link answered is rejected with a code and no sentence")
+        void closeAsAnswered() {
+            NodeClaimRequest decided =
+                    pending().closeAsAnswered(APPROVER, ClaimClosure.NODE_TAKEN, NOW);
+
+            assertThat(decided.status()).isEqualTo(ClaimStatus.REJECTED);
+            assertThat(decided.closure()).isEqualTo(ClaimClosure.NODE_TAKEN);
+            assertThat(decided.decisionReason()).isNull();
+        }
+
+        @Test
         @DisplayName("cancelling records the requester as the decider, because they decided")
         void cancel() {
             NodeClaimRequest decided = pending().cancel(NOW);
@@ -128,7 +139,35 @@ class NodeClaimRequestTest {
                 List.of(
                         claim -> claim.approve(APPROVER, NOW),
                         claim -> claim.reject(APPROVER, "no", NOW),
+                        claim -> claim.closeAsAnswered(APPROVER, ClaimClosure.NODE_TAKEN, NOW),
                         claim -> claim.cancel(NOW));
+
+        @Test
+        @DisplayName("a closure code belongs only on a rejection, and never beside a reason")
+        void closureOnlyOnARejection() {
+            assertThatThrownBy(() -> withClosure(ClaimStatus.APPROVED, null))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> withClosure(ClaimStatus.REJECTED, "Không phải bạn"))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(withClosure(ClaimStatus.REJECTED, null).closure())
+                    .isEqualTo(ClaimClosure.REQUESTER_PLACED);
+        }
+
+        private NodeClaimRequest withClosure(ClaimStatus status, String reason) {
+            return new NodeClaimRequest(
+                    UUID.randomUUID(),
+                    CLAN,
+                    PERSON,
+                    REQUESTER,
+                    null,
+                    status,
+                    APPROVER,
+                    NOW,
+                    reason,
+                    ClaimClosure.REQUESTER_PLACED,
+                    NOW,
+                    NOW);
+        }
 
         @Test
         @DisplayName("nothing that has left PENDING can be decided again")
@@ -160,6 +199,7 @@ class NodeClaimRequestTest {
                                             APPROVER,
                                             null,
                                             null,
+                                            null,
                                             NOW,
                                             NOW))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -179,6 +219,7 @@ class NodeClaimRequestTest {
                                             ClaimStatus.PENDING,
                                             null,
                                             NOW,
+                                            null,
                                             null,
                                             NOW,
                                             NOW))

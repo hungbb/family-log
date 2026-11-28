@@ -31,7 +31,13 @@ public record NodeClaimResponse(
         UUID decidedBy,
         String decidedByName,
         Instant decidedAt,
-        String decisionReason,
+        @Schema(description = "What the approver wrote; null when the system declined it")
+                String decisionReason,
+        @Schema(
+                        description =
+                                "Set when a link declined the claim: NODE_TAKEN or"
+                                        + " REQUESTER_PLACED. The client words it.")
+                String closureCode,
         Instant createdAt) {
 
     public static NodeClaimResponse of(NodeClaimView view) {
@@ -53,6 +59,7 @@ public record NodeClaimResponse(
                 view.decidedByName(),
                 view.decidedAt(),
                 view.decisionReason(),
+                view.closureCode(),
                 view.createdAt());
     }
 }

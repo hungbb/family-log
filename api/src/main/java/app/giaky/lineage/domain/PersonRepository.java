@@ -182,11 +182,24 @@ public interface PersonRepository {
             LifeStatus lifeStatus,
             BranchId branchId,
             Boolean linked,
+            boolean excludeDeceased,
             int page,
             int size) {
 
         /** The largest page the search endpoint will serve, however large a {@code size} asks for. */
         public static final int MAX_SIZE = 100;
+
+        /** Every life status, which is what the ordinary person search wants. */
+        public PersonQuery(
+                String text,
+                Integer generation,
+                LifeStatus lifeStatus,
+                BranchId branchId,
+                Boolean linked,
+                int page,
+                int size) {
+            this(text, generation, lifeStatus, branchId, linked, false, page, size);
+        }
 
         public PersonQuery {
             text = text == null || text.isBlank() ? null : text.trim();

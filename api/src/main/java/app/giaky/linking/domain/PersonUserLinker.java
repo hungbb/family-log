@@ -76,6 +76,7 @@ public final class PersonUserLinker {
         if (node.isLinked()) {
             throw nodeAlreadyLinked();
         }
+        requireLiving(node);
         // I-P5. 422 rather than 404: the account exists and the clan exists, and what is wrong is
         // the combination — which is exactly what a validation failure means (doc 05 §2).
         if (!members.isActiveMember(clanId, userId)) {
@@ -124,6 +125,26 @@ public final class PersonUserLinker {
     /** The node this account holds in this clan, if any — what {@code /me} reports per clan. */
     public Optional<LinkableNode> nodeOf(ClanId clanId, UserId userId) {
         return nodes.findLinkedTo(clanId, userId);
+    }
+
+    /**
+     * A node recorded as having died is not a place a living account can take (ADR 0008).
+     *
+     * <p>Linking is "this living member is that person in the book": the self-service edit, the
+     * "This is you" ring, the profile propagation all assume it. Asked here, so claim approval and
+     * direct assignment answer it identically, and by {@code ClaimService} at submission, so nobody
+     * waits for an answer that can only be no. {@code UNKNOWN} passes: old records often do not say.
+     * A link made before somebody died is left alone; this guards the way in, not the record.
+     *
+     * @throws DomainRuleViolation the node is recorded as deceased
+     */
+    public static void requireLiving(LinkableNode node) {
+        if (node.deceased()) {
+            throw new DomainRuleViolation(
+                    ErrorCode.VALIDATION_FAILED,
+                    "This person is recorded as having died, so an account cannot be linked to"
+                        + " them. If the record is wrong, ask an editor to correct it first.");
+        }
     }
 
     /** One node, or the 404 the API gives for a deleted one and for one in another clan. */

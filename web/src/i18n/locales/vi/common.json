@@ -843,6 +843,10 @@
       "title": "Bạn có trong gia phả này không?",
       "body": "Hãy tìm mục chính là bạn và nhờ người biên tập xác nhận, để họ hàng biết bạn là ai.",
       "action": "Tìm chính mình"
+    },
+    "closure": {
+      "NODE_TAKEN": "Người này đã được liên kết với một tài khoản khác.",
+      "REQUESTER_PLACED": "Bạn đã được ghi vào một vị trí khác trong gia phả này, và mỗi tài khoản chỉ nhận một vị trí trong mỗi dòng họ."
     }
   },
   "notifications": {

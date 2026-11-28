@@ -3,6 +3,7 @@ package app.giaky.clanorg.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.giaky.authorization.application.GrantCommand;
 import app.giaky.clanorg.application.event.JoinRequestDecided;
 import app.giaky.clanorg.application.event.MembershipGranted;
 import app.giaky.clanorg.domain.ClanJoinRequest;
@@ -43,6 +44,20 @@ class JoinRequestServiceTest {
         applicant = fixtures.newUser("Nguyễn Thị Bé");
         clanId = fixtures.newClan(founder, "Nguyễn Văn");
         clanCode = fixtures.clanService.detail(founder, clanId).clanCode();
+    }
+
+    private JoinRequestView askToJoin(UserId who, BranchId branch) {
+        String branchCode =
+                fixtures.branches.findById(clanId, branch).orElseThrow().branchCode().value();
+        return fixtures.joinRequestService.submit(
+                who, new SubmitJoinRequestCommand(null, branchCode, null));
+    }
+
+    private UserId admitInto(BranchId branch, String name) {
+        UserId who = fixtures.newUser(name);
+        JoinRequestView request = askToJoin(who, branch);
+        fixtures.joinRequestService.approve(founder, clanId, request.id(), branch);
+        return who;
     }
 
     private JoinRequestView submitByClanCode() {
@@ -324,6 +339,36 @@ class JoinRequestServiceTest {
             assertThat(mine).allSatisfy(view -> assertThat(view.clanName()).isNotBlank());
             // The applicant is in neither clan, so no other person's details come back.
             assertThat(mine).allSatisfy(view -> assertThat(view.requesterEmail()).isNull());
+        }
+
+        @Test
+        @DisplayName("a branch approver's inbox and its total count only their branch's requests")
+        void inboxTotalIsScopeFiltered() {
+            BranchId chiHai = fixtures.newBranch(founder, clanId, null, "Chi Hai");
+            BranchId chiBa = fixtures.newBranch(founder, clanId, null, "Chi Ba");
+            UserId approver = admitInto(chiHai, "Bác Hai");
+            fixtures.grantService.grant(
+                    founder,
+                    clanId,
+                    new GrantCommand(
+                            approver, "MEMBER_APPROVE", "BRANCH", chiHai.value(), null));
+
+            askToJoin(fixtures.newUser("Người Chi Ba"), chiBa);
+            askToJoin(fixtures.newUser("Người Chi Hai"), chiHai);
+
+            Paged<JoinRequestView> first =
+                    fixtures.joinRequestService.inbox(
+                            approver, clanId, JoinRequestStatus.PENDING, 0, 1);
+            Paged<JoinRequestView> second =
+                    fixtures.joinRequestService.inbox(
+                            approver, clanId, JoinRequestStatus.PENDING, 1, 1);
+
+            assertThat(first.totalElements()).isEqualTo(1);
+            assertThat(first.content())
+                    .singleElement()
+                    .extracting(JoinRequestView::requesterName)
+                    .isEqualTo("Người Chi Hai");
+            assertThat(second.content()).isEmpty();
         }
 
         @Test

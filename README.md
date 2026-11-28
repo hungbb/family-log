@@ -354,13 +354,19 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
   pending claims on that node are declined, and so are the linked member's claims on other nodes,
   each with a reason the relative will read. No inbox is left holding a question that only a 409
   can answer.
-- **An approver sees only what they can decide.** The inbox is filtered by the permission resolver
-  before it is paged, so a Chi Giáp editor's list and badge count only Chi Giáp claims.
+- **An approver sees only what they can decide.** The claim and join-request inboxes are filtered by
+  the permission resolver before they are paged, so a Chi Giáp editor's list and badge count only
+  Chi Giáp's.
 - **The self-service exception is a two-column statement.** A linked member may edit their notes
   and photo on their own entry, through a separate route whose SQL writes those two columns and
   matches on `linked_user_id`. Extending the whitelist needs an ADR.
 - **Profile changes propagate only when asked, and never onto the recorded name.** An account's
   display name lands on the entry's alias; `full_name` is what the book says.
+- **Only the living are offered.** Nobody recorded as deceased can be claimed or given an account
+  ([ADR 0008](.docs/adr/0008-no-account-on-a-deceased-node.md)); a status of unknown stays
+  claimable, because old books often do not say.
+- **The server sends codes, not sentences.** A claim the system declined carries `NODE_TAKEN` or
+  `REQUESTER_PLACED`, and the client words it in the reader's language.
 
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 

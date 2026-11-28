@@ -67,13 +67,6 @@ public class ClanJoinRequestRepositoryAdapter implements ClanJoinRequestReposito
     }
 
     @Override
-    public long countByClanAndStatus(ClanId clanId, JoinRequestStatus status) {
-        return status == null
-                ? repository.countByClanId(clanId)
-                : repository.countByClanIdAndStatus(clanId, status.name());
-    }
-
-    @Override
     public List<ClanJoinRequest> findByRequester(UserId requesterUserId, int limit) {
         return repository
                 .findByRequesterUserIdOrderByCreatedAtDesc(

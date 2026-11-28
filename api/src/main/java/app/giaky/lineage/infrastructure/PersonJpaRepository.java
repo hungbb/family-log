@@ -99,6 +99,8 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
                       AND (CAST(:branchId AS UUID) IS NULL OR p.branch_id = CAST(:branchId AS UUID))
                       AND (CAST(:linked AS BOOLEAN) IS NULL
                            OR (p.linked_user_id IS NOT NULL) = CAST(:linked AS BOOLEAN))
+                      AND (CAST(:excludeDeceased AS BOOLEAN) IS NOT TRUE
+                           OR p.life_status <> 'DECEASED')
                     ORDER BY p.generation NULLS LAST, p.birth_order NULLS LAST, p.full_name
                     """,
             countQuery =
@@ -116,6 +118,8 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
                       AND (CAST(:branchId AS UUID) IS NULL OR p.branch_id = CAST(:branchId AS UUID))
                       AND (CAST(:linked AS BOOLEAN) IS NULL
                            OR (p.linked_user_id IS NOT NULL) = CAST(:linked AS BOOLEAN))
+                      AND (CAST(:excludeDeceased AS BOOLEAN) IS NOT TRUE
+                           OR p.life_status <> 'DECEASED')
                     """)
     Page<PersonJpaEntity> search(
             @Param("clanId") UUID clanId,
@@ -124,6 +128,7 @@ public interface PersonJpaRepository extends JpaRepository<PersonJpaEntity, UUID
             @Param("lifeStatus") String lifeStatus,
             @Param("branchId") UUID branchId,
             @Param("linked") Boolean linked,
+            @Param("excludeDeceased") boolean excludeDeceased,
             Pageable pageable);
 
     /**

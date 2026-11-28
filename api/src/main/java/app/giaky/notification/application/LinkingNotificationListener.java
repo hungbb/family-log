@@ -102,6 +102,8 @@ public class LinkingNotificationListener {
         payload.put("personName", event.personName());
         payload.put("outcome", event.outcome().name());
         payload.put("reason", event.reason());
+        // Set instead of a reason when a link, not an approver, declined it; the client words it.
+        payload.put("reasonCode", event.closureCode());
 
         notifications.raise(
                 event.requesterUserId(),

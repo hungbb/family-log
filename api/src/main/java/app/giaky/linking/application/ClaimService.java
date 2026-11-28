@@ -23,6 +23,7 @@ import app.giaky.lineage.application.PersonLinkGateway;
 import app.giaky.linking.application.event.ClaimDecided;
 import app.giaky.linking.application.event.ClaimSubmitted;
 import app.giaky.linking.application.event.PersonLinked;
+import app.giaky.linking.domain.ClaimClosure;
 import app.giaky.linking.domain.ClaimStatus;
 import app.giaky.linking.domain.LinkableNode;
 import app.giaky.linking.domain.NodeClaimRequest;
@@ -74,13 +75,6 @@ public class ClaimService {
 
     /** The page size of that scan. */
     static final int INBOX_SCAN_CHUNK = 200;
-
-    /** The reason given on a claim for a node that somebody else has just been linked to. */
-    static final String REASON_NODE_TAKEN = "Somebody else has been linked to this person.";
-
-    /** The reason given on a claim whose requester has just been linked to a different node. */
-    static final String REASON_REQUESTER_PLACED =
-            "You have been linked to %s, and an account holds one place in each family.";
 
     private final NodeClaimRequestRepository claims;
     private final PersonUserLinker linker;
@@ -146,6 +140,7 @@ public class ClaimService {
                     ErrorCode.NODE_ALREADY_LINKED,
                     "Somebody has already been linked to this person.");
         }
+        PersonUserLinker.requireLiving(node);
         // I-P4, checked before the claim rather than at approval, so the person is told now instead
         // of after waiting for an answer that could never be yes.
         Optional<LinkableNode> mine = linker.nodeOf(clanId, caller);
@@ -234,6 +229,7 @@ public class ClaimService {
                         nameOf(claim.clanId(), claim.personId()),
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.CANCELLED,
+                        null,
                         null,
                         caller,
                         now));
@@ -350,6 +346,7 @@ public class ClaimService {
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.APPROVED,
                         null,
+                        null,
                         caller,
                         now));
         events.publishEvent(
@@ -405,6 +402,7 @@ public class ClaimService {
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.REJECTED,
                         decided.decisionReason(),
+                        null,
                         caller,
                         now));
 
@@ -449,6 +447,7 @@ public class ClaimService {
                             null,
                             claim.decidedAt(),
                             claim.decisionReason(),
+                            claim.closure() == null ? null : claim.closure().name(),
                             claim.createdAt()));
         }
         return views;
@@ -490,6 +489,7 @@ public class ClaimService {
                             nameOf(clanId, claim.personId()),
                             requester,
                             ClaimDecided.Outcome.CANCELLED,
+                            null,
                             null,
                             actor,
                             now));
@@ -534,8 +534,9 @@ public class ClaimService {
      * LinkLifecycleListener} calls this from it inside the linking transaction, so there is one
      * place that does it for both.
      *
-     * <p>Rejected with a reason, not cancelled: the requester did not withdraw anything, and they
-     * are a relative who will read why.
+     * <p>Rejected, not cancelled: the requester did not withdraw anything, and they are a relative
+     * who will read why. The why is a {@link ClaimClosure} code rather than a sentence, so the
+     * client words it in the reader's language.
      *
      * <p>Package-private and unguarded, like {@link #withdrawAllOf}: the link that triggers it was
      * already authorized.
@@ -543,7 +544,7 @@ public class ClaimService {
      * @return how many claims were closed
      */
     int closeClaimsSettledBy(
-            ClanId clanId, PersonId personId, String personName, UserId linkedUser, UserId actor) {
+            ClanId clanId, PersonId personId, UserId linkedUser, UserId actor) {
 
         Map<UUID, NodeClaimRequest> settled = new LinkedHashMap<>();
         claims.findPendingForPerson(clanId, personId).forEach(c -> settled.put(c.id(), c));
@@ -551,11 +552,11 @@ public class ClaimService {
 
         Instant now = clock.instant();
         for (NodeClaimRequest claim : settled.values()) {
-            String reason =
+            ClaimClosure closure =
                     claim.requesterUserId().equals(linkedUser)
-                            ? REASON_REQUESTER_PLACED.formatted(personName)
-                            : REASON_NODE_TAKEN;
-            claims.save(claim.reject(actor, reason, now));
+                            ? ClaimClosure.REQUESTER_PLACED
+                            : ClaimClosure.NODE_TAKEN;
+            claims.save(claim.closeAsAnswered(actor, closure, now));
             auditWriter.write(
                     AuditRecord.inClan(
                                     AuditAction.CLAIM_DECIDED,
@@ -563,7 +564,10 @@ public class ClaimService {
                                     AuditRecord.TARGET_CLAIM,
                                     claim.id(),
                                     actor)
-                            .withAfterJson("{\"outcome\":\"REJECTED\",\"supersededByLink\":true}"));
+                            .withAfterJson(
+                                    "{\"outcome\":\"REJECTED\",\"closure\":\""
+                                            + closure.name()
+                                            + "\"}"));
             events.publishEvent(
                     new ClaimDecided(
                             clanId,
@@ -572,7 +576,8 @@ public class ClaimService {
                             nameOf(clanId, claim.personId()),
                             claim.requesterUserId(),
                             ClaimDecided.Outcome.REJECTED,
-                            reason,
+                            null,
+                            closure.name(),
                             actor,
                             now));
         }
@@ -673,6 +678,7 @@ public class ClaimService {
                 decider == null ? null : decider.displayName(),
                 claim.decidedAt(),
                 claim.decisionReason(),
+                claim.closure() == null ? null : claim.closure().name(),
                 claim.createdAt());
     }
 

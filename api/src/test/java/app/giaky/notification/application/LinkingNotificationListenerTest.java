@@ -2,6 +2,7 @@ package app.giaky.notification.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -115,11 +116,36 @@ class LinkingNotificationListenerTest {
                         requester,
                         ClaimDecided.Outcome.APPROVED,
                         null,
+                        null,
                         approver,
                         NOW));
 
         verify(notifications)
                 .raise(eq(requester), eq(CLAN), eq(NotificationType.CLAIM_DECIDED), any());
+    }
+
+    @Test
+    @DisplayName("a claim a link declined carries the code, for the client to word")
+    void closureCodeReachesThePayload() {
+        listener.onClaimDecided(
+                new ClaimDecided(
+                        CLAN,
+                        CLAIM,
+                        PERSON,
+                        "Nguyễn Văn An",
+                        requester,
+                        ClaimDecided.Outcome.REJECTED,
+                        null,
+                        "NODE_TAKEN",
+                        approver,
+                        NOW));
+
+        verify(notifications)
+                .raise(
+                        eq(requester),
+                        eq(CLAN),
+                        eq(NotificationType.CLAIM_DECIDED),
+                        argThat(payload -> "NODE_TAKEN".equals(payload.get("reasonCode"))));
     }
 
     @Test
@@ -133,6 +159,7 @@ class LinkingNotificationListenerTest {
                         "Nguyễn Văn An",
                         requester,
                         ClaimDecided.Outcome.CANCELLED,
+                        null,
                         null,
                         requester,
                         NOW));

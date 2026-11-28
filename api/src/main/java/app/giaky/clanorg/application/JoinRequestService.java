@@ -63,6 +63,12 @@ public class JoinRequestService {
     /** How many of a caller's own requests {@code GET /me/join-requests} returns. */
     public static final int MY_REQUESTS_LIMIT = 50;
 
+    /** The most requests the inbox reads to find the ones a caller may decide. */
+    static final int INBOX_SCAN_LIMIT = 2_000;
+
+    /** The page size of that scan. */
+    static final int INBOX_SCAN_CHUNK = 200;
+
     /** How many requests one sweep closes. Bounded so a long-neglected deployment cannot stall. */
     public static final int EXPIRY_BATCH_SIZE = 500;
 
@@ -219,10 +225,14 @@ public class JoinRequestService {
      * approver can answer. Showing a request somebody cannot act on is worse than not showing it:
      * they either try and are refused, or they assume it has been dealt with.
      *
-     * <p>Filtered in memory, after the page is read. That is honest about its cost — the page total
-     * counts requests the caller may not see — and it is the only way to ask the resolver rather
-     * than re-implementing scope containment in SQL. Phase 8 revisits it if an inbox ever grows
-     * past a page or two; the correctness of the filter is what matters here.
+     * <p>Filtered in memory, because asking the resolver is the only way to decide scope without
+     * re-implementing containment in SQL. <b>The filter runs before the page is cut</b>, so the
+     * page and its total describe the same set: what this approver may decide. Cutting first, as
+     * this did until Phase 6's walkthrough found the same bug in the claim inbox, made the total
+     * count every request in the clan, including other chi's, and could return short or empty pages
+     * before the last one.
+     *
+     * <p>The scan stops at {@link #INBOX_SCAN_LIMIT} rows, newest first.
      */
     @Transactional(readOnly = true)
     public Paged<JoinRequestView> inbox(
@@ -231,11 +241,21 @@ public class JoinRequestService {
         requireApproverSomewhere(caller, clanId);
         Clan clan = requireClan(clanId);
 
+        List<ClanJoinRequest> decidable = new ArrayList<>();
+        for (int offset = 0; offset < INBOX_SCAN_LIMIT; offset += INBOX_SCAN_CHUNK) {
+            List<ClanJoinRequest> chunk =
+                    requests.findByClanAndStatus(clanId, status, offset, INBOX_SCAN_CHUNK);
+            chunk.stream()
+                    .filter(request -> mayDecide(caller, clanId, request))
+                    .forEach(decidable::add);
+            if (chunk.size() < INBOX_SCAN_CHUNK) {
+                break;
+            }
+        }
+        int from = (int) Math.min((long) page * size, decidable.size());
         List<ClanJoinRequest> rows =
-                requests.findByClanAndStatus(clanId, status, page * size, size).stream()
-                        .filter(request -> mayDecide(caller, clanId, request))
-                        .toList();
-        long total = requests.countByClanAndStatus(clanId, status);
+                decidable.subList(from, Math.min(from + size, decidable.size()));
+        long total = decidable.size();
 
         Map<BranchId, String> branchNames = branchNames(clanId);
         Map<UserId, UserProfile> profiles =

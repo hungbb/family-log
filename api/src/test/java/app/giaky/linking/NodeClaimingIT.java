@@ -349,6 +349,24 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("somebody recorded as deceased is neither offered nor claimable (ADR 0008)")
+    void deceasedIsNotClaimable() throws Exception {
+        JsonNode candidates =
+                body(
+                        as(member, get("/api/v1/clans/" + clanId + "/persons/unlinked"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        // The fixture's founding ancestor is created DECEASED.
+        assertThat(candidates.get("content").toString()).doesNotContain(ancestor.toString());
+
+        as(member, post(claimsPath()), Map.of("personId", ancestor.toString()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        as(founder, post(linkPath(ancestor)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
     @DisplayName("self-service edits the whitelisted fields, and 403s on somebody else's node")
     void selfServiceProfile() throws Exception {
         as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))

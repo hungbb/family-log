@@ -14,7 +14,12 @@ import java.util.UUID;
  * outcome only to choose its wording.
  *
  * <p>{@link Outcome} is declared here rather than reused from {@code linking.domain}, because a
- * subscriber in another context may not import that package.
+ * subscriber in another context may not import that package. For the same reason {@code
+ * closureCode} is the name of a {@code ClaimClosure} rather than the enum itself.
+ *
+ * @param reason what an approver typed; null when the system declined it
+ * @param closureCode why the system declined it ({@code NODE_TAKEN} or {@code REQUESTER_PLACED}),
+ *     for the client to word; null otherwise
  */
 public record ClaimDecided(
         ClanId clanId,
@@ -24,6 +29,7 @@ public record ClaimDecided(
         UserId requesterUserId,
         Outcome outcome,
         String reason,
+        String closureCode,
         UserId decidedBy,
         Instant occurredAt) {
 

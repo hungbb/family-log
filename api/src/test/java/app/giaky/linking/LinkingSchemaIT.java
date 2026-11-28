@@ -59,6 +59,13 @@ class LinkingSchemaIT extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("a closure code is one of two, only on a rejection, and replaces the reason")
+    void closureCodeIsChecked() {
+        assertThat(constraintDefinition("ck_claim_closure_code"))
+                .contains("NODE_TAKEN", "REQUESTER_PLACED", "REJECTED", "decision_reason");
+    }
+
+    @Test
     @DisplayName("I-P4 is still a partial unique index on the persons table")
     void oneNodePerUserPerClan() {
         assertThat(indexDefinition("ux_persons_linked_user"))

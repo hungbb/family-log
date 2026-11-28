@@ -43,6 +43,9 @@ public class NodeClaimRequestJpaEntity {
     @Column(name = "decision_reason")
     private String decisionReason;
 
+    @Column(name = "closure_code", length = 30)
+    private String closure;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -119,6 +122,14 @@ public class NodeClaimRequestJpaEntity {
 
     public void setDecisionReason(String decisionReason) {
         this.decisionReason = decisionReason;
+    }
+
+    public String getClosure() {
+        return closure;
+    }
+
+    public void setClosure(String closure) {
+        this.closure = closure;
     }
 
     public Instant getCreatedAt() {

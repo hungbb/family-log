@@ -51,6 +51,11 @@ public class LineagePersonLinkAdapter implements PersonLinkPort {
 
     private static LinkableNode toNode(PersonLinkGateway.NodeRef ref) {
         return new LinkableNode(
-                ref.id(), ref.clanId(), ref.branchId(), ref.fullName(), ref.linkedUserId());
+                ref.id(),
+                ref.clanId(),
+                ref.branchId(),
+                ref.fullName(),
+                ref.linkedUserId(),
+                ref.deceased());
     }
 }

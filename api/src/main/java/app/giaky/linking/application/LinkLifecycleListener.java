@@ -77,7 +77,6 @@ public class LinkLifecycleListener {
                 claims.closeClaimsSettledBy(
                         event.clanId(),
                         event.personId(),
-                        event.personName(),
                         event.linkedUserId(),
                         event.actorUserId());
 
