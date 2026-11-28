@@ -76,6 +76,18 @@ class PersonUserLinkerTest {
     }
 
     @Test
+    @DisplayName("a node recorded as deceased is refused, and nothing is written (ADR 0008)")
+    void deceasedRefused() {
+        PersonId gone = nodes.add(CLAN, "Nguyễn Văn Cố", true);
+
+        assertThatThrownBy(() -> linker.link(CLAN, gone, member, approver, NOW))
+                .isInstanceOf(DomainRuleViolation.class)
+                .extracting(failure -> ((DomainRuleViolation) failure).code())
+                .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        assertThat(linker.require(CLAN, gone).isLinked()).isFalse();
+    }
+
+    @Test
     @DisplayName("I-K1: a node somebody else holds is 409 NODE_ALREADY_LINKED")
     void nodeAlreadyLinked() {
         UserId other = UserId.of(UUID.randomUUID());
@@ -176,8 +188,15 @@ class PersonUserLinkerTest {
         private boolean failNextWrite;
 
         PersonId add(ClanId clanId, String fullName) {
+            return add(clanId, fullName, false);
+        }
+
+        PersonId add(ClanId clanId, String fullName, boolean deceased) {
             PersonId id = PersonId.of(UUID.randomUUID());
-            rows.put(id, new LinkableNode(id, clanId, BranchId.of(UUID.randomUUID()), fullName, null));
+            rows.put(
+                    id,
+                    new LinkableNode(
+                            id, clanId, BranchId.of(UUID.randomUUID()), fullName, null, deceased));
             return id;
         }
 
@@ -223,7 +242,12 @@ class PersonUserLinkerTest {
 
         private static LinkableNode withUser(LinkableNode node, UserId userId) {
             return new LinkableNode(
-                    node.id(), node.clanId(), node.branchId(), node.fullName(), userId);
+                    node.id(),
+                    node.clanId(),
+                    node.branchId(),
+                    node.fullName(),
+                    userId,
+                    node.deceased());
         }
     }
 

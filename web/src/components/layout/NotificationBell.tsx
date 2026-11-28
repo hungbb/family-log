@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type AppNotification } from '../../api/endpoints/notifications';
 import { useMarkRead, useNotifications, useUnreadCount } from '../../hooks/useNotifications';
+import { declineReason } from '../../lib/claimClosure';
 
 import { NotificationItem, NotificationList, NotificationText, NotificationTime } from './styles';
 
@@ -103,7 +104,7 @@ function describe(notification: AppNotification, t: TFunction): string {
     defaultValue: '',
     person: payload['personName'] ?? '',
     name: payload['requesterName'] ?? payload['actorName'] ?? '',
-    reason: payload['reason'] ?? '',
+    reason: declineReason(payload['reasonCode'], payload['reason'], t),
   });
   return text === '' ? t('notifications.message.unknown') : text;
 }

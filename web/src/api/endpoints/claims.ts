@@ -38,7 +38,10 @@ export interface NodeClaim {
   decidedBy?: string;
   decidedByName?: string;
   decidedAt?: string;
+  /** What the approver wrote. Absent when the system declined the claim; see `closureCode`. */
   decisionReason?: string;
+  /** Set when a link, not an approver, declined the claim. Worded by the client (`claimClosure`). */
+  closureCode?: string;
   createdAt: string;
 }
 

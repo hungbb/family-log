@@ -22,7 +22,12 @@ import app.giaky.common.types.UserId;
  *     write
  */
 public record LinkableNode(
-        PersonId id, ClanId clanId, BranchId branchId, String fullName, UserId linkedUserId) {
+        PersonId id,
+        ClanId clanId,
+        BranchId branchId,
+        String fullName,
+        UserId linkedUserId,
+        boolean deceased) {
 
     public boolean isLinked() {
         return linkedUserId != null;

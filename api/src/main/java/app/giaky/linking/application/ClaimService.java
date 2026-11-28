@@ -23,6 +23,7 @@ import app.giaky.lineage.application.PersonLinkGateway;
 import app.giaky.linking.application.event.ClaimDecided;
 import app.giaky.linking.application.event.ClaimSubmitted;
 import app.giaky.linking.application.event.PersonLinked;
+import app.giaky.linking.domain.ClaimClosure;
 import app.giaky.linking.domain.ClaimStatus;
 import app.giaky.linking.domain.LinkableNode;
 import app.giaky.linking.domain.NodeClaimRequest;
@@ -32,6 +33,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +69,12 @@ public class ClaimService {
 
     /** How many of a caller's own claims {@code GET /me/claims} returns. */
     public static final int MY_CLAIMS_LIMIT = 50;
+
+    /** The most claims the inbox reads to find the ones a caller may decide. */
+    static final int INBOX_SCAN_LIMIT = 2_000;
+
+    /** The page size of that scan. */
+    static final int INBOX_SCAN_CHUNK = 200;
 
     private final NodeClaimRequestRepository claims;
     private final PersonUserLinker linker;
@@ -132,6 +140,7 @@ public class ClaimService {
                     ErrorCode.NODE_ALREADY_LINKED,
                     "Somebody has already been linked to this person.");
         }
+        PersonUserLinker.requireLiving(node);
         // I-P4, checked before the claim rather than at approval, so the person is told now instead
         // of after waiting for an answer that could never be yes.
         Optional<LinkableNode> mine = linker.nodeOf(clanId, caller);
@@ -221,6 +230,7 @@ public class ClaimService {
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.CANCELLED,
                         null,
+                        null,
                         caller,
                         now));
     }
@@ -232,10 +242,18 @@ public class ClaimService {
      * somebody cannot act on is worse than not showing it: they either try and are refused, or they
      * assume it has been dealt with.
      *
-     * <p>Filtered in memory after the page is read, exactly as the join-request inbox is, and for
-     * the same reason: it is the only way to ask the resolver rather than re-implement scope
-     * containment in SQL. The page total therefore counts claims the caller may not see. Phase 8
-     * revisits it if an inbox ever grows past a page or two.
+     * <p>Filtered in memory, because asking the resolver is the only way to decide scope without
+     * re-implementing containment in SQL. <b>The filter runs before the page is cut</b>, so the
+     * page and its total describe the same set: what this approver may decide. Cutting first and
+     * filtering after, as this did until the phase-6 walkthrough, made the total count every claim
+     * in the clan. The badge on the inbox tab then told a Chi Giáp editor there were two requests
+     * waiting when one of them was a Chi Ất claim they could not see, which is both a wrong number
+     * and a small leak of another chi's business. It could also return short or empty pages
+     * before the last one.
+     *
+     * <p>The scan stops at {@link #INBOX_SCAN_LIMIT} rows, newest first. A clan with more open
+     * claims than that has a problem no inbox fixes. Below it the cost is a node lookup per row;
+     * the caller's grants are read once, through the authorization request cache.
      */
     @Transactional(readOnly = true)
     public Paged<NodeClaimView> inbox(
@@ -243,13 +261,22 @@ public class ClaimService {
 
         requireApproverSomewhere(caller, clanId);
 
-        List<NodeClaimRequest> rows =
-                claims.findByClanAndStatus(clanId, status, page * size, size).stream()
-                        .filter(claim -> mayDecide(caller, clanId, claim))
-                        .toList();
-        long total = claims.countByClanAndStatus(clanId, status);
+        List<NodeClaimRequest> decidable = new ArrayList<>();
+        for (int offset = 0; offset < INBOX_SCAN_LIMIT; offset += INBOX_SCAN_CHUNK) {
+            List<NodeClaimRequest> chunk =
+                    claims.findByClanAndStatus(clanId, status, offset, INBOX_SCAN_CHUNK);
+            chunk.stream()
+                    .filter(claim -> mayDecide(caller, clanId, claim))
+                    .forEach(decidable::add);
+            if (chunk.size() < INBOX_SCAN_CHUNK) {
+                break;
+            }
+        }
 
-        return new Paged<>(enrich(clanId, rows), page, size, total);
+        int from = (int) Math.min((long) page * size, decidable.size());
+        int to = Math.min(from + size, decidable.size());
+        return new Paged<>(
+                enrich(clanId, decidable.subList(from, to)), page, size, decidable.size());
     }
 
     /**
@@ -260,9 +287,11 @@ public class ClaimService {
      * answer to "approve this" is then {@code 409 NODE_ALREADY_LINKED}, not a silent overwrite of
      * the other decision.
      *
-     * <p>Other live claims on the same node are refused in the same transaction. Leaving them
-     * pending would leave an inbox full of decisions that can only end in a 409, which reads as a
-     * broken screen rather than as a resolved question.
+     * <p>The claims this answers are refused in the same transaction: other live claims on the
+     * same node, and the requester's own claims on other nodes. {@link #closeClaimsSettledBy} does
+     * it, from the {@link PersonLinked} this publishes. Leaving them pending would leave an inbox
+     * full of decisions that can only end in a 409, which reads as a broken screen rather than as a
+     * resolved question.
      *
      * @throws PermissionDeniedException the caller does not hold {@code NODE_CLAIM_APPROVE} over the
      *     node, or is the requester and is not a clan administrator (I-K4)
@@ -277,6 +306,7 @@ public class ClaimService {
         AccessDecision authorizing =
                 resolver.require(caller, Permission.NODE_CLAIM_APPROVE, targetOf(node));
         requireNotSelfApproval(caller, clanId, claim);
+        requireNotTakenByAnother(node, claim);
         requirePending(claim);
 
         Instant now = clock.instant();
@@ -285,8 +315,9 @@ public class ClaimService {
         LinkableNode linked =
                 linker.link(clanId, node.id(), claim.requesterUserId(), caller, now);
 
+        // Saved before PersonLinked is published below, so the claims that event closes (other
+        // claims on this node, and this requester's claims elsewhere) never include this one.
         NodeClaimRequest decided = claims.save(claim.approve(caller, now));
-        closeOtherPendingClaims(clanId, claim, caller, now);
 
         auditWriter.write(
                 AuditRecord.inClan(
@@ -314,6 +345,7 @@ public class ClaimService {
                         linked.fullName(),
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.APPROVED,
+                        null,
                         null,
                         caller,
                         now));
@@ -370,6 +402,7 @@ public class ClaimService {
                         claim.requesterUserId(),
                         ClaimDecided.Outcome.REJECTED,
                         decided.decisionReason(),
+                        null,
                         caller,
                         now));
 
@@ -414,6 +447,7 @@ public class ClaimService {
                             null,
                             claim.decidedAt(),
                             claim.decisionReason(),
+                            claim.closure() == null ? null : claim.closure().name(),
                             claim.createdAt()));
         }
         return views;
@@ -456,6 +490,7 @@ public class ClaimService {
                             requester,
                             ClaimDecided.Outcome.CANCELLED,
                             null,
+                            null,
                             actor,
                             now));
         }
@@ -485,35 +520,68 @@ public class ClaimService {
     }
 
     /**
-     * Refuses the other live claims on a node that has just been taken.
+     * Refuses the live claims that a new link has answered, whichever route made the link.
      *
-     * <p>Written as a rejection with a reason rather than a silent status change, because the people
-     * who made them are relatives who will read it.
+     * <p>Two sets of claims become questions with one possible answer the moment {@code linkedUser}
+     * is attached to {@code personId}: everybody else's claims on that node (I-K1: it is no longer
+     * unlinked), and the linked user's own claims on other nodes in the clan (I-P4: they now hold
+     * their one place). Approving any of them is refused with a 409. Left open, they sit in an
+     * approver's inbox as decisions that cannot be made, and on the requester's own page as
+     * "Waiting" for something that will never come.
+     *
+     * <p>Approval used to close the first set itself and nothing closed the second; direct
+     * assignment closed neither. Both routes publish {@link PersonLinked}, and {@link
+     * LinkLifecycleListener} calls this from it inside the linking transaction, so there is one
+     * place that does it for both.
+     *
+     * <p>Rejected, not cancelled: the requester did not withdraw anything, and they are a relative
+     * who will read why. The why is a {@link ClaimClosure} code rather than a sentence, so the
+     * client words it in the reader's language.
+     *
+     * <p>Package-private and unguarded, like {@link #withdrawAllOf}: the link that triggers it was
+     * already authorized.
+     *
+     * @return how many claims were closed
      */
-    private void closeOtherPendingClaims(
-            ClanId clanId, NodeClaimRequest approved, UserId decider, Instant now) {
+    int closeClaimsSettledBy(
+            ClanId clanId, PersonId personId, UserId linkedUser, UserId actor) {
 
-        for (NodeClaimRequest other : claims.findPendingForPerson(clanId, approved.personId())) {
-            if (other.id().equals(approved.id())) {
-                continue;
-            }
-            claims.save(
-                    other.reject(
-                            decider,
-                            "Another claim on this person was approved.",
-                            now));
+        Map<UUID, NodeClaimRequest> settled = new LinkedHashMap<>();
+        claims.findPendingForPerson(clanId, personId).forEach(c -> settled.put(c.id(), c));
+        claims.findPendingByRequester(clanId, linkedUser).forEach(c -> settled.put(c.id(), c));
+
+        Instant now = clock.instant();
+        for (NodeClaimRequest claim : settled.values()) {
+            ClaimClosure closure =
+                    claim.requesterUserId().equals(linkedUser)
+                            ? ClaimClosure.REQUESTER_PLACED
+                            : ClaimClosure.NODE_TAKEN;
+            claims.save(claim.closeAsAnswered(actor, closure, now));
+            auditWriter.write(
+                    AuditRecord.inClan(
+                                    AuditAction.CLAIM_DECIDED,
+                                    clanId,
+                                    AuditRecord.TARGET_CLAIM,
+                                    claim.id(),
+                                    actor)
+                            .withAfterJson(
+                                    "{\"outcome\":\"REJECTED\",\"closure\":\""
+                                            + closure.name()
+                                            + "\"}"));
             events.publishEvent(
                     new ClaimDecided(
                             clanId,
-                            other.id(),
-                            other.personId(),
-                            nameOf(clanId, other.personId()),
-                            other.requesterUserId(),
+                            claim.id(),
+                            claim.personId(),
+                            nameOf(clanId, claim.personId()),
+                            claim.requesterUserId(),
                             ClaimDecided.Outcome.REJECTED,
-                            "Another claim on this person was approved.",
-                            decider,
+                            null,
+                            closure.name(),
+                            actor,
                             now));
         }
+        return settled.size();
     }
 
     /** Whether the caller may answer this particular claim. Used to filter the inbox. */
@@ -610,6 +678,7 @@ public class ClaimService {
                 decider == null ? null : decider.displayName(),
                 claim.decidedAt(),
                 claim.decisionReason(),
+                claim.closure() == null ? null : claim.closure().name(),
                 claim.createdAt());
     }
 
@@ -623,6 +692,23 @@ public class ClaimService {
 
     private static Target targetOf(LinkableNode node) {
         return Target.person(node.clanId(), node.id().value(), node.branchId());
+    }
+
+    /**
+     * B6.3: a node somebody else holds answers {@code 409 NODE_ALREADY_LINKED}.
+     *
+     * <p>Asked before {@link #requirePending}, because the link that took the node also closed
+     * this claim ({@link #closeClaimsSettledBy}). An approver on a stale screen should hear that
+     * the node is taken, which is the reason, rather than that the claim was "already rejected",
+     * which is only the consequence. {@link PersonUserLinker} asks the same question again, and its {@code
+     * UPDATE} is what settles a race; this is only the better sentence.
+     */
+    private static void requireNotTakenByAnother(LinkableNode node, NodeClaimRequest claim) {
+        if (node.isLinked() && !node.isLinkedTo(claim.requesterUserId())) {
+            throw new ConflictException(
+                    ErrorCode.NODE_ALREADY_LINKED,
+                    "Somebody else has already been linked to this person.");
+        }
     }
 
     private static void requirePending(NodeClaimRequest claim) {

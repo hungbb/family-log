@@ -95,6 +95,7 @@ public class PersonRepositoryAdapter implements PersonRepository {
                         query.lifeStatus() == null ? null : query.lifeStatus().name(),
                         query.branchId() == null ? null : query.branchId().value(),
                         query.linked(),
+                        query.excludeDeceased(),
                         // Unsorted: the native query carries its own ORDER BY, and a Pageable sort
                         // would have Spring Data append a second one it cannot reconcile.
                         PageRequest.of(query.page(), query.size()));

@@ -33,11 +33,7 @@ public interface ClanJoinRequestJpaRepository extends JpaRepository<ClanJoinRequ
     List<ClanJoinRequestJpaEntity> findByClanIdAndStatusOrderByCreatedAtDesc(
             ClanId clanId, String status, Pageable pageable);
 
-    long countByClanIdAndStatus(ClanId clanId, String status);
-
     List<ClanJoinRequestJpaEntity> findByClanIdOrderByCreatedAtDesc(ClanId clanId, Pageable pageable);
-
-    long countByClanId(ClanId clanId);
 
     @TenantExempt(
             justification =

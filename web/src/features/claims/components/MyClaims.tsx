@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { type ClaimStatus, type NodeClaim } from '@/api/endpoints/claims.ts';
 import { toMessage } from '@/lib/apiErrors.ts';
+import { declineReason } from '@/lib/claimClosure.ts';
 
 import { useCancelClaim, useMyClaims } from '../hooks/useClaims';
 import { Evidence, Meta } from '../pages/styles';
@@ -38,6 +39,7 @@ export function MyClaims() {
  */
 function MyClaimRow({ claim }: { claim: NodeClaim }) {
   const { t } = useTranslation();
+  const reason = declineReason(claim.closureCode, claim.decisionReason, t);
   const { message } = AntApp.useApp();
   const cancel = useCancelClaim(claim.clanId);
 
@@ -81,7 +83,7 @@ function MyClaimRow({ claim }: { claim: NodeClaim }) {
                 .filter((part) => part !== undefined && part !== '')
                 .join(' · ')}
             </Meta>
-            {claim.decisionReason !== undefined && <Evidence>{claim.decisionReason}</Evidence>}
+            {reason !== '' && <Evidence>{reason}</Evidence>}
           </>
         }
       />

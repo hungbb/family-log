@@ -30,8 +30,6 @@ public interface ClanJoinRequestRepository {
     List<ClanJoinRequest> findByClanAndStatus(
             ClanId clanId, JoinRequestStatus status, int offset, int limit);
 
-    long countByClanAndStatus(ClanId clanId, JoinRequestStatus status);
-
     /**
      * A user's own outbound requests, newest first (FR-J5).
      *

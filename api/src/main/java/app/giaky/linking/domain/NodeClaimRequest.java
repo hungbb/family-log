@@ -27,6 +27,8 @@ import java.util.UUID;
  *     nothing, which is common and is not by itself a reason to refuse
  * @param decidedBy who answered; equal to the requester for a cancellation, because withdrawing is
  *     a decision the requester made
+ * @param closure why the system declined it, when a link rather than an approver did; the client
+ *     words it, so {@code decisionReason} is null alongside it
  */
 public record NodeClaimRequest(
         UUID id,
@@ -38,6 +40,7 @@ public record NodeClaimRequest(
         UserId decidedBy,
         Instant decidedAt,
         String decisionReason,
+        ClaimClosure closure,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -55,6 +58,12 @@ public record NodeClaimRequest(
         Objects.requireNonNull(updatedAt, "updatedAt must not be null");
         evidence = trimToNull(evidence, EVIDENCE_MAX_LENGTH, "evidence");
         decisionReason = trimToNull(decisionReason, DECISION_REASON_MAX_LENGTH, "decisionReason");
+
+        // Mirrors ck_claim_closure_code in V18.
+        if (closure != null && (status != ClaimStatus.REJECTED || decisionReason != null)) {
+            throw new IllegalArgumentException(
+                    "a closure code belongs only on a rejection, and replaces its reason");
+        }
 
         // Mirrors ck_claim_decision_paired in V11. Everything that leaves PENDING is stamped; only
         // a live claim has no decision time.
@@ -83,6 +92,7 @@ public record NodeClaimRequest(
                 null,
                 null,
                 null,
+                null,
                 now,
                 now);
     }
@@ -97,21 +107,38 @@ public record NodeClaimRequest(
      * @throws IllegalStateException the claim has already been decided (I-K5)
      */
     public NodeClaimRequest approve(UserId decider, Instant now) {
-        return decided(ClaimStatus.APPROVED, decider, null, now);
+        return decided(ClaimStatus.APPROVED, decider, null, null, now);
     }
 
     /** Refused, with a reason the requester will read. */
     public NodeClaimRequest reject(UserId decider, String reason, Instant now) {
-        return decided(ClaimStatus.REJECTED, decider, reason, now);
+        return decided(ClaimStatus.REJECTED, decider, reason, null, now);
+    }
+
+    /**
+     * Refused because a link made it impossible, with a code the client words rather than a
+     * sentence (see {@link ClaimClosure}).
+     */
+    public NodeClaimRequest closeAsAnswered(UserId actor, ClaimClosure closure, Instant now) {
+        return decided(
+                ClaimStatus.REJECTED,
+                actor,
+                null,
+                Objects.requireNonNull(closure, "closure must not be null"),
+                now);
     }
 
     /** Withdrawn by the requester. */
     public NodeClaimRequest cancel(Instant now) {
-        return decided(ClaimStatus.CANCELLED, requesterUserId, null, now);
+        return decided(ClaimStatus.CANCELLED, requesterUserId, null, null, now);
     }
 
     private NodeClaimRequest decided(
-            ClaimStatus newStatus, UserId decider, String reason, Instant now) {
+            ClaimStatus newStatus,
+            UserId decider,
+            String reason,
+            ClaimClosure closure,
+            Instant now) {
 
         // I-K5. The one-way door, enforced where it cannot be routed around.
         if (!status.isDecidable()) {
@@ -127,6 +154,7 @@ public record NodeClaimRequest(
                 decider,
                 now,
                 reason,
+                closure,
                 createdAt,
                 now);
     }

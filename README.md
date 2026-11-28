@@ -8,7 +8,14 @@ manage their own branch without touching anyone else's.
 - `web/` — React 19 · TypeScript · Vite · Ant Design 5 · styled-components
 - `.docs/` — the design source of truth. Start at [`.docs/00-README.md`](.docs/00-README.md).
 
-> **Status: Phase 5 (the tree visualizer).** The *gia phả* looks like one. The whole clan renders as
+> **Status: Phase 6 (claiming and linking).** Living relatives can find themselves in the book.
+> A member searches the unlinked entries, says "this is me" with a note, and an editor for that chi
+> confirms it from a card that shows the entry's parents and children. An editor can also link a
+> member directly. Being in the tree is kept apart from being able to edit it: a linked member can
+> change their own notes and photo and nothing else, and no approval ever grants `TREE_EDIT`.
+> See [`.docs/phases/phase-6-claiming-linking.md`](.docs/phases/phase-6-claiming-linking.md).
+>
+> **Phase 5 (the tree visualizer) is behind it.** The *gia phả* looks like one. The whole clan renders as
 > a single navigable tree — every branch aggregated, couples drawn as one unit, *đời* rails down the
 > side — and the parts you may edit are the parts that carry actions. Branch isolation stops being a
 > rule in a document and becomes something visible: you see the whole family, and you can edit your
@@ -334,6 +341,32 @@ mechanical, not a matter of review discipline. Both are cheap now and expensive 
   actually carry, not from their depth in the layout. A fragment attached at the wrong height, or a
   subtree read starting at *đời* 4, both put depth 0 somewhere other than the founding ancestor — and
   a rail with nobody's generation on it is drawn without a number rather than with an invented one.
+
+**Claiming and linking** (Phase 6, `.docs/phases/phase-6-claiming-linking.md`):
+
+- **One class writes `person.linked_user_id`.** `PersonUserLinker`, and `LinkWriterTest` fails the
+  build if anything else calls the write. It is pure domain with no grant service in reach, so it
+  cannot hand out edit rights even by accident.
+- **The race is settled by the row.** Two editors approving claims on the same node at once: the
+  `UPDATE … WHERE linked_user_id IS NULL` changes one row, and the other approval gets `409
+  NODE_ALREADY_LINKED`. `LinkConcurrencyIT` fires both through a barrier on a real PostgreSQL.
+- **A link closes what it answered.** Whether it came from an approval or a direct assignment, other
+  pending claims on that node are declined, and so are the linked member's claims on other nodes,
+  each with a reason the relative will read. No inbox is left holding a question that only a 409
+  can answer.
+- **An approver sees only what they can decide.** The claim and join-request inboxes are filtered by
+  the permission resolver before they are paged, so a Chi Giáp editor's list and badge count only
+  Chi Giáp's.
+- **The self-service exception is a two-column statement.** A linked member may edit their notes
+  and photo on their own entry, through a separate route whose SQL writes those two columns and
+  matches on `linked_user_id`. Extending the whitelist needs an ADR.
+- **Profile changes propagate only when asked, and never onto the recorded name.** An account's
+  display name lands on the entry's alias; `full_name` is what the book says.
+- **Only the living are offered.** Nobody recorded as deceased can be claimed or given an account
+  ([ADR 0008](.docs/adr/0008-no-account-on-a-deceased-node.md)); a status of unknown stays
+  claimable, because old books often do not say.
+- **The server sends codes, not sentences.** A claim the system declined carries `NODE_TAKEN` or
+  `REQUESTER_PLACED`, and the client words it in the reader's language.
 
 **Backend — ArchUnit** (`api/src/test/java/app/giaky/architecture/`):
 

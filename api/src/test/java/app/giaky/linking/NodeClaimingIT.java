@@ -151,6 +151,8 @@ class NodeClaimingIT extends LineageApiSupport {
         as(chiHaiApprover, get(claimsPath() + "?status=PENDING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
+                // The total is what the inbox tab's badge shows: the Chi Ba claim is not in it.
+                .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].personId").value(sonInChiHai.toString()))
                 // The card an approver verifies a claim from (F6.5).
                 .andExpect(jsonPath("$.content[0].parentNames[0]").value("Nguyễn Văn Ất"));
@@ -286,6 +288,31 @@ class NodeClaimingIT extends LineageApiSupport {
     }
 
     @Test
+    @DisplayName("a link closes the claims it answered, on the node and the member's others")
+    void linkClosesAnsweredClaims() throws Exception {
+        Actor rival = signUp("Người thứ hai");
+        joinClan(rival, founder, clanId, clanCode, chiHai);
+        String rivalsClaim = claim(rival, sonInChiHai, null);
+        String membersHedge = claim(member, sonInChiBa, null);
+
+        as(founder, post(linkPath(sonInChiHai)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isOk());
+
+        as(rival, get("/api/v1/me/claims"))
+                .andExpect(jsonPath("$[0].id").value(rivalsClaim))
+                .andExpect(jsonPath("$[0].status").value("REJECTED"));
+        as(member, get("/api/v1/me/claims"))
+                .andExpect(jsonPath("$[0].id").value(membersHedge))
+                .andExpect(jsonPath("$[0].status").value("REJECTED"));
+        as(founder, get(claimsPath() + "?status=PENDING"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        // An approver on a stale screen hears the reason, not just that it was already answered.
+        as(chiHaiApprover, post(claimPath(rivalsClaim) + "/approve"), Map.of())
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NODE_ALREADY_LINKED"));
+    }
+
+    @Test
     @DisplayName("a membership ending withdraws the claims that member still had open (I-K2)")
     void membershipEndWithdrawsClaims() throws Exception {
         String claimId = claim(member, sonInChiHai, "Con của ông Ất");
@@ -319,6 +346,24 @@ class NodeClaimingIT extends LineageApiSupport {
 
         assertThat(candidates.get("content").toString()).doesNotContain(sonInChiHai.toString());
         assertThat(candidates.get("content").toString()).contains(sonInChiBa.toString());
+    }
+
+    @Test
+    @DisplayName("somebody recorded as deceased is neither offered nor claimable (ADR 0008)")
+    void deceasedIsNotClaimable() throws Exception {
+        JsonNode candidates =
+                body(
+                        as(member, get("/api/v1/clans/" + clanId + "/persons/unlinked"))
+                                .andExpect(status().isOk())
+                                .andReturn());
+        // The fixture's founding ancestor is created DECEASED.
+        assertThat(candidates.get("content").toString()).doesNotContain(ancestor.toString());
+
+        as(member, post(claimsPath()), Map.of("personId", ancestor.toString()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        as(founder, post(linkPath(ancestor)), Map.of("userId", member.userId().toString()))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

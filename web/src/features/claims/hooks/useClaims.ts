@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   approveClaim,
@@ -164,12 +164,38 @@ export function useLinkUser(clanId: string) {
   });
 }
 
+/**
+ * What an unlink makes stale, without asking for what the caller may no longer read.
+ *
+ * The self-service form is still mounted when the unlink succeeds; it unmounts only once the
+ * refetched link says the node is no longer the caller's. Refetching its flags in that window asks
+ * `GET …/self-profile` as somebody who is not the linked user any more, and the server rightly
+ * answers 403. So the flags are marked stale without a refetch (a later link reads them fresh), and
+ * everything else in the clan refetches as before. The same shape as `invalidateAfterRemoval` in
+ * the tree feature.
+ */
+export function invalidateAfterUnlink(
+  queryClient: QueryClient,
+  clanId: string,
+  personId: string,
+): Promise<void> {
+  const flagsKey = propagationQueryKey(clanId, personId);
+  const flags = JSON.stringify(flagsKey);
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: flagsKey, refetchType: 'none' }),
+    queryClient.invalidateQueries({
+      queryKey: ['clan', clanId],
+      predicate: (query) => JSON.stringify(query.queryKey) !== flags,
+    }),
+  ]).then(() => undefined);
+}
+
 export function useUnlinkUser(clanId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (personId: string) => unlinkUser(clanId, personId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['clan', clanId] });
+    onSuccess: (_data, personId) => {
+      void invalidateAfterUnlink(queryClient, clanId, personId);
     },
   });
 }

@@ -15,6 +15,7 @@ import app.giaky.linking.application.PersonLinkService;
 import app.giaky.linking.application.ProfilePropagationListener;
 import app.giaky.linking.application.RestoredNodeListener;
 import app.giaky.linking.application.SelfProfileService;
+import app.giaky.linking.application.event.PersonLinked;
 import app.giaky.linking.domain.ClanMemberPort;
 import app.giaky.linking.domain.PersonLinkPort;
 import app.giaky.linking.domain.PersonUserLinker;
@@ -123,6 +124,7 @@ public final class LinkingTestFixtures {
         linkLifecycle = new LinkLifecycleListener(personLinkService, claimService);
         lineage.clanOrg.events.subscribe(
                 MembershipRevoked.class, linkLifecycle::onMembershipRevoked);
+        lineage.clanOrg.events.subscribe(PersonLinked.class, linkLifecycle::onPersonLinked);
     }
 
     /**

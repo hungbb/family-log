@@ -36,4 +36,5 @@ public record NodeClaimView(
         String decidedByName,
         Instant decidedAt,
         String decisionReason,
+        String closureCode,
         Instant createdAt) {}

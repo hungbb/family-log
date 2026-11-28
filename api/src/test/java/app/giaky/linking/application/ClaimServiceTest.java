@@ -7,14 +7,19 @@ import app.giaky.authorization.application.GrantCommand;
 import app.giaky.authorization.domain.Permission;
 import app.giaky.common.audit.AuditAction;
 import app.giaky.common.error.ConflictException;
+import app.giaky.common.error.DomainRuleViolation;
 import app.giaky.common.error.ErrorCode;
 import app.giaky.common.error.NotFoundException;
 import app.giaky.common.error.PermissionDeniedException;
 import app.giaky.common.types.BranchId;
 import app.giaky.common.types.ClanId;
+import app.giaky.common.types.Paged;
 import app.giaky.common.types.PersonId;
 import app.giaky.common.types.UserId;
+import app.giaky.lineage.application.PersonPlacement;
 import app.giaky.lineage.domain.Gender;
+import app.giaky.lineage.domain.LifeStatus;
+import app.giaky.lineage.support.LineageTestFixtures;
 import app.giaky.linking.application.event.ClaimDecided;
 import app.giaky.linking.application.event.ClaimSubmitted;
 import app.giaky.linking.application.event.PersonLinked;
@@ -89,6 +94,21 @@ class ClaimServiceTest {
                 caller, clanId, new SubmitClaimCommand(personId, "Con của ông Ất"));
     }
 
+    /** A child of {@code parent}, in their branch, recorded as having died. */
+    private PersonId deceasedChildOf(PersonId parent, String name) {
+        return PersonId.of(
+                fixtures.lineage
+                        .personService
+                        .create(
+                                founder,
+                                clanId,
+                                LineageTestFixtures.person(name, Gender.MALE)
+                                        .lifeStatus(LifeStatus.DECEASED)
+                                        .placement(PersonPlacement.childOf(parent))
+                                        .build())
+                        .id());
+    }
+
     @Nested
     @DisplayName("submitting")
     class Submitting {
@@ -103,6 +123,16 @@ class ClaimServiceTest {
             assertThat(view.evidence()).isEqualTo("Con của ông Ất");
             assertThat(fixtures.lineage.clanOrg.audit.recorded(AuditAction.CLAIM_SUBMITTED)).isTrue();
             assertThat(fixtures.lineage.clanOrg.events.ofType(ClaimSubmitted.class)).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("a node recorded as deceased cannot be claimed (ADR 0008)")
+        void deceasedRefused() {
+            PersonId grandfather = deceasedChildOf(sonInChiHai, "Nguyễn Văn Cố");
+
+            assertThatThrownBy(() -> claim(member, grandfather))
+                    .isInstanceOf(DomainRuleViolation.class)
+                    .hasMessageContaining("died");
         }
 
         @Test
@@ -205,6 +235,45 @@ class ClaimServiceTest {
                                     .inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 0, 20)
                                     .content())
                     .isEmpty();
+        }
+
+        @Test
+        @DisplayName("and the total counts only those, so the badge shows no other chi's claims")
+        void totalIsScopeFiltered() {
+            UserId other = fixtures.newMember(clanId, chiBa, "Người Chi Ba");
+            claim(other, sonInChiBa);
+            claim(member, sonInChiHai);
+
+            Paged<NodeClaimView> inbox =
+                    fixtures.claimService.inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 0, 20);
+
+            assertThat(inbox.content()).hasSize(1);
+            assertThat(inbox.totalElements()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("pages are cut after the scope filter, so an early page is never short")
+        void pagesAfterFiltering() {
+            UserId other = fixtures.newMember(clanId, chiBa, "Người Chi Ba");
+            UserId second = fixtures.newMember(clanId, chiHai, "Người Chi Hai thứ hai");
+            claim(member, sonInChiHai);
+            claim(other, sonInChiBa);
+            claim(second, sonInChiHai);
+
+            Paged<NodeClaimView> first =
+                    fixtures.claimService.inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 0, 1);
+            Paged<NodeClaimView> next =
+                    fixtures.claimService.inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 1, 1);
+            Paged<NodeClaimView> past =
+                    fixtures.claimService.inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 2, 1);
+
+            assertThat(first.content()).singleElement();
+            assertThat(next.content()).singleElement();
+            assertThat(past.content()).isEmpty();
+            assertThat(first.totalElements()).isEqualTo(2);
+            assertThat(List.of(first.content().getFirst(), next.content().getFirst()))
+                    .extracting(NodeClaimView::requesterUserId)
+                    .containsExactlyInAnyOrder(member.value(), second.value());
         }
 
         @Test
@@ -327,8 +396,70 @@ class ClaimServiceTest {
                             view -> {
                                 assertThat(view.id()).isEqualTo(theirs.id());
                                 assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
-                                assertThat(view.decisionReason()).contains("Another claim");
+                                assertThat(view.closureCode()).isEqualTo("NODE_TAKEN");
+                                assertThat(view.decisionReason()).isNull();
                             });
+        }
+
+        @Test
+        @DisplayName("approving one claim refuses the requester's claims on other nodes (I-P4)")
+        void closesTheRequestersOtherClaims() {
+            PersonId brother =
+                    fixtures.lineage.childOf(
+                            founder, clanId, ancestor, "Nguyễn Văn Anh", Gender.MALE);
+            fixtures.lineage.personService.moveToBranch(founder, clanId, brother, chiHai);
+            NodeClaimView right = claim(member, sonInChiHai);
+            NodeClaimView hedge = claim(member, brother);
+
+            fixtures.claimService.approve(chiHaiApprover, clanId, right.id());
+
+            assertThat(fixtures.claimService.myClaims(member))
+                    .filteredOn(view -> view.id().equals(hedge.id()))
+                    .singleElement()
+                    .satisfies(
+                            view -> {
+                                assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
+                                assertThat(view.closureCode()).isEqualTo("REQUESTER_PLACED");
+                            });
+            assertThat(
+                            fixtures.claimService
+                                    .inbox(chiHaiApprover, clanId, ClaimStatus.PENDING, 0, 20)
+                                    .totalElements())
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("a direct assignment closes what it answered too, on both sides")
+        void directAssignmentClosesClaims() {
+            UserId rival = fixtures.newMember(clanId, chiHai, "Người thứ hai");
+            NodeClaimView rivalsClaim = claim(rival, sonInChiHai);
+            NodeClaimView membersClaim = claim(member, sonInChiBa);
+
+            // The member is placed on the node the rival asked for; the member's own claim on Chi
+            // Ba and the rival's claim on this node are both now unanswerable.
+            fixtures.personLinkService.assign(founder, clanId, sonInChiHai, member);
+
+            assertThat(fixtures.claimService.myClaims(rival))
+                    .singleElement()
+                    .satisfies(
+                            view -> {
+                                assertThat(view.id()).isEqualTo(rivalsClaim.id());
+                                assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
+                                assertThat(view.closureCode()).isEqualTo("NODE_TAKEN");
+                                assertThat(view.decisionReason()).isNull();
+                            });
+            assertThat(fixtures.claimService.myClaims(member))
+                    .singleElement()
+                    .satisfies(
+                            view -> {
+                                assertThat(view.id()).isEqualTo(membersClaim.id());
+                                assertThat(view.status()).isEqualTo(ClaimStatus.REJECTED.name());
+                                assertThat(view.closureCode()).isEqualTo("REQUESTER_PLACED");
+                            });
+            assertThat(fixtures.lineage.clanOrg.events.ofType(ClaimDecided.class))
+                    .extracting(ClaimDecided::claimId)
+                    .containsExactlyInAnyOrder(rivalsClaim.id(), membersClaim.id());
+            assertThat(fixtures.lineage.clanOrg.audit.recorded(AuditAction.CLAIM_DECIDED)).isTrue();
         }
 
         @Test

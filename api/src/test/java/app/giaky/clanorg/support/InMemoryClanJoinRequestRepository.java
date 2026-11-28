@@ -64,14 +64,6 @@ public final class InMemoryClanJoinRequestRepository implements ClanJoinRequestR
     }
 
     @Override
-    public long countByClanAndStatus(ClanId clanId, JoinRequestStatus status) {
-        return byId.values().stream()
-                .filter(r -> r.clanId().equals(clanId))
-                .filter(r -> status == null || r.status() == status)
-                .count();
-    }
-
-    @Override
     public List<ClanJoinRequest> findByRequester(UserId requesterUserId, int limit) {
         return byId.values().stream()
                 .filter(r -> r.requesterUserId().equals(requesterUserId))
