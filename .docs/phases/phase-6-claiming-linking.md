@@ -208,8 +208,8 @@ API on the `dev` profile, the web client on Vite, and the staging seed (`deploy/
 each step.
 
 **Integration tests.** `NodeClaimingIT`, `LinkConcurrencyIT` and `LinkingSchemaIT` pass, 28 tests,
-on first run. The full `./mvnw verify` passes with the coverage gates: 741 unit tests and 260
-integration tests after the fixes below. `LinkConcurrencyIT` passed on each of four runs, including
+on first run. The full `./mvnw verify` passes with the coverage gates: 741 unit tests and 261
+integration tests after the fixes below. `LinkConcurrencyIT` passed on each of five runs, including
 after the approval path changed.
 
 **Demo script (§6).** All six steps work as written. The walkthrough also covered §5's three manual
